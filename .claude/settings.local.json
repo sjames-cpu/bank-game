@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -v \"/\\\\.git/\")",
+      "Bash(grep -v \"/\\\\.godot/\")",
+      "Bash(echo \"exit:$?\")",
+      "Bash(python3 \"C:\\\\Users\\\\USER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Game-Project\\\\96e47cca-3970-4ba8-92dd-b3e1cb6e143e\\\\scratchpad\\\\make_png.py\")",
+      "Bash(python3 \"C:\\\\Users\\\\USER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Game-Project\\\\96e47cca-3970-4ba8-92dd-b3e1cb6e143e\\\\scratchpad\\\\make_desk_png.py\")",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}
