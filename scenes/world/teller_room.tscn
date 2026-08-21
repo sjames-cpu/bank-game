@@ -1,0 +1,66 @@
+[gd_scene format=3 uid="uid://ca55t8hkboekp"]
+
+[ext_resource type="Script" uid="uid://b7a52pwv5ytyq" path="res://scripts/world/teller_desk.gd" id="desk_script"]
+[ext_resource type="Texture2D" uid="uid://cdmlfou2woyu0" path="res://assets/sprites/teller_desk_placeholder.png" id="desk_tex"]
+[ext_resource type="Script" uid="uid://bcl2ffh2wp6w1" path="res://scripts/player/player_movement.gd" id="player_script"]
+[ext_resource type="Texture2D" uid="uid://cu10mjrudaouq" path="res://assets/sprites/player_placeholder.png" id="player_tex"]
+[ext_resource type="Script" uid="uid://cnnflhmu66djm" path="res://scripts/world/teller_room.gd" id="room_controller_script"]
+[ext_resource type="Script" uid="uid://i7kwe8a1lg55" path="res://scripts/world/room_builder.gd" id="room_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/teller_screen.tscn" id="teller_screen_scene"]
+[ext_resource type="Texture2D" uid="uid://0o5utj6sgegj" path="res://assets/tilesets/placeholder_tiles.png" id="tiles_tex"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_room"]
+texture = ExtResource("tiles_tex")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+1:0/0 = 0
+1:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
+
+[sub_resource type="TileSet" id="TileSet_room"]
+tile_size = Vector2i(32, 32)
+physics_layer_0/collision_layer = 1
+sources/0 = SubResource("TileSetAtlasSource_room")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
+size = Vector2(24, 24)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_desk"]
+size = Vector2(64, 48)
+
+[node name="TellerRoom" type="Node2D" unique_id=375316389]
+script = ExtResource("room_controller_script")
+
+[node name="Room" type="TileMapLayer" parent="." unique_id=804278291]
+tile_set = SubResource("TileSet_room")
+script = ExtResource("room_script")
+
+[node name="Player" type="CharacterBody2D" parent="." unique_id=33001983]
+position = Vector2(192, 128)
+collision_layer = 2
+script = ExtResource("player_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="Player" unique_id=1699278332]
+texture = ExtResource("player_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=300292372]
+shape = SubResource("RectangleShape2D_player")
+
+[node name="Camera2D" type="Camera2D" parent="Player" unique_id=2109249787]
+zoom = Vector2(2, 2)
+
+[node name="TellerDesk" type="Area2D" parent="." unique_id=1888430049]
+position = Vector2(272, 80)
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("desk_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="TellerDesk" unique_id=1591985643]
+texture = ExtResource("desk_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TellerDesk" unique_id=1229555149]
+shape = SubResource("RectangleShape2D_desk")
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=209608052]
+
+[node name="TellerScreen" parent="UI" unique_id=2130268729 instance=ExtResource("teller_screen_scene")]
+layout_mode = 3

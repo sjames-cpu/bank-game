@@ -1,0 +1,130 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/drawer_count_screen.gd" id="screen_script"]
+
+[node name="DrawerCountScreen" type="Control"]
+process_mode = 2
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -170.0
+offset_top = -220.0
+offset_right = 170.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Drawer Count"
+horizontal_alignment = 1
+
+[node name="DenominationsGrid" type="GridContainer" parent="Panel/VBox"]
+layout_mode = 2
+columns = 2
+
+[node name="Denom1000Label" type="Label" parent="Panel/VBox/DenominationsGrid"]
+layout_mode = 2
+text = "$1000"
+
+[node name="Denom1000SpinBox" type="SpinBox" parent="Panel/VBox/DenominationsGrid"]
+layout_mode = 2
+max_value = 9999.0
+step = 1.0
+
+[node name="Denom500Label" type="Label" parent="Panel/VBox/DenominationsGrid"]
+layout_mode = 2
+text = "$500"
+
+[node name="Denom500SpinBox" type="SpinBox" parent="Panel/VBox/DenominationsGrid"]
+layout_mode = 2
+max_value = 9999.0
+step = 1.0
+
+[node name="Denom100Label" type="Label" parent="Panel/VBox/DenominationsGrid"]
+layout_mode = 2
+text = "$100"
+
+[node name="Denom100SpinBox" type="SpinBox" parent="Panel/VBox/DenominationsGrid"]
+layout_mode = 2
+max_value = 9999.0
+step = 1.0
+
+[node name="Denom50Label" type="Label" parent="Panel/VBox/DenominationsGrid"]
+layout_mode = 2
+text = "$50"
+
+[node name="Denom50SpinBox" type="SpinBox" parent="Panel/VBox/DenominationsGrid"]
+layout_mode = 2
+max_value = 9999.0
+step = 1.0
+
+[node name="YourTotalLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Your Total: $0.00"
+horizontal_alignment = 1
+
+[node name="SubmitButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Submit Count"
+
+[node name="ResultsContainer" type="VBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+visible = false
+
+[node name="ResultExpectedLabel" type="Label" parent="Panel/VBox/ResultsContainer"]
+layout_mode = 2
+text = "Expected Balance: $0.00"
+horizontal_alignment = 1
+
+[node name="ResultTotalLabel" type="Label" parent="Panel/VBox/ResultsContainer"]
+layout_mode = 2
+text = "Your Total: $0.00"
+horizontal_alignment = 1
+
+[node name="DiscrepancyLabel" type="Label" parent="Panel/VBox/ResultsContainer"]
+layout_mode = 2
+text = "Discrepancy: $0.00"
+horizontal_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="Panel/VBox/ResultsContainer"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Close"
