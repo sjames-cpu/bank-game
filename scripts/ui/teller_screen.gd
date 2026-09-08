@@ -1,8 +1,19 @@
 extends Control
+class_name TellerScreen
 
 ## Teller desk task screen. Owns its own show/hide + pause behavior so
 ## callers (teller_room.gd) just say "show this" — they don't need to
 ## know that showing it also pauses the world.
+##
+## Each shift's ending drawer count also logs a DecisionRecord to
+## HistoryManager for the eventual Branch Manager review (Phase 5) —
+## see _prepare_shift_summary().
+##
+## class_name added (Phase 5e) purely so vault_reconciliation_screen.gd
+## can reference PERFECT_COUNT_SCORE/etc. directly — the same
+## cross-file constant reuse this screen already does with
+## DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD below — rather than
+## duplicating the point table a second time.
 
 @onready var main_panel: Panel = $Panel
 @onready var close_button: Button = $Panel/VBox/CloseButton
@@ -13,6 +24,7 @@ extends Control
 @onready var clock_out_button: Button = $Panel/VBox/ClockOutButton
 @onready var amount_input: SpinBox = $Panel/VBox/AmountSpinBox
 @onready var account_option_button: OptionButton = $Panel/VBox/AccountOptionButton
+@onready var serving_status_label: Label = $Panel/VBox/ServingStatusLabel
 @onready var account_label: Label = $Panel/VBox/AccountLabel
 @onready var balance_label: Label = $Panel/VBox/BalanceLabel
 @onready var error_label: Label = $Panel/VBox/ErrorLabel
@@ -31,6 +43,7 @@ extends Control
 @onready var corner_xp_label: Label = $XPLabel
 @onready var low_reputation_warning_label: Label = $LowReputationWarningLabel
 @onready var loan_officer_unlocked_label: Label = $LoanOfficerUnlockedLabel
+@onready var branch_manager_unlocked_label: Label = $BranchManagerUnlockedLabel
 
 @onready var shift_summary_panel: Panel = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
@@ -43,6 +56,21 @@ extends Control
 @onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalXPLabel
 @onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/ReputationLabel
 @onready var shift_summary_done_button: Button = $ShiftSummaryPanel/VBox/DoneButton
+
+## Emitted whenever the screen is actually closed (Close button), not when
+## the shift summary panel is dismissed back to the main panel.
+signal closed
+signal shift_clocked_in
+signal shift_clocked_out
+
+## Emitted right after a deposit or withdrawal actually succeeds (not on
+## the validation-error early-returns below). Phase 6a's CustomerQueue (see
+## teller_room.gd) listens for this — not `closed` — to decide when the
+## front-of-queue customer has been served: serving is "did a transaction
+## for them," not "the player closed the screen for any reason," so
+## checking a balance or clocking in/out doesn't silently remove a waiting
+## customer.
+signal transaction_completed
 
 ## All accounts opened so far. A flat list (not keyed by name) because
 ## customer names aren't guaranteed unique — once accounts get a real
@@ -108,6 +136,7 @@ func _ready() -> void:
 	ReputationManager.reputation_changed.connect(_on_reputation_changed)
 	XPManager.xp_changed.connect(_on_total_xp_changed)
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
+	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 
 	account = Account.new()
 	account.customer_name = "Johnathan Jamestar"
@@ -121,15 +150,32 @@ func _ready() -> void:
 	_on_total_xp_changed(XPManager.total_xp)
 	if XPManager.is_loan_officer_unlocked:
 		_on_loan_officer_unlocked()
+	if XPManager.is_branch_manager_unlocked:
+		_on_branch_manager_unlocked()
 
-func show_screen() -> void:
+## serving_customer is whoever teller_room.gd found at the front of the
+## queue at interaction time (null if nobody's waiting) — purely for the
+## "Serving: X" / "No customer waiting." display below; this screen doesn't
+## otherwise know or care about the queue.
+func show_screen(serving_customer: CustomerNPC = null) -> void:
+	set_serving_customer(serving_customer)
 	visible = true
 	get_tree().paused = true
 	_show_main_panel()
 
+## Also called by teller_room.gd right after a served customer is popped
+## from the queue, so the label reflects that service is done rather than
+## still naming someone who already left.
+func set_serving_customer(customer: CustomerNPC) -> void:
+	if customer != null:
+		serving_status_label.text = "Serving: %s" % customer.display_name
+	else:
+		serving_status_label.text = "No customer waiting."
+
 func hide_screen() -> void:
 	visible = false
 	get_tree().paused = false
+	closed.emit()
 
 func _on_close_button_pressed() -> void:
 	hide_screen()
@@ -144,6 +190,7 @@ func _on_deposit_button_pressed() -> void:
 	account.deposit(amount)
 	_record_transaction(ShiftTransaction.Type.DEPOSIT, amount)
 	_refresh_display()
+	transaction_completed.emit()
 
 func _on_withdraw_button_pressed() -> void:
 	var amount := amount_input.value
@@ -159,6 +206,7 @@ func _on_withdraw_button_pressed() -> void:
 	account.withdraw(amount)
 	_record_transaction(ShiftTransaction.Type.WITHDRAWAL, amount)
 	_refresh_display()
+	transaction_completed.emit()
 
 func _refresh_display() -> void:
 	account_label.text = account.customer_name
@@ -275,6 +323,7 @@ func _begin_shift(starting_total: float) -> void:
 	shift_start_time = Time.get_datetime_string_from_system()
 	shift_transactions.clear()
 	_update_shift_controls()
+	shift_clocked_in.emit()
 
 ## Same "Perfect Count!"/"Minor Discrepancy"/"Major Discrepancy" buckets
 ## DrawerCountScreen's status label shows, so this reuses its
@@ -307,6 +356,18 @@ func _calculate_reputation_delta(discrepancy_result: DiscrepancyResult) -> int:
 		_:
 			return MAJOR_DISCREPANCY_REPUTATION
 
+## Short label for HistoryManager — same Perfect/Minor/Major vocabulary
+## DrawerCountScreen's status label and this screen's own scoring already
+## use, just without the "Count"/"Discrepancy" suffix.
+func _discrepancy_result_label(discrepancy_result: DiscrepancyResult) -> String:
+	match discrepancy_result:
+		DiscrepancyResult.PERFECT:
+			return "Perfect"
+		DiscrepancyResult.MINOR:
+			return "Minor"
+		_:
+			return "Major"
+
 func _prepare_shift_summary(ending_total: float) -> void:
 	var expected := _calculate_expected_ending_balance()
 	var discrepancy := ending_total - expected
@@ -332,9 +393,13 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	shift_xp_label.text = "Shift XP: %+d" % shift_xp
 	shift_total_xp_label.text = "Total XP: %d" % XPManager.total_xp
 
+	var discrepancy_label := _discrepancy_result_label(discrepancy_result)
+	HistoryManager.add_record(DecisionRecord.Role.TELLER, "Drawer count: %s (discrepancy $%.2f)" % [discrepancy_label, discrepancy], discrepancy_label)
+
 	shift_state = ShiftState.CLOCKED_OUT
 	awaiting_summary_reveal = true
 	_update_shift_controls()
+	shift_clocked_out.emit()
 
 func _on_shift_summary_done_pressed() -> void:
 	_show_main_panel()
@@ -354,3 +419,7 @@ func _on_total_xp_changed(new_total: int) -> void:
 ## again afterward.
 func _on_loan_officer_unlocked() -> void:
 	loan_officer_unlocked_label.visible = true
+
+## Same reasoning as _on_loan_officer_unlocked() above, one tier up.
+func _on_branch_manager_unlocked() -> void:
+	branch_manager_unlocked_label.visible = true

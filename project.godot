@@ -21,6 +21,8 @@ ScoreManager="*res://scripts/autoload/score_manager.gd"
 ReputationManager="*res://scripts/autoload/reputation_manager.gd"
 XPManager="*res://scripts/autoload/xp_manager.gd"
 InterviewManager="*res://scripts/autoload/interview_manager.gd"
+HistoryManager="*res://scripts/autoload/history_manager.gd"
+ScheduleManager="*res://scripts/autoload/schedule_manager.gd"
 
 [display]
 

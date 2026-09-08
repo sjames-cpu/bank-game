@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/npc/customer_npc.gd" id="customer_script"]
+[ext_resource type="Texture2D" uid="uid://cu10mjrudaouq" path="res://assets/sprites/player_placeholder.png" id="customer_tex"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_customer"]
+size = Vector2(24, 24)
+
+[node name="CustomerNPC" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("customer_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(0.85, 0.65, 1, 1)
+texture = ExtResource("customer_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_customer")

@@ -1,0 +1,193 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/loan_officer_screen.gd" id="screen_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/loan_review_screen.tscn" id="loan_review_screen_scene"]
+
+[node name="LoanOfficerScreen" type="Control"]
+process_mode = 2
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -140.0
+offset_right = 150.0
+offset_bottom = 140.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Loan Officer Desk"
+horizontal_alignment = 1
+
+[node name="ProgressLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+visible = false
+text = "Applications Reviewed: 0 / 3"
+horizontal_alignment = 1
+
+[node name="ReviewNextButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+disabled = true
+text = "Review Next Application"
+
+[node name="ClockInButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Clock In"
+
+[node name="ClockOutButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+visible = false
+text = "Clock Out"
+
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Close"
+
+[node name="LoanReviewScreen" parent="." instance=ExtResource("loan_review_screen_scene")]
+layout_mode = 1
+
+[node name="TotalScoreLabel" type="Label" parent="."]
+layout_mode = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -180.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = 32.0
+grow_horizontal = 0
+horizontal_alignment = 2
+text = "Total Score: 0"
+
+[node name="ReputationLabel" type="Label" parent="."]
+layout_mode = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -180.0
+offset_top = 36.0
+offset_right = -8.0
+offset_bottom = 60.0
+grow_horizontal = 0
+horizontal_alignment = 2
+text = "Reputation: 50"
+
+[node name="XPLabel" type="Label" parent="."]
+layout_mode = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -180.0
+offset_top = 64.0
+offset_right = -8.0
+offset_bottom = 88.0
+grow_horizontal = 0
+horizontal_alignment = 2
+text = "XP: 0"
+
+[node name="ShiftSummaryPanel" type="Panel" parent="."]
+layout_mode = 1
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -170.0
+offset_right = 150.0
+offset_bottom = 170.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="ShiftSummaryPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Shift Summary"
+horizontal_alignment = 1
+
+[node name="StartTimeLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Start Time: "
+horizontal_alignment = 1
+
+[node name="EndTimeLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "End Time: "
+horizontal_alignment = 1
+
+[node name="ApplicationsReviewedLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Applications Reviewed: 0"
+horizontal_alignment = 1
+
+[node name="ShiftScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Shift Score: +0"
+horizontal_alignment = 1
+
+[node name="TotalScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Total Score: 0"
+horizontal_alignment = 1
+
+[node name="ShiftXPLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Shift XP: +0"
+horizontal_alignment = 1
+
+[node name="TotalXPLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Total XP: 0"
+horizontal_alignment = 1
+
+[node name="ReputationLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Reputation: +0 (now 50)"
+horizontal_alignment = 1
+
+[node name="DoneButton" type="Button" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Done"

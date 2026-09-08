@@ -1,13 +1,19 @@
 [gd_scene format=3 uid="uid://ca55t8hkboekp"]
 
+[ext_resource type="Script" uid="uid://dgpln0byowq4e" path="res://scripts/world/branch_manager_desk.gd" id="branch_manager_desk_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/branch_manager_screen.tscn" id="branch_manager_screen_scene"]
 [ext_resource type="Script" uid="uid://b7a52pwv5ytyq" path="res://scripts/world/teller_desk.gd" id="desk_script"]
 [ext_resource type="Texture2D" uid="uid://cdmlfou2woyu0" path="res://assets/sprites/teller_desk_placeholder.png" id="desk_tex"]
+[ext_resource type="Script" uid="uid://d1ivc784diqb0" path="res://scripts/world/loan_officer_desk.gd" id="loan_officer_desk_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/loan_officer_screen.tscn" id="loan_officer_screen_scene"]
 [ext_resource type="Script" uid="uid://bcl2ffh2wp6w1" path="res://scripts/player/player_movement.gd" id="player_script"]
 [ext_resource type="Texture2D" uid="uid://cu10mjrudaouq" path="res://assets/sprites/player_placeholder.png" id="player_tex"]
 [ext_resource type="Script" uid="uid://cnnflhmu66djm" path="res://scripts/world/teller_room.gd" id="room_controller_script"]
 [ext_resource type="Script" uid="uid://i7kwe8a1lg55" path="res://scripts/world/room_builder.gd" id="room_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/teller_screen.tscn" id="teller_screen_scene"]
 [ext_resource type="Texture2D" uid="uid://0o5utj6sgegj" path="res://assets/tilesets/placeholder_tiles.png" id="tiles_tex"]
+[ext_resource type="Script" path="res://scripts/world/customer_queue.gd" id="customer_queue_script"]
+[ext_resource type="PackedScene" path="res://scenes/characters/customer_npc.tscn" id="customer_npc_scene"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_room"]
 texture = ExtResource("tiles_tex")
@@ -25,6 +31,12 @@ sources/0 = SubResource("TileSetAtlasSource_room")
 size = Vector2(24, 24)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_desk"]
+size = Vector2(64, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_loan_officer_desk"]
+size = Vector2(64, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_branch_manager_desk"]
 size = Vector2(64, 48)
 
 [node name="TellerRoom" type="Node2D" unique_id=375316389]
@@ -60,7 +72,64 @@ texture = ExtResource("desk_tex")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TellerDesk" unique_id=1229555149]
 shape = SubResource("RectangleShape2D_desk")
 
+[node name="LoanOfficerDesk" type="Area2D" parent="." unique_id=1802316915]
+visible = false
+position = Vector2(272, 176)
+collision_layer = 0
+collision_mask = 2
+monitoring = false
+script = ExtResource("loan_officer_desk_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="LoanOfficerDesk" unique_id=1972356128]
+modulate = Color(1, 0.85, 0.4, 1)
+texture = ExtResource("desk_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LoanOfficerDesk" unique_id=545710025]
+shape = SubResource("RectangleShape2D_loan_officer_desk")
+
+[node name="BranchManagerDesk" type="Area2D" parent="." unique_id=1847143413]
+visible = false
+position = Vector2(96, 128)
+collision_layer = 0
+collision_mask = 2
+monitoring = false
+script = ExtResource("branch_manager_desk_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="BranchManagerDesk" unique_id=1817316968]
+modulate = Color(0.6, 0.75, 1, 1)
+texture = ExtResource("desk_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BranchManagerDesk" unique_id=193677990]
+shape = SubResource("RectangleShape2D_branch_manager_desk")
+
+[node name="CustomerQueue" type="Node2D" parent="."]
+script = ExtResource("customer_queue_script")
+customer_scene = ExtResource("customer_npc_scene")
+
+[node name="SpawnPoint" type="Marker2D" parent="CustomerQueue"]
+position = Vector2(216, 200)
+
+[node name="QueuePositions" type="Node2D" parent="CustomerQueue"]
+
+[node name="QueuePoint1" type="Marker2D" parent="CustomerQueue/QueuePositions"]
+position = Vector2(216, 112)
+
+[node name="QueuePoint2" type="Marker2D" parent="CustomerQueue/QueuePositions"]
+position = Vector2(216, 144)
+
+[node name="QueuePoint3" type="Marker2D" parent="CustomerQueue/QueuePositions"]
+position = Vector2(216, 176)
+
+[node name="SpawnTimer" type="Timer" parent="CustomerQueue"]
+wait_time = 20.0
+
 [node name="UI" type="CanvasLayer" parent="." unique_id=209608052]
 
 [node name="TellerScreen" parent="UI" unique_id=2130268729 instance=ExtResource("teller_screen_scene")]
+layout_mode = 3
+
+[node name="LoanOfficerScreen" parent="UI" unique_id=648991242 instance=ExtResource("loan_officer_screen_scene")]
+layout_mode = 3
+
+[node name="BranchManagerScreen" parent="UI" unique_id=635889767 instance=ExtResource("branch_manager_screen_scene")]
 layout_mode = 3

@@ -1,8 +1,8 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/ui/drawer_count_screen.gd" id="screen_script"]
+[ext_resource type="Script" path="res://scripts/ui/vault_reconciliation_screen.gd" id="screen_script"]
 
-[node name="DrawerCountScreen" type="Control"]
+[node name="VaultReconciliationScreen" type="Control"]
 process_mode = 2
 visible = false
 anchors_preset = 15
@@ -49,7 +49,7 @@ alignment = 1
 
 [node name="TitleLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
-text = "Drawer Count"
+text = "Vault Reconciliation"
 horizontal_alignment = 1
 
 [node name="DenominationsGrid" type="GridContainer" parent="Panel/VBox"]

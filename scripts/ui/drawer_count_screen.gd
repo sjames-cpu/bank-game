@@ -18,7 +18,7 @@ class_name DrawerCountScreen
 signal count_submitted(total: float)
 signal closed
 
-const DENOMINATIONS: Array[int] = [1000, 500, 100, 50]
+const DENOMINATIONS: Array[int] = [1000, 500, 100, 50, 10, 1]
 const MINOR_DISCREPANCY_THRESHOLD: float = 500.0
 
 var expected_balance: float = 0.0
@@ -30,6 +30,8 @@ var _paused_by_self: bool = false
 	$Panel/VBox/DenominationsGrid/Denom500SpinBox,
 	$Panel/VBox/DenominationsGrid/Denom100SpinBox,
 	$Panel/VBox/DenominationsGrid/Denom50SpinBox,
+	$Panel/VBox/DenominationsGrid/Denom10SpinBox,
+	$Panel/VBox/DenominationsGrid/Denom1SpinBox,
 ]
 
 @onready var your_total_label: Label = $Panel/VBox/YourTotalLabel

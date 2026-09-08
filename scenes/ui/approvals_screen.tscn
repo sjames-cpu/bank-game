@@ -1,0 +1,166 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/approvals_screen.gd" id="screen_script"]
+
+[node name="ApprovalsScreen" type="Control"]
+process_mode = 2
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -280.0
+offset_right = 240.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Approvals"
+horizontal_alignment = 1
+
+[node name="EntriesScrollContainer" type="ScrollContainer" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="EntriesVBox" type="VBoxContainer" parent="Panel/VBox/EntriesScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Close"
+
+[node name="OverridePanel" type="Panel" parent="."]
+layout_mode = 1
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -190.0
+offset_top = -130.0
+offset_right = 190.0
+offset_bottom = 130.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="OverridePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="OverridePanel/VBox"]
+layout_mode = 2
+text = "Override Decision"
+horizontal_alignment = 1
+
+[node name="OverrideContextLabel" type="Label" parent="OverridePanel/VBox"]
+layout_mode = 2
+text = "Applicant: "
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="OverrideButtonsHBox" type="HBoxContainer" parent="OverridePanel/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="ApproveOverrideButton" type="Button" parent="OverridePanel/VBox/OverrideButtonsHBox"]
+layout_mode = 2
+text = "Approve"
+
+[node name="RejectOverrideButton" type="Button" parent="OverridePanel/VBox/OverrideButtonsHBox"]
+layout_mode = 2
+text = "Reject"
+
+[node name="CounterOfferOverrideButton" type="Button" parent="OverridePanel/VBox/OverrideButtonsHBox"]
+layout_mode = 2
+text = "Counter-Offer"
+
+[node name="OverrideCancelButton" type="Button" parent="OverridePanel/VBox"]
+layout_mode = 2
+text = "Cancel"
+
+[node name="ResultPanel" type="Panel" parent="."]
+layout_mode = 1
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -190.0
+offset_top = -110.0
+offset_right = 190.0
+offset_bottom = 110.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="ResultPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="ResultTitleLabel" type="Label" parent="ResultPanel/VBox"]
+layout_mode = 2
+text = "Justified"
+horizontal_alignment = 1
+
+[node name="ResultDetailLabel" type="Label" parent="ResultPanel/VBox"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ResultDoneButton" type="Button" parent="ResultPanel/VBox"]
+layout_mode = 2
+text = "Done"
