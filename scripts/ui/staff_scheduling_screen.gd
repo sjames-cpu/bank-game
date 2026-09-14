@@ -110,8 +110,30 @@ func _populate_slots() -> void:
 				option_button.add_item(staff.staff_name)
 				option_button.set_item_metadata(item_index, staff)
 
+		var slot_index := _slot_option_buttons.size()
+		option_button.item_selected.connect(_on_slot_option_selected.bind(slot_index))
+
 		slots_grid.add_child(option_button)
 		_slot_option_buttons.append(option_button)
+
+## Same-role slots share the same staff list (e.g. both Teller slots), so
+## nothing stops picking the same StaffMember for two slots at once
+## otherwise. Whichever slot the player just changed wins the assignment;
+## any other slot already holding that same staff member is bumped back
+## to Unassigned so nobody's double-booked into simultaneous shifts.
+func _on_slot_option_selected(_item_index: int, changed_slot_index: int) -> void:
+	var changed_button := _slot_option_buttons[changed_slot_index]
+	var selected_staff: StaffMember = changed_button.get_item_metadata(changed_button.selected)
+	if selected_staff == null:
+		return
+
+	for i in _slot_option_buttons.size():
+		if i == changed_slot_index:
+			continue
+		var other_button := _slot_option_buttons[i]
+		var other_staff: StaffMember = other_button.get_item_metadata(other_button.selected)
+		if other_staff == selected_staff:
+			other_button.select(0)
 
 func _on_confirm_button_pressed() -> void:
 	var new_schedule: Dictionary = {}

@@ -16,18 +16,26 @@ class_name TellerScreen
 ## duplicating the point table a second time.
 
 @onready var main_panel: Panel = $Panel
-@onready var close_button: Button = $Panel/VBox/CloseButton
-@onready var deposit_button: Button = $Panel/VBox/DepositButton
-@onready var withdraw_button: Button = $Panel/VBox/WithdrawButton
-@onready var open_account_button: Button = $Panel/VBox/OpenAccountButton
-@onready var clock_in_button: Button = $Panel/VBox/ClockInButton
-@onready var clock_out_button: Button = $Panel/VBox/ClockOutButton
-@onready var amount_input: SpinBox = $Panel/VBox/AmountSpinBox
-@onready var account_option_button: OptionButton = $Panel/VBox/AccountOptionButton
-@onready var serving_status_label: Label = $Panel/VBox/ServingStatusLabel
-@onready var account_label: Label = $Panel/VBox/AccountLabel
-@onready var balance_label: Label = $Panel/VBox/BalanceLabel
-@onready var error_label: Label = $Panel/VBox/ErrorLabel
+@onready var close_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/CloseButton
+@onready var deposit_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/DepositButton
+@onready var withdraw_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/WithdrawButton
+@onready var open_account_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/OpenAccountButton
+@onready var clock_in_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/ClockInButton
+@onready var clock_out_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/ClockOutButton
+@onready var amount_input: SpinBox = $Panel/VBox/ActionsSection/ActionsVBox/AmountSpinBox
+@onready var account_option_button: OptionButton = $Panel/VBox/AccountSection/AccountVBox/AccountOptionButton
+@onready var serving_status_label: Label = $Panel/VBox/ServingSection/ServingVBox/ServingStatusLabel
+@onready var payment_method_label: Label = $Panel/VBox/ServingSection/ServingVBox/PaymentMethodLabel
+@onready var customer_dialogue_panel: PanelContainer = $Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel
+@onready var customer_dialogue_label: Label = $Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel/CustomerDialogueLabel
+@onready var account_label: Label = $Panel/VBox/AccountSection/AccountVBox/AccountLabel
+@onready var balance_label: Label = $Panel/VBox/AccountSection/AccountVBox/BalanceLabel
+@onready var error_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/ErrorLabel
+
+@onready var complaint_panel: Panel = $ComplaintPanel
+@onready var complaint_label: Label = $ComplaintPanel/VBox/ComplaintLabel
+@onready var complaint_responses_container: VBoxContainer = $ComplaintPanel/VBox/ResponsesVBox
+@onready var complaint_later_button: Button = $ComplaintPanel/VBox/LaterButton
 
 @onready var open_account_panel: Panel = $OpenAccountPanel
 @onready var new_name_input: LineEdit = $OpenAccountPanel/VBox/NameLineEdit
@@ -38,9 +46,9 @@ class_name TellerScreen
 
 @onready var drawer_count_screen: DrawerCountScreen = $DrawerCountScreen
 
-@onready var corner_total_score_label: Label = $TotalScoreLabel
-@onready var corner_reputation_label: Label = $ReputationLabel
-@onready var corner_xp_label: Label = $XPLabel
+@onready var corner_total_score_label: Label = $ScoreHudPanel/VBox/TotalScoreLabel
+@onready var corner_reputation_label: Label = $ScoreHudPanel/VBox/ReputationLabel
+@onready var corner_xp_label: Label = $ScoreHudPanel/VBox/XPLabel
 @onready var low_reputation_warning_label: Label = $LowReputationWarningLabel
 @onready var loan_officer_unlocked_label: Label = $LoanOfficerUnlockedLabel
 @onready var branch_manager_unlocked_label: Label = $BranchManagerUnlockedLabel
@@ -57,27 +65,28 @@ class_name TellerScreen
 @onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/ReputationLabel
 @onready var shift_summary_done_button: Button = $ShiftSummaryPanel/VBox/DoneButton
 
-## Emitted whenever the screen is actually closed (Close button), not when
-## the shift summary panel is dismissed back to the main panel.
-signal closed
 signal shift_clocked_in
 signal shift_clocked_out
 
 ## Emitted right after a deposit or withdrawal actually succeeds (not on
-## the validation-error early-returns below). Phase 6a's CustomerQueue (see
-## teller_room.gd) listens for this — not `closed` — to decide when the
+## the validation-error early-returns below). teller_room.gd listens for
+## this (see _on_teller_transaction_completed()) to decide when the
 ## front-of-queue customer has been served: serving is "did a transaction
 ## for them," not "the player closed the screen for any reason," so
 ## checking a balance or clocking in/out doesn't silently remove a waiting
 ## customer.
 signal transaction_completed
 
-## All accounts opened so far. A flat list (not keyed by name) because
-## customer names aren't guaranteed unique — once accounts get a real
-## account number, this is where a Dictionary[int, Account] keyed by
-## that number would replace the linear-scan lookup.
-var accounts: Array[Account] = []
+## The account currently selected in account_option_button. Account data
+## itself lives in AccountManager (shared with the ATM) — see
+## _refresh_account_list()/_on_account_option_selected().
 var account: Account
+
+## Whoever set_serving_customer() was last called with (null if nobody's
+## waiting) — kept so deposit/withdraw know which payment method to apply
+## (Phase 6e), since account selection isn't otherwise tied to the
+## customer currently being served.
+var _serving_customer: CustomerNPC = null
 
 ## Shift state: just an enum plus a couple of timestamps/floats, not a
 ## dedicated state-machine class — there are only two states and one
@@ -96,6 +105,16 @@ enum DiscrepancyResult { PERFECT, MINOR, MAJOR }
 
 const STARTING_EXPECTED_BALANCE: float = 50000.0
 
+## Minimum real time (Time.get_ticks_msec(), unaffected by pause) a shift
+## must stay clocked in before clocking out is allowed — without this, an
+## instant clock-in/clock-out with a matching drawer count was a free
+## Score/XP farm completely decoupled from actually serving anyone. 45s is
+## long enough that a customer spawn (every 20s, see CustomerQueue) has a
+## real chance to land before a shift can end, short enough to not feel
+## like an artificial waiting room. First-pass value, tune after
+## playtesting.
+const MIN_SHIFT_DURATION_SECONDS: float = 45.0
+
 const PERFECT_COUNT_SCORE: int = 10
 const MINOR_DISCREPANCY_SCORE: int = 5
 const MAJOR_DISCREPANCY_SCORE: int = -5
@@ -104,12 +123,38 @@ const PERFECT_COUNT_REPUTATION: int = 2
 const MINOR_DISCREPANCY_REPUTATION: int = 0
 const MAJOR_DISCREPANCY_REPUTATION: int = -5
 
+## Phase 6e: small chance a card transaction is declined, checked at
+## deposit/withdraw time — same Score/Reputation/XP either way, this just
+## blocks the transaction from applying (see _on_deposit_button_pressed()/
+## _on_withdraw_button_pressed()). Cash transactions never decline this
+## way — only the existing insufficient-funds check applies to them.
+const CARD_DECLINE_CHANCE: float = 0.1
+
+## How long Deposit/Withdraw stay disabled after a card decline. Without
+## this, a 10% decline chance is trivial to just re-roll by spamming the
+## button — a brief lockout makes a decline read as "wait a moment,"
+## consistent with what a real declined-card retry feels like, rather than
+## a rapid-fire error message.
+const CARD_DECLINE_COOLDOWN_SECONDS: float = 1.5
+
 var shift_state: ShiftState = ShiftState.CLOCKED_OUT
 var pending_drawer_count_purpose: DrawerCountPurpose = DrawerCountPurpose.NONE
 var awaiting_summary_reveal: bool = false
 
+## True for CARD_DECLINE_COOLDOWN_SECONDS after a card decline — see
+## _start_card_decline_cooldown(). Folded into _update_shift_controls()'s
+## deposit/withdraw disabled check rather than set directly, so a clock-out
+## that happens to land mid-cooldown doesn't get overridden back to enabled
+## when the cooldown timer finishes.
+var _card_decline_on_cooldown: bool = false
+
 var shift_start_time: String = ""
 var shift_start_balance: float = 0.0
+
+## Real-time clock-in timestamp for MIN_SHIFT_DURATION_SECONDS, separate
+## from shift_start_time above (a display-only formatted string) since
+## measuring elapsed time from a formatted datetime string isn't reliable.
+var _shift_start_ticks_msec: int = 0
 
 ## Every deposit/withdrawal made since clock-in. This is the source of
 ## truth for both the clock-out "expected balance" math (starting
@@ -126,22 +171,22 @@ func _ready() -> void:
 	open_account_button.pressed.connect(_on_open_account_button_pressed)
 	create_account_button.pressed.connect(_on_create_account_button_pressed)
 	cancel_account_button.pressed.connect(_on_cancel_account_button_pressed)
+	complaint_later_button.pressed.connect(_on_complaint_later_button_pressed)
 	account_option_button.item_selected.connect(_on_account_option_selected)
 	clock_in_button.pressed.connect(_on_clock_in_button_pressed)
 	clock_out_button.pressed.connect(_on_clock_out_button_pressed)
 	shift_summary_done_button.pressed.connect(_on_shift_summary_done_pressed)
 	drawer_count_screen.count_submitted.connect(_on_drawer_count_submitted)
 	drawer_count_screen.closed.connect(_on_drawer_count_screen_closed)
+	CurrencySpinBoxFormat.apply(amount_input)
+	CurrencySpinBoxFormat.apply(new_balance_input)
 	ScoreManager.score_changed.connect(_on_total_score_changed)
 	ReputationManager.reputation_changed.connect(_on_reputation_changed)
 	XPManager.xp_changed.connect(_on_total_xp_changed)
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 
-	account = Account.new()
-	account.customer_name = "Johnathan Jamestar"
-	account.balance = 1000.0
-	accounts.append(account)
+	account = AccountManager.get_accounts()[0]
 	_refresh_account_list()
 	_refresh_display()
 	_update_shift_controls()
@@ -157,25 +202,52 @@ func _ready() -> void:
 ## queue at interaction time (null if nobody's waiting) — purely for the
 ## "Serving: X" / "No customer waiting." display below; this screen doesn't
 ## otherwise know or care about the queue.
+##
+## Phase 6c: an unresolved complaint customer gets the complaint panel
+## instead of the normal main panel — see _show_complaint_panel().
 func show_screen(serving_customer: CustomerNPC = null) -> void:
 	set_serving_customer(serving_customer)
 	visible = true
 	get_tree().paused = true
-	_show_main_panel()
+
+	## Accounts are shared with the ATM via AccountManager, so a deposit/
+	## withdrawal/new account made there since this screen was last shown
+	## needs to be reflected here immediately.
+	_refresh_account_list()
+	_refresh_display()
+
+	if serving_customer != null and serving_customer.complaint != null and not serving_customer.complaint_resolved:
+		_show_complaint_panel(serving_customer)
+	else:
+		_show_main_panel()
 
 ## Also called by teller_room.gd right after a served customer is popped
-## from the queue, so the label reflects that service is done rather than
-## still naming someone who already left.
+## from the queue, so the labels reflect that service is done rather than
+## still naming/quoting someone who already left. The dialogue line was
+## assigned once, at spawn (see CustomerQueue._spawn_customer()) — this just
+## displays whatever the customer was already carrying, it never rerolls it.
 func set_serving_customer(customer: CustomerNPC) -> void:
+	_serving_customer = customer
 	if customer != null:
 		serving_status_label.text = "Serving: %s" % customer.display_name
+		payment_method_label.visible = true
+		payment_method_label.text = "Payment Method: %s" % _payment_method_display_name(customer.payment_method)
+		customer_dialogue_panel.visible = customer.dialogue_line != null
+		if customer.dialogue_line != null:
+			customer_dialogue_label.text = "\"%s\"" % customer.dialogue_line.text
 	else:
 		serving_status_label.text = "No customer waiting."
+		payment_method_label.visible = false
+		customer_dialogue_panel.visible = false
+
+func _payment_method_display_name(payment_method: ShiftTransaction.PaymentMethod) -> String:
+	if payment_method == ShiftTransaction.PaymentMethod.CARD:
+		return "Card"
+	return "Cash"
 
 func hide_screen() -> void:
 	visible = false
 	get_tree().paused = false
-	closed.emit()
 
 func _on_close_button_pressed() -> void:
 	hide_screen()
@@ -186,8 +258,11 @@ func _on_deposit_button_pressed() -> void:
 		error_label.text = "Enter a valid amount."
 		error_label.visible = true
 		return
+	if _current_payment_method() == ShiftTransaction.PaymentMethod.CARD and randf() < CARD_DECLINE_CHANCE:
+		_start_card_decline_cooldown()
+		return
 	error_label.visible = false
-	account.deposit(amount)
+	AccountManager.deposit(account, amount)
 	_record_transaction(ShiftTransaction.Type.DEPOSIT, amount)
 	_refresh_display()
 	transaction_completed.emit()
@@ -202,20 +277,110 @@ func _on_withdraw_button_pressed() -> void:
 		error_label.text = "Insufficient funds."
 		error_label.visible = true
 		return
+	if _current_payment_method() == ShiftTransaction.PaymentMethod.CARD and randf() < CARD_DECLINE_CHANCE:
+		_start_card_decline_cooldown()
+		return
 	error_label.visible = false
-	account.withdraw(amount)
+	AccountManager.withdraw(account, amount)
 	_record_transaction(ShiftTransaction.Type.WITHDRAWAL, amount)
 	_refresh_display()
 	transaction_completed.emit()
+
+## Disables Deposit/Withdraw for CARD_DECLINE_COOLDOWN_SECONDS instead of
+## just showing an error — otherwise the 10% decline chance is trivial to
+## re-roll by spamming the button, which reads as broken/spammy rather
+## than an actual declined card.
+func _start_card_decline_cooldown() -> void:
+	error_label.text = "Card Declined. Please wait a moment before retrying."
+	error_label.visible = true
+	_card_decline_on_cooldown = true
+	_update_shift_controls()
+	get_tree().create_timer(CARD_DECLINE_COOLDOWN_SECONDS).timeout.connect(_on_card_decline_cooldown_finished)
+
+## Goes through _update_shift_controls() rather than setting
+## deposit_button/withdraw_button.disabled directly, so a shift that ended
+## while this cooldown was still running (clock-out mid-cooldown) doesn't
+## get its buttons incorrectly re-enabled here.
+func _on_card_decline_cooldown_finished() -> void:
+	_card_decline_on_cooldown = false
+	_update_shift_controls()
+
+## The customer currently being served determines payment method for
+## whatever deposit/withdraw the teller performs next — account selection
+## isn't otherwise linked to who's being served (see _serving_customer's
+## doc comment). No customer waiting defaults to Cash, matching the
+## pre-6e behavior for every transaction.
+func _current_payment_method() -> ShiftTransaction.PaymentMethod:
+	if _serving_customer != null:
+		return _serving_customer.payment_method
+	return ShiftTransaction.PaymentMethod.CASH
 
 func _refresh_display() -> void:
 	account_label.text = account.customer_name
 	balance_label.text = "Balance: $%.2f" % account.balance
 
 func _show_main_panel() -> void:
+	complaint_panel.visible = false
 	open_account_panel.visible = false
 	shift_summary_panel.visible = false
 	main_panel.visible = true
+
+## Shows customer's complaint text and their response options, replacing
+## the main panel until the player picks one (see
+## _on_complaint_response_selected()) or defers it via the Later button
+## (see _on_complaint_later_button_pressed()). Buttons are built fresh
+## each time, the same throwaway-Button-per-choice pattern
+## interview_screen.gd uses for its answer choices.
+func _show_complaint_panel(customer: CustomerNPC) -> void:
+	main_panel.visible = false
+	open_account_panel.visible = false
+	shift_summary_panel.visible = false
+	complaint_panel.visible = true
+
+	complaint_label.text = customer.complaint.complaint_text
+	for child in complaint_responses_container.get_children():
+		child.queue_free()
+	for response in customer.complaint.responses:
+		var button := Button.new()
+		button.text = response.text
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.theme_type_variation = &"PrimaryButton"
+		button.pressed.connect(_on_complaint_response_selected.bind(customer, response))
+		complaint_responses_container.add_child(button)
+
+## Reputation-only consequence, per Phase 6c scope — no Score/XP change.
+## Logged to HistoryManager the same way _prepare_shift_summary() logs a
+## drawer count, just under a complaint-flavored description/grade label.
+func _on_complaint_response_selected(customer: CustomerNPC, response: ComplaintResponse) -> void:
+	ReputationManager.add_reputation(response.score)
+	var grade_label := _complaint_grade_label(response.score)
+	HistoryManager.add_record(
+		DecisionRecord.Role.TELLER,
+		"Complaint: \"%s\" — response: \"%s\"" % [customer.complaint.complaint_text, response.text],
+		grade_label
+	)
+	customer.complaint_resolved = true
+	_show_main_panel()
+
+## Backs out of the complaint panel without resolving it — no reputation
+## change, no HistoryManager entry. complaint_resolved stays false, so
+## this same customer's complaint panel shows again the next time they're
+## served, the same as closing the whole screen without doing a
+## transaction doesn't silently drop them from the queue (see
+## teller_room.gd).
+func _on_complaint_later_button_pressed() -> void:
+	_show_main_panel()
+
+## Same "grade in a word" vocabulary _discrepancy_result_label() uses for
+## drawer counts, just keyed off response score sign rather than a
+## discrepancy bucket.
+func _complaint_grade_label(score: int) -> String:
+	if score > 0:
+		return "Great"
+	elif score == 0:
+		return "Neutral"
+	else:
+		return "Poor"
 
 func _on_open_account_button_pressed() -> void:
 	new_name_input.text = ""
@@ -234,11 +399,7 @@ func _on_create_account_button_pressed() -> void:
 		new_account_error_label.visible = true
 		return
 
-	var new_account := Account.new()
-	new_account.customer_name = new_name
-	new_account.balance = new_balance_input.value
-	accounts.append(new_account)
-	account = new_account
+	account = AccountManager.create_account(new_name, new_balance_input.value)
 
 	error_label.visible = false
 	_show_main_panel()
@@ -246,21 +407,22 @@ func _on_create_account_button_pressed() -> void:
 	_refresh_display()
 
 func _refresh_account_list() -> void:
+	var accounts := AccountManager.get_accounts()
 	account_option_button.clear()
 	for i in accounts.size():
 		account_option_button.add_item(accounts[i].customer_name, i)
 	account_option_button.select(accounts.find(account))
 
 func _on_account_option_selected(index: int) -> void:
-	account = accounts[index]
+	account = AccountManager.get_accounts()[index]
 	_refresh_display()
 
 func _update_shift_controls() -> void:
 	var clocked_in := shift_state == ShiftState.CLOCKED_IN
 	clock_in_button.visible = not clocked_in
 	clock_out_button.visible = clocked_in
-	deposit_button.disabled = not clocked_in
-	withdraw_button.disabled = not clocked_in
+	deposit_button.disabled = not clocked_in or _card_decline_on_cooldown
+	withdraw_button.disabled = not clocked_in or _card_decline_on_cooldown
 
 func _record_transaction(type: ShiftTransaction.Type, amount: float) -> void:
 	if shift_state != ShiftState.CLOCKED_IN:
@@ -270,12 +432,21 @@ func _record_transaction(type: ShiftTransaction.Type, amount: float) -> void:
 	transaction.amount = amount
 	transaction.account_name = account.customer_name
 	transaction.timestamp = Time.get_datetime_string_from_system()
+	transaction.payment_method = _current_payment_method()
 	shift_transactions.append(transaction)
 
+## Card transactions are excluded here (Phase 6e) — no physical cash
+## changed hands, so they shouldn't shift what the drawer count is
+## expected to hold. They still count toward
+## shift_total_transactions_label's total below and still applied to the
+## account balance in _on_deposit_button_pressed()/
+## _on_withdraw_button_pressed() — only this drawer math skips them.
 func _calculate_expected_ending_balance() -> float:
 	var total_deposits := 0.0
 	var total_withdrawals := 0.0
 	for transaction in shift_transactions:
+		if transaction.payment_method != ShiftTransaction.PaymentMethod.CASH:
+			continue
 		if transaction.type == ShiftTransaction.Type.DEPOSIT:
 			total_deposits += transaction.amount
 		else:
@@ -288,6 +459,12 @@ func _on_clock_in_button_pressed() -> void:
 	drawer_count_screen.show_screen(STARTING_EXPECTED_BALANCE, "Starting Drawer Count")
 
 func _on_clock_out_button_pressed() -> void:
+	var elapsed_seconds := (Time.get_ticks_msec() - _shift_start_ticks_msec) / 1000.0
+	if elapsed_seconds < MIN_SHIFT_DURATION_SECONDS:
+		error_label.text = "Shift just started — come back later."
+		error_label.visible = true
+		return
+	error_label.visible = false
 	pending_drawer_count_purpose = DrawerCountPurpose.ENDING
 	main_panel.visible = false
 	drawer_count_screen.show_screen(_calculate_expected_ending_balance(), "Ending Drawer Count")
@@ -298,7 +475,18 @@ func _on_clock_out_button_pressed() -> void:
 ## it in their own time. pending_drawer_count_purpose is what tells us
 ## whether this was the clock-in count or the clock-out count, since
 ## both flow through this same signal.
+##
+## pending_drawer_count_purpose doubles as this handler's one-shot
+## consumption guard: it's set to NONE the moment a submitted count has
+## been acted on, and the guard below is what makes that explicit —
+## DrawerCountScreen doesn't disable its own Submit button, so nothing
+## stops the player clicking it again on the same still-open screen; this
+## is what keeps a repeat click from re-running _begin_shift()/
+## _prepare_shift_summary() (and reapplying Score/Reputation/XP) a second
+## time for the same count.
 func _on_drawer_count_submitted(total: float) -> void:
+	if pending_drawer_count_purpose == DrawerCountPurpose.NONE:
+		return
 	match pending_drawer_count_purpose:
 		DrawerCountPurpose.STARTING:
 			_begin_shift(total)
@@ -321,7 +509,9 @@ func _begin_shift(starting_total: float) -> void:
 	shift_state = ShiftState.CLOCKED_IN
 	shift_start_balance = starting_total
 	shift_start_time = Time.get_datetime_string_from_system()
+	_shift_start_ticks_msec = Time.get_ticks_msec()
 	shift_transactions.clear()
+	_card_decline_on_cooldown = false
 	_update_shift_controls()
 	shift_clocked_in.emit()
 
@@ -330,10 +520,14 @@ func _begin_shift(starting_total: float) -> void:
 ## MINOR_DISCREPANCY_THRESHOLD constant rather than redefining the ±500
 ## cutoff a second time. Score and Reputation both derive from this one
 ## categorization instead of each re-checking the discrepancy value.
-func _categorize_discrepancy(discrepancy: float) -> DiscrepancyResult:
-	if discrepancy == 0.0:
+## excess_bills is how many more bills the player entered in the ending
+## count than the minimum possible for that total (see DrawerCountScreen.
+## get_excess_bill_count()) — a correct total no longer grades Perfect on
+## its own if the bill breakdown behind it is implausible.
+func _categorize_discrepancy(discrepancy: float, excess_bills: int) -> DiscrepancyResult:
+	if discrepancy == 0.0 and excess_bills <= DrawerCountScreen.PERFECT_BILL_COUNT_TOLERANCE:
 		return DiscrepancyResult.PERFECT
-	elif abs(discrepancy) <= DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD:
+	elif abs(discrepancy) <= DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD and excess_bills <= DrawerCountScreen.MINOR_BILL_COUNT_TOLERANCE:
 		return DiscrepancyResult.MINOR
 	else:
 		return DiscrepancyResult.MAJOR
@@ -372,7 +566,7 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	var expected := _calculate_expected_ending_balance()
 	var discrepancy := ending_total - expected
 	var shift_end_time := Time.get_datetime_string_from_system()
-	var discrepancy_result := _categorize_discrepancy(discrepancy)
+	var discrepancy_result := _categorize_discrepancy(discrepancy, drawer_count_screen.get_excess_bill_count())
 	var shift_score := _calculate_shift_score(discrepancy_result)
 	var reputation_delta := _calculate_reputation_delta(discrepancy_result)
 

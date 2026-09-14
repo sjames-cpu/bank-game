@@ -6,8 +6,10 @@ class_name LoanApplication
 ## from an upstream underwriting/scoring system the way a real bank's
 ## loan queue would arrive pre-flagged — it lets sample data include
 ## borderline cases where the "official" tier and a naive read of the
-## raw numbers don't perfectly agree, which is exactly the kind of
-## judgment call the eventual review mini-game should be testing.
+## raw numbers don't perfectly agree. Grading (grade()/grade_decision()
+## below) only ever reads risk_assessment, never risk_tier — risk_tier is
+## sample-data authoring context for those borderline cases, not an input
+## to any grading logic.
 ## Built in code (see loan_applications_data.gd) rather than loaded from
 ## .tres files, matching Account/InterviewQuestion.
 
@@ -54,14 +56,15 @@ const WORST_DECISION_REPUTATION: int = -2
 ## Computed (Phase 4c), not pre-set like risk_tier above — a naive read of
 ## the raw numbers via calculate_risk_assessment(), cached here the first
 ## time a screen runs the credit check math so it only needs computing
-## once per applicant. Never shown to the player; Phase 4e will use it
-## (likely alongside risk_tier) to judge whether the player's decision
-## was "correct". Deliberately can disagree with risk_tier on borderline
-## applicants — see the class doc above.
+## once per applicant. Never shown to the player; grade_decision() grades
+## the player's decision against this alone — risk_tier is not read by
+## grading (see the class doc above). Deliberately can disagree with
+## risk_tier on borderline applicants, which is the point of keeping the
+## two separate.
 var risk_assessment: RiskTier = RiskTier.MEDIUM
 
-## The player's decision (Phase 4d), captured but not yet judged — Phase 4e
-## will compare this against risk_tier/risk_assessment for consequences.
+## The player's decision (Phase 4d) — grade_decision() grades this against
+## risk_assessment (not risk_tier; see that field's doc comment above).
 ## decision_amount holds the approved/countered amount; for APPROVE it's
 ## always requested_amount, for REJECT it's unused (0.0), for
 ## COUNTER_OFFER it's whatever amount the player proposed.
@@ -175,12 +178,19 @@ static func grade(decision_type: DecisionType, risk_tier_param: RiskTier) -> Gra
 					return Grade.PARTIAL
 				_:
 					return Grade.BAD
-		_:
+		DecisionType.COUNTER_OFFER:
 			match risk_tier_param:
 				RiskTier.MEDIUM:
 					return Grade.BEST
 				_:
 					return Grade.PARTIAL
+		_:
+			# NONE (or any future decision type) should never reach here —
+			# callers only invoke grade()/grade_decision() right after
+			# recording a real decision. Fails loudly in debug rather than
+			# silently being graded as if it were a COUNTER_OFFER.
+			assert(false, "grade() requires a recorded decision, got %s" % decision_type)
+			return Grade.PARTIAL
 
 static func score_for_grade(grade_value: Grade) -> int:
 	match grade_value:
@@ -231,3 +241,18 @@ static func risk_tier_label(tier: RiskTier) -> String:
 			return "medium risk"
 		_:
 			return "high risk"
+
+## Plain player-facing name for a decision type — e.g. for approvals_screen.gd
+## to name what the original Loan Officer decision was. Not the same as the
+## fuller "Approved at $X"/"Rejected"/"Counter-Offered at $X" action-text
+## loan_review_screen.gd builds inline for its own decision_status_label —
+## that's a sentence describing an action just taken, this is a bare label
+## for referencing an already-recorded decision.
+static func decision_type_label(decision_type: DecisionType) -> String:
+	match decision_type:
+		DecisionType.APPROVE:
+			return "Approve"
+		DecisionType.REJECT:
+			return "Reject"
+		_:
+			return "Counter-Offer"

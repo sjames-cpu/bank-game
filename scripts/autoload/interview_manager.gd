@@ -9,8 +9,6 @@ extends Node
 ## Like the other two managers, this only lives in memory for now and
 ## resets if the game is closed.
 
-signal interview_completed(outcome: Outcome)
-
 enum Outcome { HIRED, HIRED_ON_PROBATION, REJECTED }
 
 ## Score thresholds out of this question set's ~26-point maximum (9
@@ -20,7 +18,6 @@ enum Outcome { HIRED, HIRED_ON_PROBATION, REJECTED }
 const HIRE_THRESHOLD: int = 15
 const PROBATION_THRESHOLD: int = 5
 
-var has_completed_interview: bool = false
 var is_on_probation: bool = false
 
 ## Called once the interview screen has asked every question (or hit an
@@ -37,7 +34,5 @@ func resolve_outcome(total_score: int, instant_rejected: bool) -> Outcome:
 	else:
 		outcome = Outcome.REJECTED
 
-	has_completed_interview = outcome != Outcome.REJECTED
 	is_on_probation = outcome == Outcome.HIRED_ON_PROBATION
-	interview_completed.emit(outcome)
 	return outcome

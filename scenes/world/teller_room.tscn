@@ -14,6 +14,9 @@
 [ext_resource type="Texture2D" uid="uid://0o5utj6sgegj" path="res://assets/tilesets/placeholder_tiles.png" id="tiles_tex"]
 [ext_resource type="Script" path="res://scripts/world/customer_queue.gd" id="customer_queue_script"]
 [ext_resource type="PackedScene" path="res://scenes/characters/customer_npc.tscn" id="customer_npc_scene"]
+[ext_resource type="Script" path="res://scripts/world/day_night_cycle.gd" id="day_night_cycle_script"]
+[ext_resource type="Script" path="res://scripts/world/atm.gd" id="atm_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/atm_screen.tscn" id="atm_screen_scene"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_room"]
 texture = ExtResource("tiles_tex")
@@ -38,6 +41,9 @@ size = Vector2(64, 48)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_branch_manager_desk"]
 size = Vector2(64, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_atm"]
+size = Vector2(48, 48)
 
 [node name="TellerRoom" type="Node2D" unique_id=375316389]
 script = ExtResource("room_controller_script")
@@ -102,6 +108,19 @@ texture = ExtResource("desk_tex")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="BranchManagerDesk" unique_id=193677990]
 shape = SubResource("RectangleShape2D_branch_manager_desk")
 
+[node name="ATM" type="Area2D" parent="."]
+position = Vector2(48, 48)
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("atm_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="ATM"]
+modulate = Color(0.4, 0.9, 0.55, 1)
+texture = ExtResource("desk_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ATM"]
+shape = SubResource("RectangleShape2D_atm")
+
 [node name="CustomerQueue" type="Node2D" parent="."]
 script = ExtResource("customer_queue_script")
 customer_scene = ExtResource("customer_npc_scene")
@@ -123,6 +142,9 @@ position = Vector2(216, 176)
 [node name="SpawnTimer" type="Timer" parent="CustomerQueue"]
 wait_time = 20.0
 
+[node name="DayNightCycle" type="CanvasModulate" parent="."]
+script = ExtResource("day_night_cycle_script")
+
 [node name="UI" type="CanvasLayer" parent="." unique_id=209608052]
 
 [node name="TellerScreen" parent="UI" unique_id=2130268729 instance=ExtResource("teller_screen_scene")]
@@ -132,4 +154,7 @@ layout_mode = 3
 layout_mode = 3
 
 [node name="BranchManagerScreen" parent="UI" unique_id=635889767 instance=ExtResource("branch_manager_screen_scene")]
+layout_mode = 3
+
+[node name="ATMScreen" parent="UI" instance=ExtResource("atm_screen_scene")]
 layout_mode = 3

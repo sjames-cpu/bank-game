@@ -20,13 +20,14 @@ extends Control
 @onready var review_next_button: Button = $Panel/VBox/ReviewNextButton
 @onready var clock_in_button: Button = $Panel/VBox/ClockInButton
 @onready var clock_out_button: Button = $Panel/VBox/ClockOutButton
+@onready var error_label: Label = $Panel/VBox/ErrorLabel
 @onready var close_button: Button = $Panel/VBox/CloseButton
 
 @onready var loan_review_screen: LoanReviewScreen = $LoanReviewScreen
 
-@onready var corner_total_score_label: Label = $TotalScoreLabel
-@onready var corner_reputation_label: Label = $ReputationLabel
-@onready var corner_xp_label: Label = $XPLabel
+@onready var corner_total_score_label: Label = $ScoreHudPanel/VBox/TotalScoreLabel
+@onready var corner_reputation_label: Label = $ScoreHudPanel/VBox/ReputationLabel
+@onready var corner_xp_label: Label = $ScoreHudPanel/VBox/XPLabel
 
 @onready var shift_summary_panel: Panel = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
@@ -45,11 +46,19 @@ extends Control
 ## for themselves when a shift is "done."
 const APPLICATIONS_PER_SHIFT: int = 3
 
+## Same anti-instant-shift guard as TellerScreen.MIN_SHIFT_DURATION_SECONDS
+## (see that constant's doc comment) — this screen has the same clock-in/
+## clock-out shape with no other minimum, so an instant clock-in/out was
+## just as free a (zero-)score cycle here. Kept as the same value for
+## consistency; tune independently after playtesting if warranted.
+const MIN_SHIFT_DURATION_SECONDS: float = 45.0
+
 enum ShiftState { CLOCKED_OUT, CLOCKED_IN }
 
 var shift_state: ShiftState = ShiftState.CLOCKED_OUT
 
 var shift_start_time: String = ""
+var _shift_start_ticks_msec: int = 0
 var applications_reviewed: int = 0
 var shift_score_total: int = 0
 var shift_reputation_total: int = 0
@@ -95,6 +104,7 @@ func _on_clock_in_button_pressed() -> void:
 func _begin_shift() -> void:
 	shift_state = ShiftState.CLOCKED_IN
 	shift_start_time = Time.get_datetime_string_from_system()
+	_shift_start_ticks_msec = Time.get_ticks_msec()
 	applications_reviewed = 0
 	shift_score_total = 0
 	shift_reputation_total = 0
@@ -116,7 +126,16 @@ func _on_application_graded(score_delta: int, reputation_delta: int, xp_delta: i
 	shift_xp_total += xp_delta
 	_update_shift_controls()
 
-func _on_loan_review_screen_closed() -> void:
+## LoanReviewScreen reports whether the application it was showing got
+## decided before it closed — the player can hit its Close button before
+## deciding at all. That still has to consume a slot toward
+## APPLICATIONS_PER_SHIFT (with no Score/Reputation/XP change, since
+## nothing was graded); otherwise the same application could be reopened
+## and skipped indefinitely without review_next_button ever disabling.
+func _on_loan_review_screen_closed(was_decided: bool) -> void:
+	if not was_decided:
+		applications_reviewed += 1
+		_update_shift_controls()
 	_show_main_panel()
 
 ## Ends the shift whenever the player chooses to clock out — usually after
@@ -124,6 +143,12 @@ func _on_loan_review_screen_closed() -> void:
 ## once that count is hit, see _update_shift_controls), but nothing stops
 ## clocking out earlier with a partial shift's worth of tallies.
 func _on_clock_out_button_pressed() -> void:
+	var elapsed_seconds := (Time.get_ticks_msec() - _shift_start_ticks_msec) / 1000.0
+	if elapsed_seconds < MIN_SHIFT_DURATION_SECONDS:
+		error_label.text = "Shift just started — come back later."
+		error_label.visible = true
+		return
+	error_label.visible = false
 	_prepare_shift_summary()
 
 func _prepare_shift_summary() -> void:

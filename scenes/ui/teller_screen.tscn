@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/teller_screen.gd" id="screen_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/drawer_count_screen.tscn" id="drawer_count_screen_scene"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
 
 [node name="TellerScreen" type="Control"]
 process_mode = 2
@@ -11,6 +12,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("banking_theme")
 script = ExtResource("screen_script")
 
 [node name="Backdrop" type="ColorRect" parent="."]
@@ -28,10 +30,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -170.0
-offset_right = 150.0
-offset_bottom = 170.0
+offset_left = -210.0
+offset_top = -300.0
+offset_right = 210.0
+offset_bottom = 300.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -50,102 +52,152 @@ alignment = 1
 
 [node name="TitleLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
+theme_type_variation = &"HeaderLabel"
 text = "Teller Desk"
 horizontal_alignment = 1
 
-[node name="ServingStatusLabel" type="Label" parent="Panel/VBox"]
+[node name="ServingSection" type="PanelContainer" parent="Panel/VBox"]
 layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="ServingVBox" type="VBoxContainer" parent="Panel/VBox/ServingSection"]
+layout_mode = 2
+
+[node name="ServingStatusLabel" type="Label" parent="Panel/VBox/ServingSection/ServingVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
 text = "No customer waiting."
 horizontal_alignment = 1
+autowrap_mode = 2
 
-[node name="AccountOptionButton" type="OptionButton" parent="Panel/VBox"]
+[node name="PaymentMethodLabel" type="Label" parent="Panel/VBox/ServingSection/ServingVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+visible = false
+text = "Payment Method: Cash"
+horizontal_alignment = 1
+
+[node name="CustomerDialoguePanel" type="PanelContainer" parent="Panel/VBox/ServingSection/ServingVBox"]
+layout_mode = 2
+visible = false
+
+[node name="CustomerDialogueLabel" type="Label" parent="Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 2
+horizontal_alignment = 1
+
+[node name="AccountSection" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="AccountVBox" type="VBoxContainer" parent="Panel/VBox/AccountSection"]
 layout_mode = 2
 
-[node name="AccountLabel" type="Label" parent="Panel/VBox"]
+[node name="AccountOptionButton" type="OptionButton" parent="Panel/VBox/AccountSection/AccountVBox"]
+layout_mode = 2
+
+[node name="AccountLabel" type="Label" parent="Panel/VBox/AccountSection/AccountVBox"]
 layout_mode = 2
 text = "Customer Name"
 horizontal_alignment = 1
+autowrap_mode = 2
 
-[node name="BalanceLabel" type="Label" parent="Panel/VBox"]
+[node name="BalanceLabel" type="Label" parent="Panel/VBox/AccountSection/AccountVBox"]
 layout_mode = 2
+theme_type_variation = &"HeaderLabel"
 text = "Balance: $0.00"
 horizontal_alignment = 1
+autowrap_mode = 2
 
-[node name="AmountSpinBox" type="SpinBox" parent="Panel/VBox"]
+[node name="ActionsSection" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"SectionPanel"
+
+[node name="ActionsVBox" type="VBoxContainer" parent="Panel/VBox/ActionsSection"]
+layout_mode = 2
+
+[node name="AmountSpinBox" type="SpinBox" parent="Panel/VBox/ActionsSection/ActionsVBox"]
 layout_mode = 2
 min_value = 0.0
 max_value = 999999.0
 step = 0.01
 prefix = "$"
 
-[node name="DepositButton" type="Button" parent="Panel/VBox"]
-layout_mode = 2
-text = "Deposit"
-
-[node name="WithdrawButton" type="Button" parent="Panel/VBox"]
-layout_mode = 2
-text = "Withdraw"
-
-[node name="ErrorLabel" type="Label" parent="Panel/VBox"]
+[node name="ErrorLabel" type="Label" parent="Panel/VBox/ActionsSection/ActionsVBox"]
 layout_mode = 2
 visible = false
 modulate = Color(1, 0.3, 0.3, 1)
 text = "Insufficient funds."
 horizontal_alignment = 1
+autowrap_mode = 2
 
-[node name="OpenAccountButton" type="Button" parent="Panel/VBox"]
+[node name="DepositButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Deposit"
+
+[node name="WithdrawButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Withdraw"
+
+[node name="OpenAccountButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
 layout_mode = 2
 text = "Open New Account"
 
-[node name="ClockInButton" type="Button" parent="Panel/VBox"]
+[node name="ClockInButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
 layout_mode = 2
 text = "Clock In"
 
-[node name="ClockOutButton" type="Button" parent="Panel/VBox"]
+[node name="ClockOutButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
 layout_mode = 2
 visible = false
 text = "Clock Out"
 
-[node name="CloseButton" type="Button" parent="Panel/VBox"]
+[node name="CloseButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
 layout_mode = 2
 text = "Close"
 
 [node name="DrawerCountScreen" parent="." instance=ExtResource("drawer_count_screen_scene")]
 layout_mode = 1
 
-[node name="TotalScoreLabel" type="Label" parent="."]
+[node name="ScoreHudPanel" type="Panel" parent="."]
 layout_mode = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -180.0
+offset_left = -200.0
 offset_top = 8.0
 offset_right = -8.0
-offset_bottom = 32.0
+offset_bottom = 96.0
 grow_horizontal = 0
+theme_type_variation = &"HudPanel"
+
+[node name="VBox" type="VBoxContainer" parent="ScoreHudPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TotalScoreLabel" type="Label" parent="ScoreHudPanel/VBox"]
+layout_mode = 2
 horizontal_alignment = 2
 text = "Total Score: 0"
 
-[node name="ReputationLabel" type="Label" parent="."]
-layout_mode = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -180.0
-offset_top = 36.0
-offset_right = -8.0
-offset_bottom = 60.0
-grow_horizontal = 0
+[node name="ReputationLabel" type="Label" parent="ScoreHudPanel/VBox"]
+layout_mode = 2
 horizontal_alignment = 2
 text = "Reputation: 50"
 
-[node name="XPLabel" type="Label" parent="."]
-layout_mode = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -180.0
-offset_top = 64.0
-offset_right = -8.0
-offset_bottom = 88.0
-grow_horizontal = 0
+[node name="XPLabel" type="Label" parent="ScoreHudPanel/VBox"]
+layout_mode = 2
 horizontal_alignment = 2
 text = "XP: 0"
 
@@ -223,6 +275,7 @@ alignment = 1
 
 [node name="TitleLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
+theme_type_variation = &"HeaderLabel"
 text = "Shift Summary"
 horizontal_alignment = 1
 
@@ -230,11 +283,13 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "Start Time: "
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="EndTimeLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
 text = "End Time: "
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="TotalTransactionsLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
@@ -245,6 +300,7 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "Final Discrepancy: $0.00"
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="ShiftScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
@@ -273,7 +329,54 @@ horizontal_alignment = 1
 
 [node name="DoneButton" type="Button" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "Done"
+
+[node name="ComplaintPanel" type="Panel" parent="."]
+layout_mode = 1
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -160.0
+offset_right = 180.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="ComplaintPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="ComplaintPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Customer Complaint"
+horizontal_alignment = 1
+
+[node name="ComplaintLabel" type="Label" parent="ComplaintPanel/VBox"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ResponsesVBox" type="VBoxContainer" parent="ComplaintPanel/VBox"]
+layout_mode = 2
+
+[node name="LaterButton" type="Button" parent="ComplaintPanel/VBox"]
+layout_mode = 2
+text = "Come Back Later"
 
 [node name="OpenAccountPanel" type="Panel" parent="."]
 layout_mode = 1
@@ -304,6 +407,7 @@ alignment = 1
 
 [node name="TitleLabel" type="Label" parent="OpenAccountPanel/VBox"]
 layout_mode = 2
+theme_type_variation = &"HeaderLabel"
 text = "Open New Account"
 horizontal_alignment = 1
 
@@ -339,6 +443,7 @@ alignment = 1
 
 [node name="CreateButton" type="Button" parent="OpenAccountPanel/VBox/ButtonsHBox"]
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "Create"
 
 [node name="CancelButton" type="Button" parent="OpenAccountPanel/VBox/ButtonsHBox"]

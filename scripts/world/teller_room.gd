@@ -37,6 +37,11 @@ extends Node2D
 ## (checking a balance, clocking in/out) shouldn't silently drop them from
 ## the line. See _on_teller_desk_interacted and
 ## _on_teller_transaction_completed.
+##
+## Phase 6f adds the ATM: unlike the three job desks above, it has no
+## availability gating at all — see _on_atm_interacted() — since it's a
+## customer-facing feature available regardless of shift/clock-in state,
+## not a job role.
 
 const DEBUG_UNLOCK_KEY := KEY_F1
 
@@ -46,6 +51,8 @@ const DEBUG_UNLOCK_KEY := KEY_F1
 @onready var branch_manager_desk: Area2D = $BranchManagerDesk
 @onready var branch_manager_screen: Control = $UI/BranchManagerScreen
 @onready var customer_queue: CustomerQueue = $CustomerQueue
+@onready var atm: Area2D = $ATM
+@onready var atm_screen: ATMScreen = $UI/ATMScreen
 
 var _customer_being_served: CustomerNPC = null
 
@@ -62,10 +69,21 @@ func _ready() -> void:
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 	_update_branch_manager_desk_availability()
 
+	atm.interacted.connect(_on_atm_interacted)
+
 ## Remembers whoever's at the front of the line (null if the queue is
 ## empty) before opening the screen, and hands them to show_screen() so it
 ## can display who's being served (or "No customer waiting.").
+##
+## Guarded against re-entry: TellerDesk's `interacted` only stops firing
+## once the tree is actually paused, which happens partway through
+## show_screen() rather than before it's called, so relying on that alone
+## is fragile (a stray input event, or the desk/room ever gaining an
+## explicit process_mode, could re-fire this while the screen is already
+## up and re-run set_serving_customer()/show_screen() mid-visit).
 func _on_teller_desk_interacted() -> void:
+	if teller_screen.visible:
+		return
 	_customer_being_served = customer_queue.get_front_customer()
 	teller_screen.show_screen(_customer_being_served)
 
@@ -81,7 +99,11 @@ func _on_teller_transaction_completed() -> void:
 	_customer_being_served = null
 	teller_screen.set_serving_customer(null)
 
+## Guarded against re-entry the same way _on_teller_desk_interacted() is —
+## see that function's doc comment.
 func _on_loan_officer_desk_interacted() -> void:
+	if loan_officer_screen.visible:
+		return
 	loan_officer_screen.show_screen()
 
 func _on_loan_officer_unlocked() -> void:
@@ -92,7 +114,11 @@ func _update_loan_officer_desk_availability() -> void:
 	loan_officer_desk.visible = unlocked
 	loan_officer_desk.monitoring = unlocked
 
+## Guarded against re-entry the same way _on_teller_desk_interacted() is —
+## see that function's doc comment.
 func _on_branch_manager_desk_interacted() -> void:
+	if branch_manager_screen.visible:
+		return
 	branch_manager_screen.show_screen()
 
 func _on_branch_manager_unlocked() -> void:
@@ -102,6 +128,16 @@ func _update_branch_manager_desk_availability() -> void:
 	var unlocked := XPManager.is_branch_manager_unlocked
 	branch_manager_desk.visible = unlocked
 	branch_manager_desk.monitoring = unlocked
+
+## No availability check, unlike the job desks above — the ATM (Phase 6f)
+## is a customer-facing feature available regardless of shift/clock-in
+## status or XP unlocks, so it's just always visible and monitoring.
+## Guarded against re-entry the same way _on_teller_desk_interacted() is —
+## see that function's doc comment.
+func _on_atm_interacted() -> void:
+	if atm_screen.visible:
+		return
+	atm_screen.show_screen()
 
 ## TEMP debug cheat — see DEBUG_UNLOCK_KEY doc comment above. Reputation is
 ## bumped first so it's already at its clamped max by the time

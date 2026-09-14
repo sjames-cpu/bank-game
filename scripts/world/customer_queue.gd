@@ -4,9 +4,12 @@ class_name CustomerQueue
 ## Owns the Teller room's customer line (Phase 6a). Spawns a CustomerNPC
 ## every spawn_interval seconds while a shift is active, walks it to the
 ## back of the line, and slides everyone forward one slot whenever the
-## front customer is served. Deliberately dumb — no dialogue, no
-## patience/complaints (6b/6c) — customers are silent queue slots with a
-## walk animation until a later phase gives them more to do.
+## front customer is served. Each spawn gets a random name, a random
+## payment method (Phase 6e), and, per COMPLAINT_CHANCE, either a random
+## flavor line (Phase 6b) or a complaint scenario (Phase 6c) — see
+## teller_screen.gd for how these are shown and resolved differently.
+## Payment method and complaint/dialogue are rolled independently of each
+## other.
 ##
 ## Queue capacity is however many QueuePositions markers exist in the
 ## scene, so the line length can be tuned by adding/removing markers in
@@ -19,12 +22,39 @@ class_name CustomerQueue
 @export var customer_scene: PackedScene
 @export var spawn_interval: float = 20.0
 
+## Phase 6c: chance a newly spawned customer presents a complaint (see
+## CustomerComplaintsData) instead of a regular 6b flavor line. Doesn't
+## touch spawn timing itself — just which dialogue a spawned customer
+## gets handed below.
+const COMPLAINT_CHANCE: float = 0.2
+
+## Phase 6e: chance a newly spawned customer pays by card instead of cash
+## (see teller_screen.gd for how the two flows differ). Rolled
+## independently of COMPLAINT_CHANCE above — a customer's payment method
+## has nothing to do with whether they have a complaint.
+const CARD_CHANCE: float = 0.5
+
+## Names aren't guaranteed unique, matching Account.customer_name's own
+## "customer names aren't guaranteed unique" caveat (see teller_screen.gd) —
+## real people share names, and nothing here keys off a customer's name.
+const CUSTOMER_NAMES: Array[String] = [
+	"Alex Rivera", "Sam Chen", "Jordan Blake", "Taylor Morgan",
+	"Casey Nguyen", "Morgan Lee", "Riley Patel", "Avery Kim",
+	"Jamie Fischer", "Drew Sanders",
+]
+
 @onready var spawn_point: Marker2D = $SpawnPoint
 @onready var queue_positions: Array[Marker2D] = _collect_queue_positions()
 @onready var spawn_timer: Timer = $SpawnTimer
 
+## Built once rather than re-fetched from CustomerDialogueData on every
+## spawn — the pool itself never changes, only which line gets picked.
+var _dialogue_pool: Array[CustomerDialogueLine] = CustomerDialogueData.get_lines()
+
+## Same reasoning as _dialogue_pool above, just for the 6c complaint pool.
+var _complaint_pool: Array[CustomerComplaint] = CustomerComplaintsData.get_complaints()
+
 var queue: Array[CustomerNPC] = []
-var _next_customer_number: int = 1
 
 func _ready() -> void:
 	spawn_timer.wait_time = spawn_interval
@@ -67,12 +97,20 @@ func _on_spawn_timer_timeout() -> void:
 		return
 	_spawn_customer()
 
+## Random name + dialogue line are both picked here, once, at spawn — not
+## at serve-time — so a customer keeps the same name and line for their
+## whole time in queue regardless of how many times the Teller screen is
+## opened and closed while they're waiting.
 func _spawn_customer() -> void:
 	var customer := customer_scene.instantiate() as CustomerNPC
 	add_child(customer)
 	customer.global_position = spawn_point.global_position
-	customer.display_name = "Customer #%d" % _next_customer_number
-	_next_customer_number += 1
+	customer.display_name = CUSTOMER_NAMES.pick_random()
+	if randf() < COMPLAINT_CHANCE:
+		customer.complaint = _complaint_pool.pick_random()
+	else:
+		customer.dialogue_line = _dialogue_pool.pick_random()
+	customer.payment_method = ShiftTransaction.PaymentMethod.CARD if randf() < CARD_CHANCE else ShiftTransaction.PaymentMethod.CASH
 	queue.append(customer)
 	_advance_queue()
 

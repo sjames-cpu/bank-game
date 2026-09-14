@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/loan_review_screen.gd" id="screen_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
 
 [node name="LoanReviewScreen" type="Control"]
 process_mode = 2
@@ -10,6 +11,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("banking_theme")
 script = ExtResource("screen_script")
 
 [node name="Backdrop" type="ColorRect" parent="."]
@@ -27,10 +29,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -180.0
-offset_top = -320.0
-offset_right = 180.0
-offset_bottom = 320.0
+offset_left = -220.0
+offset_top = -370.0
+offset_right = 220.0
+offset_bottom = 370.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -49,54 +51,71 @@ alignment = 1
 
 [node name="TitleLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
+theme_type_variation = &"HeaderLabel"
 text = "Loan Application Review"
 horizontal_alignment = 1
 
-[node name="ApplicantNameLabel" type="Label" parent="Panel/VBox"]
+[node name="ApplicantSection" type="PanelContainer" parent="Panel/VBox"]
 layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="ApplicantVBox" type="VBoxContainer" parent="Panel/VBox/ApplicantSection"]
+layout_mode = 2
+
+[node name="ApplicantNameLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
 text = "Applicant Name"
 horizontal_alignment = 1
+autowrap_mode = 2
 
-[node name="RequestedAmountLabel" type="Label" parent="Panel/VBox"]
+[node name="RequestedAmountLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
 text = "Requested Amount: $0.00"
 horizontal_alignment = 1
+autowrap_mode = 2
 
-[node name="CreditScoreLabel" type="Label" parent="Panel/VBox"]
+[node name="CreditScoreLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
 text = "Credit Score: 0"
 horizontal_alignment = 1
+autowrap_mode = 2
 
-[node name="AnnualIncomeLabel" type="Label" parent="Panel/VBox"]
+[node name="AnnualIncomeLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
 text = "Annual Income: $0.00"
 horizontal_alignment = 1
+autowrap_mode = 2
 
-[node name="ExistingDebtLabel" type="Label" parent="Panel/VBox"]
+[node name="ExistingDebtLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
 text = "Existing Debt: $0.00"
 horizontal_alignment = 1
+autowrap_mode = 2
 
-[node name="LoanPurposeLabel" type="Label" parent="Panel/VBox"]
+[node name="LoanPurposeLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
 text = "Loan Purpose"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="DebtToIncomeLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+visible = false
+text = "Debt-to-Income: 0.0%"
+horizontal_alignment = 1
+
+[node name="LoanToIncomeLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+visible = false
+text = "Loan-to-Income: 0.0%"
 horizontal_alignment = 1
 
 [node name="RunCreditCheckButton" type="Button" parent="Panel/VBox"]
 layout_mode = 2
 text = "Run Credit Check"
-
-[node name="DebtToIncomeLabel" type="Label" parent="Panel/VBox"]
-layout_mode = 2
-visible = false
-text = "Debt-to-Income: 0.0%"
-horizontal_alignment = 1
-
-[node name="LoanToIncomeLabel" type="Label" parent="Panel/VBox"]
-layout_mode = 2
-visible = false
-text = "Loan-to-Income: 0.0%"
-horizontal_alignment = 1
 
 [node name="DecisionHBox" type="HBoxContainer" parent="Panel/VBox"]
 layout_mode = 2
@@ -105,14 +124,17 @@ alignment = 1
 
 [node name="ApproveButton" type="Button" parent="Panel/VBox/DecisionHBox"]
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "Approve"
 
 [node name="RejectButton" type="Button" parent="Panel/VBox/DecisionHBox"]
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "Reject"
 
 [node name="CounterOfferButton" type="Button" parent="Panel/VBox/DecisionHBox"]
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "Counter-Offer"
 
 [node name="CounterOfferHBox" type="HBoxContainer" parent="Panel/VBox"]
@@ -122,13 +144,14 @@ alignment = 1
 
 [node name="CounterOfferAmountSpinBox" type="SpinBox" parent="Panel/VBox/CounterOfferHBox"]
 layout_mode = 2
-min_value = 0.0
+min_value = 100.0
 max_value = 1000000.0
 step = 100.0
 prefix = "$"
 
 [node name="SubmitCounterOfferButton" type="Button" parent="Panel/VBox/CounterOfferHBox"]
 layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "Submit Counter-Offer"
 
 [node name="CancelCounterOfferButton" type="Button" parent="Panel/VBox/CounterOfferHBox"]
@@ -140,6 +163,7 @@ layout_mode = 2
 visible = false
 text = "Decision recorded"
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="CloseButton" type="Button" parent="Panel/VBox"]
 layout_mode = 2

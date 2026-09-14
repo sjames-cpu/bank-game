@@ -1,0 +1,115 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/atm_screen.gd" id="screen_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
+
+[node name="ATMScreen" type="Control"]
+process_mode = 2
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("banking_theme")
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -190.0
+offset_top = -220.0
+offset_right = 190.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "ATM"
+horizontal_alignment = 1
+
+[node name="AccountSection" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="AccountVBox" type="VBoxContainer" parent="Panel/VBox/AccountSection"]
+layout_mode = 2
+
+[node name="AccountOptionButton" type="OptionButton" parent="Panel/VBox/AccountSection/AccountVBox"]
+layout_mode = 2
+
+[node name="AccountLabel" type="Label" parent="Panel/VBox/AccountSection/AccountVBox"]
+layout_mode = 2
+text = "Customer Name"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="BalanceLabel" type="Label" parent="Panel/VBox/AccountSection/AccountVBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Balance: $0.00"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ActionsSection" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="ActionsVBox" type="VBoxContainer" parent="Panel/VBox/ActionsSection"]
+layout_mode = 2
+
+[node name="AmountSpinBox" type="SpinBox" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+min_value = 0.0
+max_value = 999999.0
+step = 0.01
+prefix = "$"
+
+[node name="ErrorLabel" type="Label" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+visible = false
+modulate = Color(1, 0.3, 0.3, 1)
+text = "Insufficient funds."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="DepositButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Deposit"
+
+[node name="WithdrawButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Withdraw"
+
+[node name="CloseButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+text = "Close"

@@ -12,8 +12,6 @@ extends Node
 ## if the game is closed. Persisting across full restarts would mean
 ## saving to a user:// file on change and loading it back in _ready().
 
-signal record_added(record: DecisionRecord)
-
 var records: Array[DecisionRecord] = []
 
 func add_record(role: DecisionRecord.Role, description: String, grade_label: String = "") -> DecisionRecord:
@@ -23,7 +21,6 @@ func add_record(role: DecisionRecord.Role, description: String, grade_label: Str
 	record.grade_label = grade_label
 	record.timestamp = Time.get_datetime_string_from_system()
 	records.append(record)
-	record_added.emit(record)
 	return record
 
 ## Same as add_record(), plus the structured loan context (Phase 5d's

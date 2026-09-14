@@ -159,20 +159,11 @@ func _add_entry_row(record: DecisionRecord) -> void:
 
 	entries_vbox.add_child(HSeparator.new())
 
-func _decision_type_label(decision_type: LoanApplication.DecisionType) -> String:
-	match decision_type:
-		LoanApplication.DecisionType.APPROVE:
-			return "Approve"
-		LoanApplication.DecisionType.REJECT:
-			return "Reject"
-		_:
-			return "Counter-Offer"
-
 func _on_override_button_pressed(record: DecisionRecord) -> void:
 	_selected_record = record
 	main_panel.visible = false
 	override_panel.visible = true
-	override_context_label.text = "Applicant: %s ($%.2f requested)\nOriginal decision: %s" % [record.applicant_name, record.decision_amount, _decision_type_label(record.original_decision_type)]
+	override_context_label.text = "Applicant: %s ($%.2f requested)\nOriginal decision: %s" % [record.applicant_name, record.decision_amount, LoanApplication.decision_type_label(record.original_decision_type)]
 
 func _on_override_cancel_button_pressed() -> void:
 	_selected_record = null
@@ -230,7 +221,7 @@ func _resolve_override(override_decision_type: LoanApplication.DecisionType) -> 
 	var outcome_label := "Justified" if justified else "Unjustified"
 	HistoryManager.add_record(
 		DecisionRecord.Role.BRANCH_MANAGER,
-		"Override on %s's loan: %s → %s (%s)" % [record.applicant_name, _decision_type_label(record.original_decision_type), _decision_type_label(override_decision_type), outcome_label],
+		"Override on %s's loan: %s → %s (%s)" % [record.applicant_name, LoanApplication.decision_type_label(record.original_decision_type), LoanApplication.decision_type_label(override_decision_type), outcome_label],
 		outcome_label,
 	)
 

@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+AccountManager="*res://scripts/autoload/account_manager.gd"
 ScoreManager="*res://scripts/autoload/score_manager.gd"
 ReputationManager="*res://scripts/autoload/reputation_manager.gd"
 XPManager="*res://scripts/autoload/xp_manager.gd"

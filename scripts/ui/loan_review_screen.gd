@@ -24,7 +24,12 @@ class_name LoanReviewScreen
 ## Score/Reputation/XP calls above) lets the shift screen tally a running
 ## shift total without re-deriving it, and closed (emitted from
 ## hide_screen(), same as drawer_count_screen.gd) tells it when to
-## advance to the next application or reveal the shift summary.
+## advance to the next application or reveal the shift summary. closed
+## carries whether the current application was actually decided before
+## closing — the player can hit Close before deciding at all, and without
+## that flag the shift loop would only count decided applications toward
+## APPLICATIONS_PER_SHIFT, letting a skipped application be reopened
+## indefinitely instead of consuming its slot.
 ##
 ## No caller existed yet when this screen was first built, so it still
 ## manages its own pause state the same defensive way drawer_count_screen.gd
@@ -35,15 +40,15 @@ class_name LoanReviewScreen
 ## assuming it's always the one in charge of pausing.
 
 @onready var main_panel: Panel = $Panel
-@onready var applicant_name_label: Label = $Panel/VBox/ApplicantNameLabel
-@onready var requested_amount_label: Label = $Panel/VBox/RequestedAmountLabel
-@onready var credit_score_label: Label = $Panel/VBox/CreditScoreLabel
-@onready var annual_income_label: Label = $Panel/VBox/AnnualIncomeLabel
-@onready var existing_debt_label: Label = $Panel/VBox/ExistingDebtLabel
-@onready var loan_purpose_label: Label = $Panel/VBox/LoanPurposeLabel
+@onready var applicant_name_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/ApplicantNameLabel
+@onready var requested_amount_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/RequestedAmountLabel
+@onready var credit_score_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/CreditScoreLabel
+@onready var annual_income_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/AnnualIncomeLabel
+@onready var existing_debt_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/ExistingDebtLabel
+@onready var loan_purpose_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/LoanPurposeLabel
 @onready var run_credit_check_button: Button = $Panel/VBox/RunCreditCheckButton
-@onready var debt_to_income_label: Label = $Panel/VBox/DebtToIncomeLabel
-@onready var loan_to_income_label: Label = $Panel/VBox/LoanToIncomeLabel
+@onready var debt_to_income_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/DebtToIncomeLabel
+@onready var loan_to_income_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/LoanToIncomeLabel
 @onready var decision_hbox: HBoxContainer = $Panel/VBox/DecisionHBox
 @onready var approve_button: Button = $Panel/VBox/DecisionHBox/ApproveButton
 @onready var reject_button: Button = $Panel/VBox/DecisionHBox/RejectButton
@@ -56,12 +61,18 @@ class_name LoanReviewScreen
 @onready var close_button: Button = $Panel/VBox/CloseButton
 
 signal decision_graded(score_delta: int, reputation_delta: int, xp_delta: int)
-signal closed
+signal closed(was_decided: bool)
 
 var applications: Array[LoanApplication] = []
 var _next_application_index: int = 0
 var _paused_by_self: bool = false
 var _current_application: LoanApplication = null
+
+## Whether _record_decision() has run for _current_application yet — reset
+## each time a new application is displayed, set once a decision is
+## recorded. Read by hide_screen() so closed can tell the shift loop
+## whether this application was decided or skipped.
+var _decision_made_for_current: bool = false
 
 func _ready() -> void:
 	visible = false
@@ -90,7 +101,7 @@ func hide_screen() -> void:
 		get_tree().paused = false
 		_paused_by_self = false
 
-	closed.emit()
+	closed.emit(_decision_made_for_current)
 
 func _display_next_application() -> void:
 	if applications.is_empty():
@@ -99,6 +110,7 @@ func _display_next_application() -> void:
 	var application := applications[_next_application_index]
 	_next_application_index = (_next_application_index + 1) % applications.size()
 	_current_application = application
+	_decision_made_for_current = false
 
 	# Computed here (not shown yet) rather than on-demand later, so it's
 	# available as soon as this applicant is current — see risk_assessment
@@ -167,6 +179,7 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 
 	_current_application.decision = decision_type
 	_current_application.decision_amount = amount
+	_decision_made_for_current = true
 
 	var grade := _current_application.grade_decision()
 	var score := LoanApplication.score_for_grade(grade)
