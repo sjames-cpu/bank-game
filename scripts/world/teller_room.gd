@@ -45,6 +45,14 @@ extends Node2D
 
 const DEBUG_UNLOCK_KEY := KEY_F1
 
+## Phase 6g: Reputation penalty when a queued customer abandons the line
+## (see CustomerQueue.customer_abandoned). Deliberately smaller in magnitude
+## than MAJOR_DISCREPANCY_REPUTATION (-5, teller_screen.gd) since this is a
+## systemic pacing issue rather than a direct error the player made, and
+## smaller than even a dismissive complaint response (-3,
+## customer_complaints_data.gd) for the same reason.
+const ABANDONMENT_REPUTATION_PENALTY: int = -2
+
 @onready var teller_screen: TellerScreen = $UI/TellerScreen
 @onready var loan_officer_desk: Area2D = $LoanOfficerDesk
 @onready var loan_officer_screen: Control = $UI/LoanOfficerScreen
@@ -61,6 +69,7 @@ func _ready() -> void:
 	teller_screen.transaction_completed.connect(_on_teller_transaction_completed)
 	teller_screen.shift_clocked_in.connect(customer_queue.start_shift)
 	teller_screen.shift_clocked_out.connect(customer_queue.end_shift)
+	customer_queue.customer_abandoned.connect(_on_customer_abandoned)
 	loan_officer_desk.interacted.connect(_on_loan_officer_desk_interacted)
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
 	_update_loan_officer_desk_availability()
@@ -98,6 +107,24 @@ func _on_teller_transaction_completed() -> void:
 	customer_queue.serve_front_customer()
 	_customer_being_served = null
 	teller_screen.set_serving_customer(null)
+
+## Fires when CustomerQueue removes a customer whose patience ran out before
+## being served. If they happened to be whoever the desk interaction was
+## about to serve, clear that reference/UI the same way
+## _on_teller_transaction_completed() does — belt-and-suspenders, since the
+## tree being paused whenever the screen is actually open should already
+## prevent a customer mid-visit from reaching that state (see
+## CustomerNPC._process()'s doc comment).
+func _on_customer_abandoned(customer: CustomerNPC) -> void:
+	if _customer_being_served == customer:
+		_customer_being_served = null
+		teller_screen.set_serving_customer(null)
+	ReputationManager.add_reputation(ABANDONMENT_REPUTATION_PENALTY)
+	HistoryManager.add_record(
+		DecisionRecord.Role.TELLER,
+		"Customer abandoned the line: %s" % customer.display_name,
+		"Abandoned"
+	)
 
 ## Guarded against re-entry the same way _on_teller_desk_interacted() is —
 ## see that function's doc comment.

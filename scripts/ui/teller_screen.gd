@@ -15,7 +15,7 @@ class_name TellerScreen
 ## DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD below — rather than
 ## duplicating the point table a second time.
 
-@onready var main_panel: Panel = $Panel
+@onready var main_panel: PanelContainer = $Panel
 @onready var close_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/CloseButton
 @onready var deposit_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/DepositButton
 @onready var withdraw_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/WithdrawButton
@@ -32,7 +32,7 @@ class_name TellerScreen
 @onready var balance_label: Label = $Panel/VBox/AccountSection/AccountVBox/BalanceLabel
 @onready var error_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/ErrorLabel
 
-@onready var complaint_panel: Panel = $ComplaintPanel
+@onready var complaint_panel: PanelContainer = $ComplaintPanel
 @onready var complaint_label: Label = $ComplaintPanel/VBox/ComplaintLabel
 @onready var complaint_responses_container: VBoxContainer = $ComplaintPanel/VBox/ResponsesVBox
 @onready var complaint_later_button: Button = $ComplaintPanel/VBox/LaterButton

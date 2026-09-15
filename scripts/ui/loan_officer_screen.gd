@@ -15,7 +15,7 @@ extends Control
 ## shift total without re-deriving or re-applying anything itself, and its
 ## closed signal is how this screen knows when to advance or wrap up.
 
-@onready var main_panel: Panel = $Panel
+@onready var main_panel: PanelContainer = $Panel
 @onready var progress_label: Label = $Panel/VBox/ProgressLabel
 @onready var review_next_button: Button = $Panel/VBox/ReviewNextButton
 @onready var clock_in_button: Button = $Panel/VBox/ClockInButton

@@ -34,6 +34,13 @@ const COMPLAINT_CHANCE: float = 0.2
 ## has nothing to do with whether they have a complaint.
 const CARD_CHANCE: float = 0.5
 
+## Phase 6g: emitted when a queued customer's patience runs out (see
+## CustomerNPC.patience_expired) and they're removed from the line unserved.
+## teller_room.gd listens for this to apply the Reputation penalty and log
+## the event to HistoryManager — this script only owns the queue mechanics
+## (removing them, advancing everyone else), not the consequence.
+signal customer_abandoned(customer: CustomerNPC)
+
 ## Names aren't guaranteed unique, matching Account.customer_name's own
 ## "customer names aren't guaranteed unique" caveat (see teller_screen.gd) —
 ## real people share names, and nothing here keys off a customer's name.
@@ -111,9 +118,24 @@ func _spawn_customer() -> void:
 	else:
 		customer.dialogue_line = _dialogue_pool.pick_random()
 	customer.payment_method = ShiftTransaction.PaymentMethod.CARD if randf() < CARD_CHANCE else ShiftTransaction.PaymentMethod.CASH
+	customer.patience_expired.connect(_on_customer_patience_expired.bind(customer))
 	queue.append(customer)
 	_advance_queue()
 
 func _advance_queue() -> void:
 	for i in queue.size():
 		queue[i].walk_to(queue_positions[i].global_position)
+
+## Same "pop + advance" shape serve_front_customer() uses, except this can
+## remove a customer from anywhere in the line (whoever's patience ran out
+## first, which in practice is always whoever's been waiting longest, i.e.
+## the front) and emits customer_abandoned instead of just freeing silently,
+## so teller_room.gd can react before the node is gone.
+func _on_customer_patience_expired(customer: CustomerNPC) -> void:
+	var index := queue.find(customer)
+	if index == -1:
+		return
+	queue.remove_at(index)
+	customer_abandoned.emit(customer)
+	customer.queue_free()
+	_advance_queue()

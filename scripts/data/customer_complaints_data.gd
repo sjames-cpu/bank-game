@@ -14,35 +14,35 @@ class_name CustomerComplaintsData
 
 static func get_complaints() -> Array[CustomerComplaint]:
 	return [
-		_complaint("You charged me a fee I wasn't told about, and I want it explained.", [
-			_response("I'm sorry about that — let me walk you through exactly where it came from and see what I can do.", 2),
-			_response("Let me pull up your account and check the fee schedule for you.", 0),
-			_response("That fee is standard, it's listed in your account terms.", -3),
+		_complaint("You charged me a fee nobody told me about, and I want it explained.", [
+			_response("That's frustrating when a fee comes out of nowhere — let me pull up exactly where it came from and see whether we can get it refunded or waived.", 2),
+			_response("Let me pull up your account and go over the fee schedule with you.", 0),
+			_response("That fee's listed in your account terms — it's on you to have read them.", -3),
 		]),
-		_complaint("I've been waiting forever, this is ridiculous.", [
-			_response("I'm sorry for the wait, thank you for your patience — let's get you taken care of right away.", 2),
-			_response("We've been busy today, but I can help you now.", 0),
-			_response("It hasn't been that long. Let's just get this done.", -3),
+		_complaint("I've been waiting forever, this is unacceptable.", [
+			_response("You're right, that's too long to wait — thank you for sticking with it. Let's get you taken care of right now.", 2),
+			_response("I understand. Let's get started so we can wrap this up quickly.", 0),
+			_response("We've been slammed all day, there's only so much I can do.", -3),
 		]),
-		_complaint("Your last teller was rude to me and I almost left.", [
-			_response("I'm really sorry to hear that, that's not how we want you treated — let me make this visit right.", 2),
-			_response("I'll pass that along to a manager. What can I help you with today?", 0),
+		_complaint("Your last teller was rude to me and I almost switched banks over it.", [
+			_response("I'm genuinely sorry that happened — that's not how we want any customer treated. I'll make a note of it so it gets looked into, and let's make sure today goes right.", 2),
+			_response("I'll let a manager know about that. What can I help you with today?", 0),
 			_response("I'm sure it wasn't as bad as you think. What do you need?", -3),
 		]),
-		_complaint("I was told my transfer would clear yesterday and it still hasn't.", [
-			_response("I apologize for the delay — let me look into it right now and give you a clear answer.", 2),
-			_response("Transfers can take a bit longer sometimes. Let me check the status for you.", 0),
-			_response("That's not really something I handle. You'll have to wait it out.", -3),
+		_complaint("My balance doesn't match what I expected — I think something's wrong.", [
+			_response("Let's not assume anything's off on your end — I'll go through your recent transactions with you right now and figure out exactly what happened.", 2),
+			_response("Let me pull up your transaction history and take a look.", 0),
+			_response("Most of the time this just turns out to be a purchase or pending charge the customer forgot about.", -3),
 		]),
-		_complaint("Nobody explained the account's minimum balance requirement before I got charged for it.", [
-			_response("That's on us for not explaining it clearly — let me go over it now and see about reversing the charge.", 2),
-			_response("I can explain the requirement now so it doesn't happen again.", 0),
-			_response("That information is in the account disclosure you signed.", -3),
+		_complaint("This transaction was fraudulent and I need it reversed right now.", [
+			_response("I hear you, and I want to get this fixed — a disputed transaction like this has to go through our fraud team. Let me get you connected with them right now so it doesn't fall through the cracks.", 2),
+			_response("I can flag this for our fraud team to look into.", 0),
+			_response("That's not something I handle here.", -3),
 		]),
-		_complaint("I've called three times this week and nobody has called me back.", [
-			_response("I'm sorry you've had to chase this down — let's solve it here so you don't have to call again.", 2),
-			_response("Let me see what's in our notes and pick up where things left off.", 0),
-			_response("I can't speak to what other people did. What's the issue?", -3),
+		_complaint("I need to close my father's account — he passed away last week and I don't know where to start.", [
+			_response("I'm so sorry for your loss. Let's take this one step at a time — I'll walk you through exactly what we'll need and handle it at whatever pace works for you.", 2),
+			_response("I can help with that. I'll need a death certificate and proof you're the executor to get started.", 0),
+			_response("I just need the paperwork to process this — do you have the death certificate and executor documents with you?", -3),
 		]),
 	]
 

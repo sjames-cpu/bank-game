@@ -39,7 +39,7 @@ class_name LoanReviewScreen
 ## same way teller_screen.gd does, so this stays defensive rather than
 ## assuming it's always the one in charge of pausing.
 
-@onready var main_panel: Panel = $Panel
+@onready var main_panel: PanelContainer = $Panel
 @onready var applicant_name_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/ApplicantNameLabel
 @onready var requested_amount_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/RequestedAmountLabel
 @onready var credit_score_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/CreditScoreLabel

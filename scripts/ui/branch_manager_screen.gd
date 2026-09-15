@@ -34,7 +34,7 @@ extends Control
 ## bring its own menu back, the same way loan_officer_screen.gd reacts to
 ## LoanReviewScreen's decision_graded/closed.
 
-@onready var main_panel: Panel = $Panel
+@onready var main_panel: PanelContainer = $Panel
 @onready var schedule_staff_button: Button = $Panel/VBox/ScheduleStaffButton
 @onready var review_approvals_button: Button = $Panel/VBox/ReviewApprovalsButton
 @onready var vault_reconciliation_button: Button = $Panel/VBox/VaultReconciliationButton
