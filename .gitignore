@@ -4,3 +4,9 @@
 
 # Summer Engine local-only state (SummerGit, caches, locks)
 .summer/local/
+
+# Scratch/working files (drafts, generated previews) - not project source
+/scratch/
+
+# Reference/inspiration images (sprite sheets, layout mockups) - not shipped assets
+/image and reference/

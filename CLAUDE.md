@@ -10,7 +10,7 @@ Treat any architectural description here as provisional — update this file as 
 
 ### Flow
 
-`run/main_scene` is `scenes/ui/interview_screen.tscn` — the interview mini-game is the first thing the player sees. Hired/Hired-on-Probation transitions to `scenes/world/teller_room.tscn` (spawns the player in a small tile room with a `TellerDesk`); Rejected loops back to the first interview question. Interacting with the desk (`ui_accept` or `E`) opens `TellerScreen`, which pauses the tree and drives clock-in → deposits/withdrawals → clock-out → shift summary.
+`run/main_scene` is `scenes/world/teller_room.tscn` (spawns the player in a small tile room with a `TellerDesk`) — the hiring interview (`scenes/ui/interview_screen.tscn`, `InterviewManager`) is disabled as the entry point for now since it's being rebuilt from scratch; its scene/scripts are untouched and still work standalone, just not wired into `run/main_scene`. `is_on_probation` therefore stays at its default `false` for every session until the interview is reconnected. Interacting with the desk (`ui_accept` or `E`) opens `TellerScreen`, which pauses the tree and drives clock-in → deposits/withdrawals → clock-out → shift summary.
 
 ### Autoloads (`scripts/autoload/`)
 

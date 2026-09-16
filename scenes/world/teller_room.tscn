@@ -3,11 +3,24 @@
 [ext_resource type="Script" uid="uid://dgpln0byowq4e" path="res://scripts/world/branch_manager_desk.gd" id="branch_manager_desk_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/branch_manager_screen.tscn" id="branch_manager_screen_scene"]
 [ext_resource type="Script" uid="uid://b7a52pwv5ytyq" path="res://scripts/world/teller_desk.gd" id="desk_script"]
-[ext_resource type="Texture2D" uid="uid://cdmlfou2woyu0" path="res://assets/sprites/teller_desk_placeholder.png" id="desk_tex"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_teller_counter.png" id="tex_teller_counter"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_officer_desk.png" id="tex_officer_desk"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_manager_desk.png" id="tex_manager_desk"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_atm_kiosk.png" id="tex_atm_kiosk"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_vault_door.png" id="tex_vault_door"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_conference_table.png" id="tex_conference_table"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_cabinet.png" id="tex_cabinet"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_couch.png" id="tex_couch"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_plant.png" id="tex_plant"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_wall_clock.png" id="tex_wall_clock"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_bookshelf.png" id="tex_bookshelf"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_printer.png" id="tex_printer"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_whiteboard.png" id="tex_whiteboard"]
+[ext_resource type="Texture2D" path="res://assets/sprites/furniture_water_cooler.png" id="tex_water_cooler"]
 [ext_resource type="Script" uid="uid://d1ivc784diqb0" path="res://scripts/world/loan_officer_desk.gd" id="loan_officer_desk_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/loan_officer_screen.tscn" id="loan_officer_screen_scene"]
 [ext_resource type="Script" uid="uid://bcl2ffh2wp6w1" path="res://scripts/player/player_movement.gd" id="player_script"]
-[ext_resource type="Texture2D" uid="uid://cu10mjrudaouq" path="res://assets/sprites/player_placeholder.png" id="player_tex"]
+[ext_resource type="SpriteFrames" path="res://assets/sprites/player_frames.tres" id="player_frames"]
 [ext_resource type="Script" uid="uid://cnnflhmu66djm" path="res://scripts/world/teller_room.gd" id="room_controller_script"]
 [ext_resource type="Script" uid="uid://i7kwe8a1lg55" path="res://scripts/world/room_builder.gd" id="room_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/teller_screen.tscn" id="teller_screen_scene"]
@@ -24,6 +37,11 @@ texture_region_size = Vector2i(32, 32)
 0:0/0 = 0
 1:0/0 = 0
 1:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
+2:0/0 = 0
+3:0/0 = 0
+3:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
+4:0/0 = 0
+5:0/0 = 0
 
 [sub_resource type="TileSet" id="TileSet_room"]
 tile_size = Vector2i(32, 32)
@@ -53,70 +71,68 @@ tile_set = SubResource("TileSet_room")
 script = ExtResource("room_script")
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=33001983]
-position = Vector2(192, 128)
+position = Vector2(384, 624)
 collision_layer = 2
 script = ExtResource("player_script")
 
-[node name="Sprite2D" type="Sprite2D" parent="Player" unique_id=1699278332]
-texture = ExtResource("player_tex")
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Player" unique_id=1699278332]
+sprite_frames = ExtResource("player_frames")
+animation = &"idle_down"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=300292372]
 shape = SubResource("RectangleShape2D_player")
 
 [node name="Camera2D" type="Camera2D" parent="Player" unique_id=2109249787]
-zoom = Vector2(2, 2)
+zoom = Vector2(1, 1)
 
 [node name="TellerDesk" type="Area2D" parent="." unique_id=1888430049]
-position = Vector2(272, 80)
+position = Vector2(560, 336)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("desk_script")
 
 [node name="Sprite2D" type="Sprite2D" parent="TellerDesk" unique_id=1591985643]
-texture = ExtResource("desk_tex")
+texture = ExtResource("tex_teller_counter")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TellerDesk" unique_id=1229555149]
 shape = SubResource("RectangleShape2D_desk")
 
 [node name="LoanOfficerDesk" type="Area2D" parent="." unique_id=1802316915]
 visible = false
-position = Vector2(272, 176)
+position = Vector2(208, 336)
 collision_layer = 0
 collision_mask = 2
 monitoring = false
 script = ExtResource("loan_officer_desk_script")
 
 [node name="Sprite2D" type="Sprite2D" parent="LoanOfficerDesk" unique_id=1972356128]
-modulate = Color(1, 0.85, 0.4, 1)
-texture = ExtResource("desk_tex")
+texture = ExtResource("tex_officer_desk")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LoanOfficerDesk" unique_id=545710025]
 shape = SubResource("RectangleShape2D_loan_officer_desk")
 
 [node name="BranchManagerDesk" type="Area2D" parent="." unique_id=1847143413]
 visible = false
-position = Vector2(96, 128)
+position = Vector2(304, 112)
 collision_layer = 0
 collision_mask = 2
 monitoring = false
 script = ExtResource("branch_manager_desk_script")
 
 [node name="Sprite2D" type="Sprite2D" parent="BranchManagerDesk" unique_id=1817316968]
-modulate = Color(0.6, 0.75, 1, 1)
-texture = ExtResource("desk_tex")
+texture = ExtResource("tex_manager_desk")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="BranchManagerDesk" unique_id=193677990]
 shape = SubResource("RectangleShape2D_branch_manager_desk")
 
 [node name="ATM" type="Area2D" parent="."]
-position = Vector2(48, 48)
+position = Vector2(656, 560)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("atm_script")
 
 [node name="Sprite2D" type="Sprite2D" parent="ATM"]
-modulate = Color(0.4, 0.9, 0.55, 1)
-texture = ExtResource("desk_tex")
+texture = ExtResource("tex_atm_kiosk")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ATM"]
 shape = SubResource("RectangleShape2D_atm")
@@ -126,21 +142,107 @@ script = ExtResource("customer_queue_script")
 customer_scene = ExtResource("customer_npc_scene")
 
 [node name="SpawnPoint" type="Marker2D" parent="CustomerQueue"]
-position = Vector2(216, 200)
+position = Vector2(560, 528)
 
 [node name="QueuePositions" type="Node2D" parent="CustomerQueue"]
 
 [node name="QueuePoint1" type="Marker2D" parent="CustomerQueue/QueuePositions"]
-position = Vector2(216, 112)
+position = Vector2(560, 400)
 
 [node name="QueuePoint2" type="Marker2D" parent="CustomerQueue/QueuePositions"]
-position = Vector2(216, 144)
+position = Vector2(560, 432)
 
 [node name="QueuePoint3" type="Marker2D" parent="CustomerQueue/QueuePositions"]
-position = Vector2(216, 176)
+position = Vector2(560, 464)
 
 [node name="SpawnTimer" type="Timer" parent="CustomerQueue"]
 wait_time = 20.0
+
+[node name="Decor" type="Node2D" parent="."]
+
+[node name="VaultDoor" type="Sprite2D" parent="Decor"]
+position = Vector2(112, 112)
+texture = ExtResource("tex_vault_door")
+
+[node name="ConferenceTable" type="Sprite2D" parent="Decor"]
+position = Vector2(528, 112)
+texture = ExtResource("tex_conference_table")
+
+[node name="AccountingCabinet1" type="Sprite2D" parent="Decor"]
+position = Vector2(688, 80)
+texture = ExtResource("tex_cabinet")
+
+[node name="AccountingCabinet2" type="Sprite2D" parent="Decor"]
+position = Vector2(688, 144)
+texture = ExtResource("tex_cabinet")
+
+[node name="MarketingDeskA" type="Sprite2D" parent="Decor"]
+position = Vector2(112, 336)
+texture = ExtResource("tex_officer_desk")
+
+[node name="MarketingDeskB" type="Sprite2D" parent="Decor"]
+position = Vector2(304, 336)
+texture = ExtResource("tex_officer_desk")
+
+[node name="TellerCounterA" type="Sprite2D" parent="Decor"]
+position = Vector2(464, 336)
+texture = ExtResource("tex_teller_counter")
+
+[node name="TellerCounterB" type="Sprite2D" parent="Decor"]
+position = Vector2(656, 336)
+texture = ExtResource("tex_teller_counter")
+
+[node name="Couch1" type="Sprite2D" parent="Decor"]
+position = Vector2(160, 528)
+texture = ExtResource("tex_couch")
+
+[node name="Couch2" type="Sprite2D" parent="Decor"]
+position = Vector2(280, 528)
+texture = ExtResource("tex_couch")
+
+[node name="Couch3" type="Sprite2D" parent="Decor"]
+position = Vector2(160, 592)
+texture = ExtResource("tex_couch")
+
+[node name="Couch4" type="Sprite2D" parent="Decor"]
+position = Vector2(280, 592)
+texture = ExtResource("tex_couch")
+
+[node name="ArchiveBookshelf" type="Sprite2D" parent="Decor"]
+position = Vector2(152, 170)
+texture = ExtResource("tex_bookshelf")
+
+[node name="ManagerPlant" type="Sprite2D" parent="Decor"]
+position = Vector2(244, 180)
+texture = ExtResource("tex_plant")
+
+[node name="ConferenceClock" type="Sprite2D" parent="Decor"]
+position = Vector2(566, 48)
+texture = ExtResource("tex_wall_clock")
+
+[node name="ConferenceWhiteboard" type="Sprite2D" parent="Decor"]
+position = Vector2(490, 48)
+texture = ExtResource("tex_whiteboard")
+
+[node name="BullpenWhiteboard" type="Sprite2D" parent="Decor"]
+position = Vector2(52, 290)
+texture = ExtResource("tex_whiteboard")
+
+[node name="WaitingLoungeWaterCooler" type="Sprite2D" parent="Decor"]
+position = Vector2(220, 560)
+texture = ExtResource("tex_water_cooler")
+
+[node name="AccountingPrinter" type="Sprite2D" parent="Decor"]
+position = Vector2(688, 195)
+texture = ExtResource("tex_printer")
+
+[node name="LoungePlantLeft" type="Sprite2D" parent="Decor"]
+position = Vector2(100, 560)
+texture = ExtResource("tex_plant")
+
+[node name="LoungePlantRight" type="Sprite2D" parent="Decor"]
+position = Vector2(340, 560)
+texture = ExtResource("tex_plant")
 
 [node name="DayNightCycle" type="CanvasModulate" parent="."]
 script = ExtResource("day_night_cycle_script")
