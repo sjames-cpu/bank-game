@@ -64,9 +64,17 @@ const ABANDONMENT_REPUTATION_PENALTY: int = -2
 
 var _customer_being_served: CustomerNPC = null
 
+## Phase 6i: whoever _on_teller_transaction_completed() just served, held
+## here until the Teller screen actually closes (see
+## _on_teller_screen_closed()) so their farewell + walk-away plays at the
+## right moment instead of the instant the transaction completes. Null
+## whenever this visit hasn't served anyone (yet).
+var _customer_awaiting_farewell: CustomerNPC = null
+
 func _ready() -> void:
 	$TellerDesk.interacted.connect(_on_teller_desk_interacted)
 	teller_screen.transaction_completed.connect(_on_teller_transaction_completed)
+	teller_screen.screen_closed.connect(_on_teller_screen_closed)
 	teller_screen.shift_clocked_in.connect(customer_queue.start_shift)
 	teller_screen.shift_clocked_out.connect(customer_queue.end_shift)
 	customer_queue.customer_abandoned.connect(_on_customer_abandoned)
@@ -98,15 +106,31 @@ func _on_teller_desk_interacted() -> void:
 
 ## Fires once a deposit or withdrawal actually succeeds. If someone was at
 ## the front of the line when the screen opened, that transaction counts as
-## serving them: pop them from the queue (advancing the rest of the line)
-## and clear the reference so a second transaction in the same visit doesn't
-## try to serve whoever stepped up next. No customer waiting is a no-op.
+## serving them: pop them from the queue (advancing the rest of the line
+## immediately, for everyone still waiting) and clear the reference so a
+## second transaction in the same visit doesn't try to serve whoever
+## stepped up next. No customer waiting is a no-op.
+##
+## Phase 6i: the served customer's node isn't freed here — it's kept in
+## _customer_awaiting_farewell until the screen closes (see
+## _on_teller_screen_closed()), so they visibly stick around at the desk
+## for the rest of this visit rather than vanishing mid-transaction.
 func _on_teller_transaction_completed() -> void:
 	if _customer_being_served == null:
 		return
-	customer_queue.serve_front_customer()
+	_customer_awaiting_farewell = customer_queue.serve_front_customer()
 	_customer_being_served = null
 	teller_screen.set_serving_customer(null)
+
+## Phase 6i: fires whenever the player closes the Teller screen. If this
+## visit served a customer, they've been waiting here (already out of the
+## queue itself, so it kept advancing normally for everyone else) for the
+## screen to close before their farewell + walk-away plays.
+func _on_teller_screen_closed() -> void:
+	if _customer_awaiting_farewell == null:
+		return
+	customer_queue.send_customer_off(_customer_awaiting_farewell)
+	_customer_awaiting_farewell = null
 
 ## Fires when CustomerQueue removes a customer whose patience ran out before
 ## being served. If they happened to be whoever the desk interaction was

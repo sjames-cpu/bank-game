@@ -51,7 +51,7 @@ extends Control
 @onready var corner_reputation_label: Label = $ScoreHudPanel/VBox/ReputationLabel
 @onready var corner_xp_label: Label = $ScoreHudPanel/VBox/XPLabel
 
-@onready var shift_summary_panel: Panel = $ShiftSummaryPanel
+@onready var shift_summary_panel: PanelContainer = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
 @onready var shift_end_time_label: Label = $ShiftSummaryPanel/VBox/EndTimeLabel
 @onready var shift_actions_completed_label: Label = $ShiftSummaryPanel/VBox/ActionsCompletedLabel

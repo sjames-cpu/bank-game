@@ -129,7 +129,7 @@ layout_mode = 2
 horizontal_alignment = 2
 text = "XP: 0"
 
-[node name="ShiftSummaryPanel" type="Panel" parent="."]
+[node name="ShiftSummaryPanel" type="PanelContainer" parent="."]
 layout_mode = 1
 visible = false
 anchor_left = 0.5
@@ -137,24 +137,12 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -160.0
-offset_top = -200.0
 offset_right = 160.0
-offset_bottom = 200.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="ShiftSummaryPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = 16.0
-offset_right = -16.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 2
-alignment = 1
+layout_mode = 2
 
 [node name="TitleLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2

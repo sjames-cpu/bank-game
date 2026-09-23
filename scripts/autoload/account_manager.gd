@@ -31,6 +31,20 @@ func _ready() -> void:
 func get_accounts() -> Array[Account]:
 	return accounts
 
+## Phase 6j: same list as get_accounts(), minus anything flagged
+## is_customer_account — for UI that lets the player browse/pick an
+## account (currently just the Teller screen's dropdown when no customer
+## is being served) without it accumulating every auto-created customer
+## account over a play session. Accounts created for queue customers still
+## live in `accounts` and still work normally (see Account.
+## is_customer_account) — this is purely a filtered view for that one UI.
+func get_browsable_accounts() -> Array[Account]:
+	var browsable: Array[Account] = []
+	for existing_account in accounts:
+		if not existing_account.is_customer_account:
+			browsable.append(existing_account)
+	return browsable
+
 func create_account(customer_name: String, starting_balance: float = 0.0) -> Account:
 	var new_account := Account.new()
 	new_account.customer_name = customer_name

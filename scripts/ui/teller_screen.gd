@@ -53,7 +53,7 @@ class_name TellerScreen
 @onready var loan_officer_unlocked_label: Label = $LoanOfficerUnlockedLabel
 @onready var branch_manager_unlocked_label: Label = $BranchManagerUnlockedLabel
 
-@onready var shift_summary_panel: Panel = $ShiftSummaryPanel
+@onready var shift_summary_panel: PanelContainer = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
 @onready var shift_end_time_label: Label = $ShiftSummaryPanel/VBox/EndTimeLabel
 @onready var shift_total_transactions_label: Label = $ShiftSummaryPanel/VBox/TotalTransactionsLabel
@@ -76,6 +76,13 @@ signal shift_clocked_out
 ## checking a balance or clocking in/out doesn't silently remove a waiting
 ## customer.
 signal transaction_completed
+
+## Phase 6i: emitted whenever the player closes this screen (currently only
+## via the Close button — see hide_screen()). teller_room.gd listens for
+## this to trigger a served customer's farewell + walk-away sequence at the
+## right moment: after their transaction (transaction_completed, above) but
+## not until the player actually leaves the desk.
+signal screen_closed
 
 ## The account currently selected in account_option_button. Account data
 ## itself lives in AccountManager (shared with the ATM) — see
@@ -226,6 +233,13 @@ func show_screen(serving_customer: CustomerNPC = null) -> void:
 ## still naming/quoting someone who already left. The dialogue line was
 ## assigned once, at spawn (see CustomerQueue._spawn_customer()) — this just
 ## displays whatever the customer was already carrying, it never rerolls it.
+##
+## Phase 6h: also switches the selected account to this customer's own one
+## (set at spawn, see CustomerQueue._get_or_create_customer_account()) so
+## the dropdown/balance shown while serving them is theirs, not whatever
+## account happened to be selected before — show_screen() calls
+## _refresh_account_list()/_refresh_display() right after this, which is
+## what actually reflects the switch in the UI.
 func set_serving_customer(customer: CustomerNPC) -> void:
 	_serving_customer = customer
 	if customer != null:
@@ -235,6 +249,8 @@ func set_serving_customer(customer: CustomerNPC) -> void:
 		customer_dialogue_panel.visible = customer.dialogue_line != null
 		if customer.dialogue_line != null:
 			customer_dialogue_label.text = "\"%s\"" % customer.dialogue_line.text
+		if customer.account != null:
+			account = customer.account
 	else:
 		serving_status_label.text = "No customer waiting."
 		payment_method_label.visible = false
@@ -248,6 +264,7 @@ func _payment_method_display_name(payment_method: ShiftTransaction.PaymentMethod
 func hide_screen() -> void:
 	visible = false
 	get_tree().paused = false
+	screen_closed.emit()
 
 func _on_close_button_pressed() -> void:
 	hide_screen()
@@ -406,15 +423,29 @@ func _on_create_account_button_pressed() -> void:
 	_refresh_account_list()
 	_refresh_display()
 
+## Phase 6j: lists AccountManager.get_browsable_accounts() rather than
+## get_accounts() — the demo account plus anything opened via "Open New
+## Account," not every auto-created Teller queue customer account (see
+## Account.is_customer_account) — so this dropdown stays a short, stable
+## list instead of growing with every customer served over a session.
+## _browsable_accounts is cached so _on_account_option_selected() below
+## indexes into the exact same list this just populated the dropdown
+## from. While a customer is being served, `account` is their own
+## (non-browsable) account — select() below then finds no match (-1),
+## which just leaves the dropdown showing no selection; the served
+## customer's name/balance are still shown correctly via _refresh_display(),
+## driven by `account` directly rather than by dropdown selection.
+var _browsable_accounts: Array[Account] = []
+
 func _refresh_account_list() -> void:
-	var accounts := AccountManager.get_accounts()
+	_browsable_accounts = AccountManager.get_browsable_accounts()
 	account_option_button.clear()
-	for i in accounts.size():
-		account_option_button.add_item(accounts[i].customer_name, i)
-	account_option_button.select(accounts.find(account))
+	for i in _browsable_accounts.size():
+		account_option_button.add_item(_browsable_accounts[i].customer_name, i)
+	account_option_button.select(_browsable_accounts.find(account))
 
 func _on_account_option_selected(index: int) -> void:
-	account = AccountManager.get_accounts()[index]
+	account = _browsable_accounts[index]
 	_refresh_display()
 
 func _update_shift_controls() -> void:
