@@ -2,15 +2,17 @@
 
 Living record of what's been built, session by session. Update this alongside `CLAUDE.md` as new work lands; `CLAUDE.md` describes current architecture, this file describes how it got there.
 
-## Where things stand (as of 2026-09-15)
+## Where things stand (as of 2026-09-16)
 
-BankSim has grown from a single teller-desk vertical slice into a multi-role bank simulation:
+BankSim has grown from a single teller-desk vertical slice into a multi-role bank simulation with a proper branch floor plan and a real visual identity:
 
 - **Roles/desks**: Teller (deposits/withdrawals, complaints), Loan Officer (credit checks, application grading), Branch Manager (staff scheduling, approvals, vault reconciliation), plus a standalone ATM.
+- **World layout**: a full branch floor plan — a back-office row (Vault, Manager's Office, Conference Room, Accounting) plus one open floor (Marketing/Loan bullpen, Teller Area, Waiting Lounge) — built procedurally in `room_builder.gd`.
+- **Visual identity**: a modern-office palette (grey-blue open floor, brick-and-wood back offices, cream desks with monitors) with ambient props (plants, wall clock, archive bookshelf, printer, whiteboards, water cooler), and a 4-direction idle/walk animation for the player.
 - **World systems**: a customer queue with NPCs that walk in, wait, and can abandon the line; a day/night cycle.
 - **Shared data layer**: `AccountManager` autoload so Teller and ATM operate on the same account records.
 - **Progression**: `ScoreManager`, `ReputationManager`, `XPManager`, `HistoryManager` (decision/event log), `ScheduleManager`.
-- **Content**: a rewritten 9-question hiring interview and a set of realistic customer complaint scenarios.
+- **Content**: a set of realistic customer complaint scenarios. The hiring interview content exists (`InterviewQuestionsData`) but is disabled as the entry point — see Session 4.
 - **Polish**: a shared `banking_theme.tres` across all screens, panel-overflow fixes, and a round of exploit-hardening.
 
 ---
@@ -50,11 +52,21 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Queue abandonment mechanic** — each waiting customer now has a patience timer with a visual tint as it runs down; if it expires the customer abandons the line, taking a Reputation penalty and logging an entry via `HistoryManager`.
 - **UI fix** — Complaint panel and 7 task-layer screens were overflowing content above/below their visible border; fixed by converting their main `Panel` to an auto-sizing `PanelContainer`.
 
+## Session 4 — Sep 16, 2026: Player animation, full branch layout, modern-office redesign
+*(commit `039762e`)*
+
+- **Player animation** — the player is now an `AnimatedSprite2D` with idle/walk loops for down/up/side facing (side mirrors for left via `flip_h`), driven by a facing-state tracker in `player_movement.gd` that only restarts the animation when the resolved state actually changes (no restart-jitter) and scales walk speed to actual movement speed.
+- **Full branch floor plan** — `teller_room`'s single small placeholder room is replaced with a proper multi-zone layout built procedurally in `room_builder.gd`: a back-office row (Vault / Manager's Office / Conference Room / Accounting), each with one door gap, walled off from one open floor (Marketing+Loan bullpen, Teller Area, Waiting Lounge near the entrance). Every desk, the ATM, and the customer queue moved to match. `Camera2D` zoom dropped from 2x to 1x, which had been magnifying everything more than intended.
+- **Visual redesign** — went through two full palette passes (a navy/gold "traditional bank" look, then a muted retro-tile look) before landing on a modern-office identity matching a floor-plan reference image: grey-blue open floor and light walls in the bullpen, brick walls and wood floors in the back offices, cream desks with blue-screened monitors and black rolling chairs. Added ambient props the reference suggested: potted plants, a wall clock, an archive bookshelf, a printer, wall-mounted whiteboards, and a water cooler. Every piece kept its original footprint/position from the layout pass, so only the artwork changed.
+- **Interview disabled as the entry point** — `run/main_scene` now boots straight into `teller_room` instead of the hiring interview, since the interview is being rebuilt from scratch. `InterviewManager`/`interview_screen` are untouched and still work standalone; `is_on_probation` stays at its default `false` until it's reconnected.
+- **Tooling**: added three Godot-specialist subagents (`godot-specialist`, `godot-gdscript-specialist`, `godot-shader-specialist`) to `.claude/agents/`, cherry-picked from the open-source Claude-Code-Game-Studios framework for architecture/code-quality/shader consults going forward.
+
 ---
 
 ## Notes for next session
 
 - No `.csproj`/`.sln` yet — everything is still GDScript despite the project being configured for .NET.
 - No persistence: `AccountManager`, `ScoreManager`, `ReputationManager`, `HistoryManager`, etc. are all in-memory only, reset on relaunch.
-- `is_on_probation` (from `InterviewManager`) is tracked but not yet used by gameplay.
+- The hiring interview needs to be rebuilt from scratch and reconnected as (or after) the entry point; `is_on_probation` is unused until then.
+- The redesigned office reads sparser than the reference it's modeled on — same furniture count as before, just reskinned. Worth revisiting if it should be denser.
 - No automated tests/CI — verification is manual, via the Godot editor's Play/Run.
