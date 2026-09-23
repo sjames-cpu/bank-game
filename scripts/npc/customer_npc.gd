@@ -107,6 +107,17 @@ const FAREWELL_LINES: Array[String] = [
 
 const FAREWELL_DISPLAY_SECONDS: float = 1.5
 
+## Quick-designed visual variety (see scratch/gen_customer_sprites.py for
+## how these were drawn): each spawned customer gets one of these three
+## looks at random in _ready(), same as the .tscn's default (customer_a)
+## would otherwise always be. Preloaded once as a class-level const rather
+## than re-loaded per instance.
+const CUSTOMER_FRAME_SETS: Array[SpriteFrames] = [
+	preload("res://assets/sprites/customer_a_frames.tres"),
+	preload("res://assets/sprites/customer_b_frames.tres"),
+	preload("res://assets/sprites/customer_c_frames.tres"),
+]
+
 var target_position: Vector2
 var _walking: bool = false
 
@@ -114,12 +125,19 @@ var _walking: bool = false
 ## triggered twice on the same customer.
 var _leaving: bool = false
 
-@onready var _sprite: Sprite2D = $Sprite2D
+@onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var _farewell_label: Label = $FarewellLabel
 var _base_modulate: Color
 
+## Mirrors player_movement.gd's own _facing/_facing_flip — side-facing
+## reuses one mirrored animation via flip_h rather than separate left/right
+## art, same reasoning as there.
+var _facing: String = "down"
+var _facing_flip: bool = false
+
 func _ready() -> void:
 	target_position = global_position
+	_sprite.sprite_frames = CUSTOMER_FRAME_SETS.pick_random()
 	_base_modulate = _sprite.modulate
 
 ## Starts walking toward new_target; arrived fires once it gets there.
@@ -152,6 +170,7 @@ func say_farewell_and_leave(exit_position: Vector2) -> void:
 
 func _physics_process(_delta: float) -> void:
 	if not _walking:
+		_update_animation(false)
 		return
 
 	var to_target := target_position - global_position
@@ -159,11 +178,35 @@ func _physics_process(_delta: float) -> void:
 		global_position = target_position
 		velocity = Vector2.ZERO
 		_walking = false
+		_update_animation(false)
 		arrived.emit()
 		return
 
 	velocity = to_target.normalized() * speed
 	move_and_slide()
+	_update_facing(velocity)
+	_update_animation(true)
+
+func _update_facing(direction: Vector2) -> void:
+	if direction == Vector2.ZERO:
+		return # keep facing the last direction walked while idle
+
+	if absf(direction.x) > absf(direction.y):
+		_facing = "side"
+		_facing_flip = direction.x < 0.0
+	else:
+		_facing = "down" if direction.y > 0.0 else "up"
+
+func _update_animation(is_moving: bool) -> void:
+	var anim_name := ("walk_" if is_moving else "idle_") + _facing
+
+	_sprite.flip_h = _facing_flip
+
+	# Only (re)start the animation when the resolved state actually
+	# changes, same guard player_movement.gd uses, so switching e.g.
+	# walk_down -> idle_down doesn't restart the loop mid-frame.
+	if _sprite.animation != anim_name:
+		_sprite.play(anim_name)
 
 ## No explicit process_mode override, so this inherits PROCESS_MODE_INHERIT
 ## like everything else in the room (CustomerQueue's SpawnTimer included) —
