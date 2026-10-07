@@ -48,6 +48,19 @@ var is_loan_officer_unlocked: bool = false
 ## Same "never cleared once earned" rule as is_loan_officer_unlocked above.
 var is_branch_manager_unlocked: bool = false
 
+## Both unlocks need XP *and* Reputation, so the checks also run on
+## reputation changes — otherwise reputation crossing its floor after XP
+## already did would wait until the next XP event to unlock. Each check's
+## is_*_unlocked early-return keeps its unlock signal firing only once.
+## ReputationManager is registered before XPManager in project.godot's
+## [autoload] list, so it's already ready here.
+func _ready() -> void:
+	ReputationManager.reputation_changed.connect(_on_reputation_changed)
+
+func _on_reputation_changed(_new_reputation: int) -> void:
+	_check_unlock()
+	_check_branch_manager_unlock()
+
 func add_shift_xp(shift_score: int) -> void:
 	total_xp = maxi(0, total_xp + shift_score * XP_PER_SCORE_POINT)
 	xp_changed.emit(total_xp)

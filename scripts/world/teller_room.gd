@@ -77,6 +77,7 @@ func _ready() -> void:
 	teller_screen.screen_closed.connect(_on_teller_screen_closed)
 	teller_screen.shift_clocked_in.connect(customer_queue.start_shift)
 	teller_screen.shift_clocked_out.connect(customer_queue.end_shift)
+	teller_screen.shift_clocked_out.connect(_on_teller_shift_clocked_out)
 	customer_queue.customer_abandoned.connect(_on_customer_abandoned)
 	loan_officer_desk.interacted.connect(_on_loan_officer_desk_interacted)
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
@@ -131,6 +132,13 @@ func _on_teller_screen_closed() -> void:
 		return
 	customer_queue.send_customer_off(_customer_awaiting_farewell)
 	_customer_awaiting_farewell = null
+
+## Clock-out frees every queued customer (CustomerQueue.end_shift()), so
+## whoever this visit was about to serve no longer exists — clear the
+## reference and the "Serving: X" UI rather than leaving them stale.
+func _on_teller_shift_clocked_out() -> void:
+	_customer_being_served = null
+	teller_screen.set_serving_customer(null)
 
 ## Fires when CustomerQueue removes a customer whose patience ran out before
 ## being served. If they happened to be whoever the desk interaction was
@@ -195,7 +203,12 @@ func _on_atm_interacted() -> void:
 ## XPManager's unlock check (triggered by the XP change right after) reads
 ## ReputationManager.reputation — both thresholds clear in one keypress
 ## regardless of current progress.
+##
+## Gated on OS.is_debug_build() so it works when running from the editor
+## (or a debug export) but never in an exported release build.
 func _unhandled_input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
 	var key_event := event as InputEventKey
 	if key_event != null and key_event.pressed and not key_event.echo and key_event.keycode == DEBUG_UNLOCK_KEY:
 		ReputationManager.add_reputation(100)

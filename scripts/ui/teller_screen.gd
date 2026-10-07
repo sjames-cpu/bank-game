@@ -333,7 +333,7 @@ func _on_card_decline_cooldown_finished() -> void:
 ## doc comment). No customer waiting defaults to Cash, matching the
 ## pre-6e behavior for every transaction.
 func _current_payment_method() -> ShiftTransaction.PaymentMethod:
-	if _serving_customer != null:
+	if is_instance_valid(_serving_customer):
 		return _serving_customer.payment_method
 	return ShiftTransaction.PaymentMethod.CASH
 
@@ -629,7 +629,20 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	shift_state = ShiftState.CLOCKED_OUT
 	awaiting_summary_reveal = true
 	_update_shift_controls()
+	_reset_account_selection()
 	shift_clocked_out.emit()
+
+## Clock-out ends any service (teller_room.gd clears the serving customer
+## off shift_clocked_out), so don't leave `account` pointing at the last
+## served customer's own account — fall back to the first browsable
+## account, the same default _ready() starts from. `account` is never left
+## null since _refresh_display()/deposit/withdraw all read it directly.
+func _reset_account_selection() -> void:
+	if account != null and not account.is_customer_account:
+		return
+	account = AccountManager.get_browsable_accounts()[0]
+	_refresh_account_list()
+	_refresh_display()
 
 func _on_shift_summary_done_pressed() -> void:
 	_show_main_panel()
