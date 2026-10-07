@@ -46,19 +46,11 @@ extends Control
 ## for themselves when a shift is "done."
 const APPLICATIONS_PER_SHIFT: int = 3
 
-## Same anti-instant-shift guard as TellerScreen.MIN_SHIFT_DURATION_SECONDS
-## (see that constant's doc comment) — this screen has the same clock-in/
-## clock-out shape with no other minimum, so an instant clock-in/out was
-## just as free a (zero-)score cycle here. Kept as the same value for
-## consistency; tune independently after playtesting if warranted.
-const MIN_SHIFT_DURATION_SECONDS: float = 45.0
-
 enum ShiftState { CLOCKED_OUT, CLOCKED_IN }
 
 var shift_state: ShiftState = ShiftState.CLOCKED_OUT
 
 var shift_start_time: String = ""
-var _shift_start_ticks_msec: int = 0
 var applications_reviewed: int = 0
 var shift_score_total: int = 0
 var shift_reputation_total: int = 0
@@ -104,7 +96,6 @@ func _on_clock_in_button_pressed() -> void:
 func _begin_shift() -> void:
 	shift_state = ShiftState.CLOCKED_IN
 	shift_start_time = Time.get_datetime_string_from_system()
-	_shift_start_ticks_msec = Time.get_ticks_msec()
 	applications_reviewed = 0
 	shift_score_total = 0
 	shift_reputation_total = 0
@@ -138,14 +129,13 @@ func _on_loan_review_screen_closed(was_decided: bool) -> void:
 		_update_shift_controls()
 	_show_main_panel()
 
-## Ends the shift whenever the player chooses to clock out — usually after
-## reviewing all APPLICATIONS_PER_SHIFT (review_next_button disables itself
-## once that count is hit, see _update_shift_controls), but nothing stops
-## clocking out earlier with a partial shift's worth of tallies.
+## Gated on work, not time: the shift only ends once all
+## APPLICATIONS_PER_SHIFT have been reviewed (the old 45-second wall-clock
+## minimum could just be waited out inside this paused screen).
 func _on_clock_out_button_pressed() -> void:
-	var elapsed_seconds := (Time.get_ticks_msec() - _shift_start_ticks_msec) / 1000.0
-	if elapsed_seconds < MIN_SHIFT_DURATION_SECONDS:
-		error_label.text = "Shift just started — come back later."
+	var remaining := APPLICATIONS_PER_SHIFT - applications_reviewed
+	if remaining > 0:
+		error_label.text = "Can't clock out yet — %d application%s still to review." % [remaining, "" if remaining == 1 else "s"]
 		error_label.visible = true
 		return
 	error_label.visible = false

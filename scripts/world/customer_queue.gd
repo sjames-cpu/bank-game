@@ -109,6 +109,13 @@ func end_shift() -> void:
 		customer.queue_free()
 	queue.clear()
 
+## How many more customers this shift will still spawn before
+## CUSTOMERS_PER_SHIFT_CAP is reached — teller_room.gd uses this (with the
+## current queue size) to decide whether every customer this shift has been
+## handled before allowing clock-out.
+func get_customers_left_to_spawn() -> int:
+	return maxi(0, CUSTOMERS_PER_SHIFT_CAP - _customers_spawned_this_shift)
+
 func get_front_customer() -> CustomerNPC:
 	if queue.is_empty():
 		return null

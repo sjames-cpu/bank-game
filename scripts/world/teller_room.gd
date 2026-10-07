@@ -32,11 +32,11 @@ extends Node2D
 ## remembers which customer was at the front of the line when the screen
 ## opened (passed to show_screen() so it can display "Serving: X"). That
 ## customer is only actually popped from the queue once TellerScreen reports
-## a completed deposit/withdrawal for them (transaction_completed) — not
+## a completed deposit/withdrawal for them (transaction_completed), or, for
+## a complaint customer, a resolved complaint (complaint_resolved) — not
 ## just whenever the screen is closed, since closing without doing anything
 ## (checking a balance, clocking in/out) shouldn't silently drop them from
-## the line. See _on_teller_desk_interacted and
-## _on_teller_transaction_completed.
+## the line. See _on_teller_desk_interacted and _serve_current_customer.
 ##
 ## Phase 6f adds the ATM: unlike the three job desks above, it has no
 ## availability gating at all — see _on_atm_interacted() — since it's a
@@ -64,17 +64,20 @@ const ABANDONMENT_REPUTATION_PENALTY: int = -2
 
 var _customer_being_served: CustomerNPC = null
 
-## Phase 6i: whoever _on_teller_transaction_completed() just served, held
-## here until the Teller screen actually closes (see
-## _on_teller_screen_closed()) so their farewell + walk-away plays at the
-## right moment instead of the instant the transaction completes. Null
-## whenever this visit hasn't served anyone (yet).
-var _customer_awaiting_farewell: CustomerNPC = null
+## Phase 6i: everyone this visit has served, held here until the Teller
+## screen actually closes (see _on_teller_screen_closed()) so their
+## farewell + walk-away plays at the right moment instead of the instant
+## they're served. A list rather than a single slot since the screen now
+## moves straight on to the next customer mid-visit (see
+## _serve_current_customer()), so one visit can serve several people.
+var _customers_awaiting_farewell: Array[CustomerNPC] = []
 
 func _ready() -> void:
 	$TellerDesk.interacted.connect(_on_teller_desk_interacted)
 	teller_screen.transaction_completed.connect(_on_teller_transaction_completed)
 	teller_screen.screen_closed.connect(_on_teller_screen_closed)
+	teller_screen.complaint_resolved.connect(_on_teller_complaint_resolved)
+	teller_screen.remaining_shift_work = _describe_remaining_shift_work
 	teller_screen.shift_clocked_in.connect(customer_queue.start_shift)
 	teller_screen.shift_clocked_out.connect(customer_queue.end_shift)
 	teller_screen.shift_clocked_out.connect(_on_teller_shift_clocked_out)
@@ -105,33 +108,64 @@ func _on_teller_desk_interacted() -> void:
 	_customer_being_served = customer_queue.get_front_customer()
 	teller_screen.show_screen(_customer_being_served)
 
-## Fires once a deposit or withdrawal actually succeeds. If someone was at
-## the front of the line when the screen opened, that transaction counts as
-## serving them: pop them from the queue (advancing the rest of the line
-## immediately, for everyone still waiting) and clear the reference so a
-## second transaction in the same visit doesn't try to serve whoever
-## stepped up next. No customer waiting is a no-op.
+## Fires once a deposit or withdrawal actually succeeds. If a regular
+## customer is being served, that transaction is theirs (TellerScreen has
+## already graded it against their request) — serve them and move on to
+## whoever's next. No customer waiting is a no-op. A complaint customer
+## isn't served by a transaction (they have no request); they're handled
+## by resolving the complaint instead — see _on_teller_complaint_resolved().
+func _on_teller_transaction_completed() -> void:
+	if _customer_being_served == null or _customer_being_served.complaint != null:
+		return
+	_serve_current_customer()
+
+## Resolving a complaint is how a complaint customer gets served.
+func _on_teller_complaint_resolved(customer: CustomerNPC) -> void:
+	if customer != _customer_being_served:
+		return
+	_serve_current_customer()
+
+## Pops the front customer (advancing the rest of the line immediately),
+## then moves the screen straight on to whoever's next instead of leaving
+## it on "No customer waiting." while people are still in line.
 ##
 ## Phase 6i: the served customer's node isn't freed here — it's kept in
-## _customer_awaiting_farewell until the screen closes (see
+## _customers_awaiting_farewell until the screen closes (see
 ## _on_teller_screen_closed()), so they visibly stick around at the desk
 ## for the rest of this visit rather than vanishing mid-transaction.
-func _on_teller_transaction_completed() -> void:
-	if _customer_being_served == null:
-		return
-	_customer_awaiting_farewell = customer_queue.serve_front_customer()
-	_customer_being_served = null
-	teller_screen.set_serving_customer(null)
+func _serve_current_customer() -> void:
+	var served := customer_queue.serve_front_customer()
+	if served != null:
+		_customers_awaiting_farewell.append(served)
+	_customer_being_served = customer_queue.get_front_customer()
+	teller_screen.advance_to_customer(_customer_being_served)
 
-## Phase 6i: fires whenever the player closes the Teller screen. If this
-## visit served a customer, they've been waiting here (already out of the
-## queue itself, so it kept advancing normally for everyone else) for the
-## screen to close before their farewell + walk-away plays.
+## Phase 6i: fires whenever the player closes the Teller screen. Everyone
+## this visit served has been waiting here (already out of the queue
+## itself, so it kept advancing normally for everyone else) for the screen
+## to close before their farewell + walk-away plays.
 func _on_teller_screen_closed() -> void:
-	if _customer_awaiting_farewell == null:
-		return
-	customer_queue.send_customer_off(_customer_awaiting_farewell)
-	_customer_awaiting_farewell = null
+	for customer in _customers_awaiting_farewell:
+		if is_instance_valid(customer):
+			customer_queue.send_customer_off(customer)
+	_customers_awaiting_farewell.clear()
+
+## Backs TellerScreen.remaining_shift_work: clock-out is allowed only once
+## every customer this shift brings has been handled (served, complaint
+## resolved, or abandoned) — the per-shift cap has been reached, the queue
+## is empty, and nobody is mid-service. Returns "" when that's the case,
+## otherwise a short description of what's left for the error message.
+func _describe_remaining_shift_work() -> String:
+	var parts: PackedStringArray = []
+	var waiting := customer_queue.queue.size()
+	if waiting > 0:
+		parts.append("%d customer%s still waiting" % [waiting, "" if waiting == 1 else "s"])
+	var to_arrive := customer_queue.get_customers_left_to_spawn()
+	if to_arrive > 0:
+		parts.append("%d more customer%s still to arrive" % [to_arrive, "" if to_arrive == 1 else "s"])
+	if parts.is_empty() and is_instance_valid(_customer_being_served):
+		parts.append("still serving %s" % _customer_being_served.display_name)
+	return ", ".join(parts)
 
 ## Clock-out frees every queued customer (CustomerQueue.end_shift()), so
 ## whoever this visit was about to serve no longer exists — clear the

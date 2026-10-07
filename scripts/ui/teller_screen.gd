@@ -28,6 +28,8 @@ class_name TellerScreen
 @onready var payment_method_label: Label = $Panel/VBox/ServingSection/ServingVBox/PaymentMethodLabel
 @onready var customer_dialogue_panel: PanelContainer = $Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel
 @onready var customer_dialogue_label: Label = $Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel/CustomerDialogueLabel
+@onready var respond_complaint_button: Button = $Panel/VBox/ServingSection/ServingVBox/RespondComplaintButton
+@onready var feedback_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/FeedbackLabel
 @onready var account_label: Label = $Panel/VBox/AccountSection/AccountVBox/AccountLabel
 @onready var balance_label: Label = $Panel/VBox/AccountSection/AccountVBox/BalanceLabel
 @onready var error_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/ErrorLabel
@@ -89,6 +91,20 @@ signal transaction_completed
 ## not until the player actually leaves the desk.
 signal screen_closed
 
+## Emitted once the player picks a response to the serving customer's
+## complaint. Resolving the complaint IS serving a complaint customer (they
+## have no deposit/withdraw request), so teller_room.gd listens for this to
+## pop them from the queue the same way transaction_completed does for a
+## regular customer.
+signal complaint_resolved(customer: CustomerNPC)
+
+## Set by teller_room.gd: returns a short description of this shift's
+## remaining customer work (e.g. "2 customers still waiting"), or "" once
+## every customer this shift has been handled. This screen doesn't know
+## about the queue itself, so clock-out asks through this instead. Left
+## unset (e.g. the screen run standalone), clock-out isn't gated.
+var remaining_shift_work: Callable
+
 ## The account currently selected in account_option_button. Account data
 ## itself lives in AccountManager (shared with the ATM) — see
 ## _refresh_account_list()/_on_account_option_selected().
@@ -117,16 +133,6 @@ enum DiscrepancyResult { PERFECT, MINOR, MAJOR }
 
 const STARTING_EXPECTED_BALANCE: float = 50000.0
 
-## Minimum real time (Time.get_ticks_msec(), unaffected by pause) a shift
-## must stay clocked in before clocking out is allowed — without this, an
-## instant clock-in/clock-out with a matching drawer count was a free
-## Score/XP farm completely decoupled from actually serving anyone. 45s is
-## long enough that a customer spawn (every 20s, see CustomerQueue) has a
-## real chance to land before a shift can end, short enough to not feel
-## like an artificial waiting room. First-pass value, tune after
-## playtesting.
-const MIN_SHIFT_DURATION_SECONDS: float = 45.0
-
 const PERFECT_COUNT_SCORE: int = 10
 const MINOR_DISCREPANCY_SCORE: int = 5
 const MAJOR_DISCREPANCY_SCORE: int = -5
@@ -134,6 +140,25 @@ const MAJOR_DISCREPANCY_SCORE: int = -5
 const PERFECT_COUNT_REPUTATION: int = 2
 const MINOR_DISCREPANCY_REPUTATION: int = 0
 const MAJOR_DISCREPANCY_REPUTATION: int = -5
+
+## Grading for the transaction performed for a customer's stated request
+## (see _grade_customer_transaction()). Pitched well below the drawer
+## count's +10/+5/-5: a shift has up to CustomerQueue.CUSTOMERS_PER_SHIFT_CAP
+## (4) of these, so four correct requests (+8) roughly match one Perfect
+## count rather than dwarfing it. A wrong request costs more than a right
+## one earns (same asymmetry as Minor +5 vs Major -5 relative to Perfect),
+## and its Reputation hit matches a customer abandoning the line (-2,
+## teller_room.gd) — still below a dismissive complaint response (-3) or a
+## Major count (-5). XP follows the reward only, per the B6 spec: a wrong
+## request costs Score and Reputation but doesn't take XP away.
+const CUSTOMER_REQUEST_CORRECT_SCORE: int = 2
+const CUSTOMER_REQUEST_CORRECT_REPUTATION: int = 0
+const CUSTOMER_REQUEST_WRONG_SCORE: int = -3
+const CUSTOMER_REQUEST_WRONG_REPUTATION: int = -2
+
+const FEEDBACK_GOOD_COLOR: Color = Color(0.3, 1, 0.3, 1)
+const FEEDBACK_BAD_COLOR: Color = Color(1, 0.3, 0.3, 1)
+const FEEDBACK_NEUTRAL_COLOR: Color = Color(1, 1, 1, 1)
 
 ## Phase 6e: small chance a card transaction is declined, checked at
 ## deposit/withdraw time — same Score/Reputation/XP either way, this just
@@ -161,12 +186,10 @@ var awaiting_summary_reveal: bool = false
 var _card_decline_on_cooldown: bool = false
 
 var shift_start_time: String = ""
-var shift_start_balance: float = 0.0
 
-## Real-time clock-in timestamp for MIN_SHIFT_DURATION_SECONDS, separate
-## from shift_start_time above (a display-only formatted string) since
-## measuring elapsed time from a formatted datetime string isn't reliable.
-var _shift_start_ticks_msec: int = 0
+## Always the assigned float (STARTING_EXPECTED_BALANCE), never the
+## player's opening count — see _begin_shift().
+var shift_start_balance: float = 0.0
 
 ## Every deposit/withdrawal made since clock-in. This is the source of
 ## truth for both the clock-out "expected balance" math (starting
@@ -184,6 +207,7 @@ func _ready() -> void:
 	create_account_button.pressed.connect(_on_create_account_button_pressed)
 	cancel_account_button.pressed.connect(_on_cancel_account_button_pressed)
 	complaint_later_button.pressed.connect(_on_complaint_later_button_pressed)
+	respond_complaint_button.pressed.connect(_on_respond_complaint_button_pressed)
 	account_option_button.item_selected.connect(_on_account_option_selected)
 	clock_in_button.pressed.connect(_on_clock_in_button_pressed)
 	clock_out_button.pressed.connect(_on_clock_out_button_pressed)
@@ -219,6 +243,7 @@ func _ready() -> void:
 ## instead of the normal main panel — see _show_complaint_panel().
 func show_screen(serving_customer: CustomerNPC = null) -> void:
 	set_serving_customer(serving_customer)
+	feedback_label.visible = false
 	visible = true
 	get_tree().paused = true
 
@@ -260,6 +285,21 @@ func set_serving_customer(customer: CustomerNPC) -> void:
 		serving_status_label.text = "No customer waiting."
 		payment_method_label.visible = false
 		customer_dialogue_panel.visible = false
+	respond_complaint_button.visible = _has_unresolved_complaint(customer)
+
+## Called by teller_room.gd mid-visit once the current customer has been
+## handled, so the screen moves straight on to whoever's next in line (or
+## "No customer waiting." if nobody is) without the player closing and
+## reopening it. Stays on the main panel either way so the just-shown
+## transaction feedback remains visible — a complaint customer can be
+## responded to from there via respond_complaint_button.
+func advance_to_customer(customer: CustomerNPC) -> void:
+	set_serving_customer(customer)
+	_refresh_account_list()
+	_refresh_display()
+
+func _has_unresolved_complaint(customer: CustomerNPC) -> bool:
+	return is_instance_valid(customer) and customer.complaint != null and not customer.complaint_resolved
 
 func _payment_method_display_name(payment_method: ShiftTransaction.PaymentMethod) -> String:
 	if payment_method == ShiftTransaction.PaymentMethod.CARD:
@@ -287,6 +327,7 @@ func _on_deposit_button_pressed() -> void:
 	AccountManager.deposit(account, amount)
 	_record_transaction(ShiftTransaction.Type.DEPOSIT, amount)
 	_refresh_display()
+	_grade_customer_transaction(ShiftTransaction.Type.DEPOSIT, amount)
 	transaction_completed.emit()
 
 func _on_withdraw_button_pressed() -> void:
@@ -306,7 +347,75 @@ func _on_withdraw_button_pressed() -> void:
 	AccountManager.withdraw(account, amount)
 	_record_transaction(ShiftTransaction.Type.WITHDRAWAL, amount)
 	_refresh_display()
+	_grade_customer_transaction(ShiftTransaction.Type.WITHDRAWAL, amount)
 	transaction_completed.emit()
+
+## The first deposit/withdrawal made while serving a regular (non-complaint)
+## customer is their transaction — teller_room.gd moves on to the next
+## customer as soon as transaction_completed fires, so there's never a
+## second one to grade for the same customer. A wrong transaction isn't
+## blocked (it already went through above); it's graded here instead.
+## Complaint customers have no request to compare against and are handled
+## by resolving the complaint (see _on_complaint_response_selected()).
+func _grade_customer_transaction(type: ShiftTransaction.Type, amount: float) -> void:
+	if shift_state != ShiftState.CLOCKED_IN:
+		return
+	if not is_instance_valid(_serving_customer) or _serving_customer.complaint != null:
+		return
+	var customer := _serving_customer
+	var type_ok := type == customer.intent_type
+	var amount_ok := MoneyMath.to_cents(amount) == MoneyMath.to_cents(customer.intent_amount)
+	var account_ok := account == customer.account
+	var correct := type_ok and amount_ok and account_ok
+
+	var score_delta := CUSTOMER_REQUEST_CORRECT_SCORE if correct else CUSTOMER_REQUEST_WRONG_SCORE
+	var reputation_delta := CUSTOMER_REQUEST_CORRECT_REPUTATION if correct else CUSTOMER_REQUEST_WRONG_REPUTATION
+	ScoreManager.add_shift_score(score_delta)
+	if reputation_delta != 0:
+		ReputationManager.add_reputation(reputation_delta)
+	if score_delta > 0:
+		XPManager.add_shift_xp(score_delta)
+
+	var did := "%s $%.0f" % [_past_tense_label(type), amount]
+	var points := "%+d Score" % score_delta
+	if reputation_delta != 0:
+		points += ", %+d Reputation" % reputation_delta
+	var message: String
+	if correct:
+		message = "Correct — %s as requested. (%s)" % [did, points]
+	else:
+		var asked := "%s $%.0f" % [_verb_label(customer.intent_type), customer.intent_amount]
+		var you_did := "you " + did
+		if not account_ok:
+			asked += " %s their own account" % _account_preposition(customer.intent_type)
+			you_did += " %s %s's account" % [_account_preposition(type), account.customer_name]
+		message = "Customer asked to %s — %s. (%s)" % [asked, you_did, points]
+	_show_feedback(message, FEEDBACK_GOOD_COLOR if correct else FEEDBACK_BAD_COLOR)
+
+	var grade_label := "Correct" if correct else "Incorrect"
+	HistoryManager.add_record(
+		DecisionRecord.Role.TELLER,
+		"Served %s: asked to %s $%.0f, teller %s $%.0f%s" % [
+			customer.display_name, _verb_label(customer.intent_type), customer.intent_amount,
+			_past_tense_label(type), amount,
+			"" if account_ok else " (on %s's account)" % account.customer_name,
+		],
+		grade_label
+	)
+
+func _verb_label(type: ShiftTransaction.Type) -> String:
+	return "deposit" if type == ShiftTransaction.Type.DEPOSIT else "withdraw"
+
+func _past_tense_label(type: ShiftTransaction.Type) -> String:
+	return "deposited" if type == ShiftTransaction.Type.DEPOSIT else "withdrew"
+
+func _account_preposition(type: ShiftTransaction.Type) -> String:
+	return "into" if type == ShiftTransaction.Type.DEPOSIT else "from"
+
+func _show_feedback(text: String, color: Color) -> void:
+	feedback_label.text = text
+	feedback_label.modulate = color
+	feedback_label.visible = true
 
 ## Disables Deposit/Withdraw for CARD_DECLINE_COOLDOWN_SECONDS instead of
 ## just showing an error — otherwise the 10% decline chance is trivial to
@@ -383,15 +492,21 @@ func _on_complaint_response_selected(customer: CustomerNPC, response: ComplaintR
 	)
 	customer.complaint_resolved = true
 	_show_main_panel()
+	_show_feedback("Complaint handled (%s, %+d Reputation)." % [grade_label, response.score], FEEDBACK_GOOD_COLOR if response.score > 0 else (FEEDBACK_NEUTRAL_COLOR if response.score == 0 else FEEDBACK_BAD_COLOR))
+	complaint_resolved.emit(customer)
 
 ## Backs out of the complaint panel without resolving it — no reputation
 ## change, no HistoryManager entry. complaint_resolved stays false, so
-## this same customer's complaint panel shows again the next time they're
-## served, the same as closing the whole screen without doing a
-## transaction doesn't silently drop them from the queue (see
-## teller_room.gd).
+## the customer stays in line and respond_complaint_button (or reopening
+## the screen) brings the complaint back up, the same as closing the whole
+## screen without doing anything doesn't silently drop them from the queue
+## (see teller_room.gd).
 func _on_complaint_later_button_pressed() -> void:
 	_show_main_panel()
+
+func _on_respond_complaint_button_pressed() -> void:
+	if _has_unresolved_complaint(_serving_customer):
+		_show_complaint_panel(_serving_customer)
 
 ## Same "grade in a word" vocabulary _discrepancy_result_label() uses for
 ## drawer counts, just keyed off response score sign rather than a
@@ -494,10 +609,14 @@ func _on_clock_in_button_pressed() -> void:
 	main_panel.visible = false
 	drawer_count_screen.show_screen(STARTING_EXPECTED_BALANCE, "Starting Drawer Count")
 
+## Gated on work, not time: a shift can only end once every customer it
+## brings has been handled (see remaining_shift_work). The old 45-second
+## wall-clock minimum could be waited out inside this paused screen while
+## no customers spawned, which made an empty shift a free Perfect count.
 func _on_clock_out_button_pressed() -> void:
-	var elapsed_seconds := (Time.get_ticks_msec() - _shift_start_ticks_msec) / 1000.0
-	if elapsed_seconds < MIN_SHIFT_DURATION_SECONDS:
-		error_label.text = "Shift just started — come back later."
+	var remaining: String = remaining_shift_work.call() if remaining_shift_work.is_valid() else ""
+	if remaining != "":
+		error_label.text = "Can't clock out yet — %s." % remaining
 		error_label.visible = true
 		return
 	error_label.visible = false
@@ -541,12 +660,25 @@ func _on_drawer_count_screen_closed() -> void:
 	else:
 		_show_main_panel()
 
+## The drawer's true starting cash is always the assigned float — the
+## player's opening count is graded against it (and the result shown), but
+## never adopted as shift_start_balance, so a wrong opening entry can't
+## shift what the closing count is expected to hold. No points are awarded
+## for the opening count: the closing count already grades the drawer, and
+## scoring both would double-count it.
 func _begin_shift(starting_total: float) -> void:
 	shift_state = ShiftState.CLOCKED_IN
-	shift_start_balance = starting_total
+	shift_start_balance = STARTING_EXPECTED_BALANCE
 	shift_start_time = Time.get_datetime_string_from_system()
-	_shift_start_ticks_msec = Time.get_ticks_msec()
 	shift_transactions.clear()
+
+	var opening_cents := MoneyMath.to_cents(starting_total) - MoneyMath.to_cents(STARTING_EXPECTED_BALANCE)
+	var opening_result := _categorize_discrepancy(opening_cents, drawer_count_screen.get_excess_bill_count())
+	_show_feedback(
+		"Opening count: %s (discrepancy $%.2f) — not scored. Drawer starts at its assigned $%.2f float." % [_discrepancy_result_label(opening_result), opening_cents / 100.0, STARTING_EXPECTED_BALANCE],
+		FEEDBACK_GOOD_COLOR if opening_result == DiscrepancyResult.PERFECT else FEEDBACK_BAD_COLOR
+	)
+
 	_card_decline_on_cooldown = false
 	_update_shift_controls()
 	shift_clocked_in.emit()

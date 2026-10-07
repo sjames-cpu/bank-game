@@ -63,19 +63,11 @@ extends Control
 @onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalXPLabel
 @onready var shift_summary_done_button: Button = $ShiftSummaryPanel/VBox/DoneButton
 
-## Same anti-instant-shift guard as TellerScreen.MIN_SHIFT_DURATION_SECONDS
-## (see that constant's doc comment) — this screen has the same clock-in/
-## clock-out shape with no other minimum, so an instant clock-in/out was
-## just as free a (zero-)score cycle here. Kept as the same value for
-## consistency; tune independently after playtesting if warranted.
-const MIN_SHIFT_DURATION_SECONDS: float = 45.0
-
 enum ShiftState { CLOCKED_OUT, CLOCKED_IN }
 
 var shift_state: ShiftState = ShiftState.CLOCKED_OUT
 
 var shift_start_time: String = ""
-var _shift_start_ticks_msec: int = 0
 
 ## Set right before opening VaultReconciliationScreen, consumed (reset to
 ## false) the moment its first count_submitted after that is graded — the
@@ -151,7 +143,6 @@ func _on_clock_in_button_pressed() -> void:
 func _begin_shift() -> void:
 	shift_state = ShiftState.CLOCKED_IN
 	shift_start_time = Time.get_datetime_string_from_system()
-	_shift_start_ticks_msec = Time.get_ticks_msec()
 	_awaiting_vault_reconciliation_result = false
 	_vault_reconciled_this_shift = false
 	actions_completed = 0
@@ -281,13 +272,12 @@ func _on_schedule_confirmed(_schedule: Dictionary) -> void:
 func _on_sub_screen_closed() -> void:
 	_show_main_panel()
 
-## Ends the shift whenever the player chooses to clock out — nothing
-## requires having visited all three screens first, same as Loan Officer's
-## clock-out being available with a partial shift's worth of tallies.
+## Gated on work, not time: the shift only ends once the vault has been
+## reconciled (the old 45-second wall-clock minimum could just be waited out
+## inside this paused screen). Scheduling and approvals stay optional.
 func _on_clock_out_button_pressed() -> void:
-	var elapsed_seconds := (Time.get_ticks_msec() - _shift_start_ticks_msec) / 1000.0
-	if elapsed_seconds < MIN_SHIFT_DURATION_SECONDS:
-		error_label.text = "Shift just started — come back later."
+	if not _vault_reconciled_this_shift:
+		error_label.text = "Can't clock out yet — the vault hasn't been reconciled this shift."
 		error_label.visible = true
 		return
 	error_label.visible = false
