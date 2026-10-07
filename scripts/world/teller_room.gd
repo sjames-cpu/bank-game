@@ -9,12 +9,21 @@ extends Node2D
 ## yet to justify a second area. It's additive alongside the existing
 ## Teller desk/screen wiring below, not a change to it.
 ##
-## LoanOfficerDesk starts hidden and non-monitoring (see teller_room.tscn)
-## since the role isn't available until XPManager.is_loan_officer_unlocked
+## LoanOfficerDesk starts non-monitoring (see teller_room.tscn) since the
+## role isn't available to the player until XPManager.is_loan_officer_unlocked
 ## — reacting to that unlock here (rather than polling it, or having the
-## desk script know about XPManager itself) makes the desk visibly appear
-## the moment it's earned, the same reactive pattern teller_screen.gd
-## already uses to reveal its "Loan Officer role unlocked!" label.
+## desk script know about XPManager itself) makes the desk usable the
+## moment it's earned. The desk itself is always visible: it's the branch's
+## Loan Desk, worked by a staff member until the player can work it.
+##
+## Staff (NPC coworkers, visual only so far): each staffed desk — Teller
+## Window 1 (TellerDesk), Teller Window 2, the Loan Desk — gets the
+## StaffNPC that ScheduleManager assigns to it, standing at the desk's
+## StaffSpot marker. While the player is clocked in at Teller Window 1 or
+## the Loan Desk, that desk's staff member walks to the break room
+## (StaffBreakArea) and walks back on clock-out. The Staff layer sits under
+## the desks in draw order (staff always stand behind a counter, so the
+## counter correctly overlaps them) and is y-sorted among themselves.
 ##
 ## BranchManagerDesk (Phase 5f) follows the exact same pattern one tier up
 ## — hidden/non-monitoring until XPManager.is_branch_manager_unlocked,
@@ -63,6 +72,24 @@ const ABANDONMENT_REPUTATION_PENALTY: int = -2
 @onready var customer_queue: CustomerQueue = $CustomerQueue
 @onready var atm: Area2D = $ATM
 @onready var atm_screen: ATMScreen = $UI/ATMScreen
+@onready var staff_layer: Node2D = $Staff
+@onready var staff_break_area: Node2D = $StaffBreakArea
+
+const STAFF_NPC_SCENE: PackedScene = preload("res://scenes/characters/staff_npc.tscn")
+
+## Desk node for each ScheduleManager desk slot; each has a StaffSpot marker.
+@onready var _desk_for_slot: Dictionary = {
+	ScheduleManager.SLOT_TELLER_WINDOW_1: $TellerDesk,
+	ScheduleManager.SLOT_TELLER_WINDOW_2: $TellerWindow2,
+	ScheduleManager.SLOT_LOAN_DESK: $LoanOfficerDesk,
+}
+
+## slot name -> the StaffNPC currently placed at that desk.
+var _staff_by_slot: Dictionary = {}
+
+## Desks the player is currently clocked in at (by slot name) — their staff
+## member is on break.
+var _player_desk_slots: Array[String] = []
 
 var _customer_being_served: CustomerNPC = null
 
@@ -94,6 +121,90 @@ func _ready() -> void:
 	_update_branch_manager_desk_availability()
 
 	atm.interacted.connect(_on_atm_interacted)
+
+	teller_screen.shift_clocked_in.connect(_on_player_clocked_in.bind(ScheduleManager.SLOT_TELLER_WINDOW_1))
+	teller_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_TELLER_WINDOW_1))
+	loan_officer_screen.shift_clocked_in.connect(_on_player_clocked_in.bind(ScheduleManager.SLOT_LOAN_DESK))
+	loan_officer_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_LOAN_DESK))
+	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
+	_place_staff()
+
+## (Re)creates one StaffNPC per assigned desk from ScheduleManager. A desk
+## the player is clocked in at gets its staff member placed straight in the
+## break room instead.
+func _place_staff() -> void:
+	for npc in _staff_by_slot.values():
+		staff_layer.remove_child(npc)
+		npc.queue_free()
+	_staff_by_slot.clear()
+	for slot in ScheduleManager.DESK_SLOTS:
+		var slot_name: String = slot["name"]
+		var member := ScheduleManager.get_assigned(slot_name)
+		if member == null:
+			continue
+		var npc: StaffNPC = STAFF_NPC_SCENE.instantiate()
+		npc.setup(member)
+		npc.name = "Staff_" + slot_name.replace(" ", "")
+		staff_layer.add_child(npc)
+		_staff_by_slot[slot_name] = npc
+		if _player_desk_slots.has(slot_name):
+			npc.place_at(_break_spot_for(slot_name), StaffNPC.State.ON_BREAK)
+		else:
+			npc.place_at(_desk_spot(slot_name), StaffNPC.State.AT_DESK)
+
+func _on_schedule_confirmed(_schedule: Dictionary) -> void:
+	_place_staff()
+
+func _on_player_clocked_in(slot_name: String) -> void:
+	if not _player_desk_slots.has(slot_name):
+		_player_desk_slots.append(slot_name)
+	var npc: StaffNPC = _staff_by_slot.get(slot_name)
+	if npc != null:
+		npc.follow_route(_route_to_break(slot_name), StaffNPC.State.ON_BREAK)
+
+func _on_player_clocked_out(slot_name: String) -> void:
+	_player_desk_slots.erase(slot_name)
+	var npc: StaffNPC = _staff_by_slot.get(slot_name)
+	if npc == null:
+		return
+	# Retrace only the waypoints they actually reached (all of them if they
+	# made it to the break room; none if the tree stayed paused the whole
+	# shift and they never left), then back to the desk — never a straight
+	# line through the back-office wall.
+	var full_route := _route_to_break(slot_name)
+	var reached := full_route.size() if npc.state == StaffNPC.State.ON_BREAK else npc.waypoints_reached
+	var walked := full_route.slice(0, reached)
+	walked.reverse()
+	if npc.state == StaffNPC.State.ON_BREAK:
+		walked.remove_at(0) # already standing at the break spot
+	walked.append(_desk_spot(slot_name))
+	npc.follow_route(walked, StaffNPC.State.AT_DESK)
+
+func _desk_spot(slot_name: String) -> Vector2:
+	return (_desk_for_slot[slot_name] as Node2D).get_node("StaffSpot").global_position
+
+## Each desk slot gets its own break-room spot (same order as DESK_SLOTS).
+func _break_spot_for(slot_name: String) -> Vector2:
+	var spots := staff_break_area.get_node("BreakSpots").get_children()
+	var index := 0
+	for i in ScheduleManager.DESK_SLOTS.size():
+		if ScheduleManager.DESK_SLOTS[i]["name"] == slot_name:
+			index = i
+	return (spots[index % spots.size()] as Node2D).global_position
+
+## Desk -> along the aisle behind the desks -> through the conference-room
+## door -> this desk's break spot. Straight lines between these points stay
+## clear of the back-office wall (the door gap is the only way through).
+func _route_to_break(slot_name: String) -> Array[Vector2]:
+	var door_outside: Vector2 = (staff_break_area.get_node("DoorOutside") as Node2D).global_position
+	var door_inside: Vector2 = (staff_break_area.get_node("DoorInside") as Node2D).global_position
+	var desk := _desk_spot(slot_name)
+	return [
+		Vector2(desk.x, door_outside.y),
+		door_outside,
+		door_inside,
+		_break_spot_for(slot_name),
+	]
 
 ## Remembers whoever's at the front of the line (null if the queue is
 ## empty) before opening the screen, and hands them to show_screen() so it
@@ -221,9 +332,9 @@ func _on_loan_officer_unlocked() -> void:
 	_update_loan_officer_desk_availability()
 
 func _update_loan_officer_desk_availability() -> void:
-	var unlocked := XPManager.is_loan_officer_unlocked
-	loan_officer_desk.visible = unlocked
-	loan_officer_desk.monitoring = unlocked
+	# Always visible (it's the staffed Loan Desk); only the player's ability
+	# to use it waits for the unlock.
+	loan_officer_desk.monitoring = XPManager.is_loan_officer_unlocked
 
 ## Guarded against re-entry the same way _on_teller_desk_interacted() is —
 ## see that function's doc comment.

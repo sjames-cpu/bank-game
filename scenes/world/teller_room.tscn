@@ -71,6 +71,9 @@ script = ExtResource("room_controller_script")
 tile_set = SubResource("TileSet_room")
 script = ExtResource("room_script")
 
+[node name="Staff" type="Node2D" parent="."]
+y_sort_enabled = true
+
 [node name="Player" type="CharacterBody2D" parent="." unique_id=33001983]
 position = Vector2(384, 624)
 collision_layer = 2
@@ -98,8 +101,19 @@ texture = ExtResource("tex_teller_counter")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TellerDesk" unique_id=1229555149]
 shape = SubResource("RectangleShape2D_desk")
 
+[node name="StaffSpot" type="Marker2D" parent="TellerDesk"]
+position = Vector2(0, -22)
+
+[node name="TellerWindow2" type="Node2D" parent="."]
+position = Vector2(656, 336)
+
+[node name="Sprite2D" type="Sprite2D" parent="TellerWindow2"]
+texture = ExtResource("tex_teller_counter")
+
+[node name="StaffSpot" type="Marker2D" parent="TellerWindow2"]
+position = Vector2(0, -22)
+
 [node name="LoanOfficerDesk" type="Area2D" parent="." unique_id=1802316915]
-visible = false
 position = Vector2(208, 336)
 collision_layer = 0
 collision_mask = 2
@@ -111,6 +125,9 @@ texture = ExtResource("tex_officer_desk")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LoanOfficerDesk" unique_id=545710025]
 shape = SubResource("RectangleShape2D_loan_officer_desk")
+
+[node name="StaffSpot" type="Marker2D" parent="LoanOfficerDesk"]
+position = Vector2(0, -22)
 
 [node name="BranchManagerDesk" type="Area2D" parent="." unique_id=1847143413]
 visible = false
@@ -185,13 +202,6 @@ texture = ExtResource("tex_officer_desk")
 position = Vector2(304, 336)
 texture = ExtResource("tex_officer_desk")
 
-[node name="TellerCounterA" type="Sprite2D" parent="Decor"]
-position = Vector2(464, 336)
-texture = ExtResource("tex_teller_counter")
-
-[node name="TellerCounterB" type="Sprite2D" parent="Decor"]
-position = Vector2(656, 336)
-texture = ExtResource("tex_teller_counter")
 
 [node name="Couch1" type="Sprite2D" parent="Decor"]
 position = Vector2(160, 528)
@@ -244,6 +254,25 @@ texture = ExtResource("tex_plant")
 [node name="LoungePlantRight" type="Sprite2D" parent="Decor"]
 position = Vector2(340, 560)
 texture = ExtResource("tex_plant")
+
+[node name="StaffBreakArea" type="Node2D" parent="."]
+
+[node name="DoorOutside" type="Marker2D" parent="StaffBreakArea"]
+position = Vector2(528, 288)
+
+[node name="DoorInside" type="Marker2D" parent="StaffBreakArea"]
+position = Vector2(528, 200)
+
+[node name="BreakSpots" type="Node2D" parent="StaffBreakArea"]
+
+[node name="BreakSpot1" type="Marker2D" parent="StaffBreakArea/BreakSpots"]
+position = Vector2(488, 176)
+
+[node name="BreakSpot2" type="Marker2D" parent="StaffBreakArea/BreakSpots"]
+position = Vector2(528, 176)
+
+[node name="BreakSpot3" type="Marker2D" parent="StaffBreakArea/BreakSpots"]
+position = Vector2(568, 176)
 
 [node name="DayNightCycle" type="CanvasModulate" parent="."]
 script = ExtResource("day_night_cycle_script")

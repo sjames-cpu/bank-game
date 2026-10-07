@@ -35,16 +35,13 @@ class_name StaffSchedulingScreen
 
 signal closed
 
-## Fixed shift slots, 2 per role — few enough to stay clear as "a first
-## version" (per the brief) while still leaving one qualified staff
-## member unscheduled per role in the current 6-person roster, so which
-## two to pick is an actual choice rather than "assign everyone."
-const SHIFT_SLOTS: Array[Dictionary] = [
-	{"name": "Teller Shift 1", "role": "Teller"},
-	{"name": "Teller Shift 2", "role": "Teller"},
-	{"name": "Loan Officer Shift 1", "role": "Loan Officer"},
-	{"name": "Loan Officer Shift 2", "role": "Loan Officer"},
-]
+## The slots are the branch's staffed desks (ScheduleManager.DESK_SLOTS:
+## two teller windows, one loan desk), so the current 6-person roster
+## always leaves someone of each role off the floor — which ones to pick is
+## an actual choice rather than "assign everyone." Each slot starts on its
+## current assignment so confirming without changes keeps the desks as
+## they are.
+var _shift_slots: Array[Dictionary] = ScheduleManager.DESK_SLOTS
 
 @onready var roster_vbox: VBoxContainer = $Panel/VBox/RosterScrollContainer/RosterVBox
 @onready var slots_grid: GridContainer = $Panel/VBox/SlotsGrid
@@ -95,7 +92,7 @@ func _populate_roster() -> void:
 func _populate_slots() -> void:
 	var all_staff := StaffRosterData.get_staff()
 
-	for slot in SHIFT_SLOTS:
+	for slot in _shift_slots:
 		var slot_label := Label.new()
 		slot_label.text = slot["name"]
 		slots_grid.add_child(slot_label)
@@ -104,11 +101,14 @@ func _populate_slots() -> void:
 		option_button.add_item("Unassigned")
 		option_button.set_item_metadata(0, null)
 
+		var assigned := ScheduleManager.get_assigned(slot["name"])
 		for staff in all_staff:
 			if staff.role == slot["role"]:
 				var item_index := option_button.item_count
 				option_button.add_item(staff.staff_name)
 				option_button.set_item_metadata(item_index, staff)
+				if assigned != null and assigned.staff_name == staff.staff_name:
+					option_button.select(item_index)
 
 		var slot_index := _slot_option_buttons.size()
 		option_button.item_selected.connect(_on_slot_option_selected.bind(slot_index))
@@ -139,11 +139,11 @@ func _on_confirm_button_pressed() -> void:
 	var new_schedule: Dictionary = {}
 	var assigned_names: Array[String] = []
 
-	for i in SHIFT_SLOTS.size():
+	for i in _shift_slots.size():
 		var option_button := _slot_option_buttons[i]
 		var selected_staff: StaffMember = option_button.get_item_metadata(option_button.selected)
 		if selected_staff != null:
-			var slot_name: String = SHIFT_SLOTS[i]["name"]
+			var slot_name: String = _shift_slots[i]["name"]
 			new_schedule[slot_name] = selected_staff
 			assigned_names.append("%s: %s" % [slot_name, selected_staff.staff_name])
 

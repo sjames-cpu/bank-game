@@ -40,6 +40,11 @@ extends Control
 @onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalXPLabel
 @onready var shift_summary_done_button: Button = $ShiftSummaryPanel/VBox/DoneButton
 
+## Same clock-in/out signals as TellerScreen — teller_room.gd uses them to
+## send the Loan Desk's staff member on break while the player works it.
+signal shift_clocked_in
+signal shift_clocked_out
+
 ## Fixed shift length rather than open-ended, so each shift reads as a
 ## clear, comparable unit of work (same reasoning as Teller's fixed
 ## clock-in/clock-out structure) instead of the player having to decide
@@ -101,6 +106,7 @@ func _begin_shift() -> void:
 	shift_reputation_total = 0
 	shift_xp_total = 0
 	_update_shift_controls()
+	shift_clocked_in.emit()
 
 func _on_review_next_button_pressed() -> void:
 	main_panel.visible = false
@@ -153,6 +159,7 @@ func _prepare_shift_summary() -> void:
 	main_panel.visible = false
 	shift_summary_panel.visible = true
 	_update_shift_controls()
+	shift_clocked_out.emit()
 
 func _on_shift_summary_done_pressed() -> void:
 	_show_main_panel()
