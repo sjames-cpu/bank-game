@@ -16,11 +16,15 @@ extends Node2D
 ## moment it's earned. The desk itself is always visible: it's the branch's
 ## Loan Desk, worked by a staff member until the player can work it.
 ##
-## Staff (NPC coworkers, visual only so far): each staffed desk — Teller
-## Window 1 (TellerDesk), Teller Window 2, the Loan Desk — gets the
-## StaffNPC that ScheduleManager assigns to it, standing at the desk's
-## StaffSpot marker. While the player is clocked in at Teller Window 1 or
-## the Loan Desk, that desk's staff member walks to the break room
+## The branch has three teller windows: the player's own Player Teller
+## Window (the TellerDesk node — interaction + the player's CustomerQueue
+## line, never staffed) and Teller Windows 1 and 2, always worked by staff.
+##
+## Staff (NPC coworkers): each staffed desk — Teller Window 1, Teller
+## Window 2, the Loan Desk — gets the StaffNPC that ScheduleManager assigns
+## to it, standing at the desk's StaffSpot marker; the two teller windows
+## serve their own NpcCustomerLines continuously. While the player is
+## clocked in at the Loan Desk, its staff member walks to the break room
 ## (StaffBreakArea) and walks back on clock-out. The Staff layer sits under
 ## the desks in draw order (staff always stand behind a counter, so the
 ## counter correctly overlaps them) and is y-sorted among themselves.
@@ -82,7 +86,7 @@ const STAFF_NPC_SCENE: PackedScene = preload("res://scenes/characters/staff_npc.
 
 ## Desk node for each ScheduleManager desk slot; each has a StaffSpot marker.
 @onready var _desk_for_slot: Dictionary = {
-	ScheduleManager.SLOT_TELLER_WINDOW_1: $TellerDesk,
+	ScheduleManager.SLOT_TELLER_WINDOW_1: $TellerWindow1,
 	ScheduleManager.SLOT_TELLER_WINDOW_2: $TellerWindow2,
 	ScheduleManager.SLOT_LOAN_DESK: $LoanOfficerDesk,
 }
@@ -125,15 +129,13 @@ func _ready() -> void:
 
 	atm.interacted.connect(_on_atm_interacted)
 
-	teller_screen.shift_clocked_in.connect(_on_player_clocked_in.bind(ScheduleManager.SLOT_TELLER_WINDOW_1))
-	teller_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_TELLER_WINDOW_1))
 	loan_officer_screen.shift_clocked_in.connect(_on_player_clocked_in.bind(ScheduleManager.SLOT_LOAN_DESK))
 	loan_officer_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_LOAN_DESK))
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
 	_place_staff()
 
-	# Staff serve customers from the start; Window 1's NPC line and the loan
-	# worker pause while the player works those desks (see
+	# Staff serve customers from the start. Both teller-window lines stay on;
+	# only the loan worker pauses while the player works the Loan Desk (see
 	# _on_player_clocked_in/_out).
 	window2_line.activate()
 	window1_npc_line.activate()
@@ -168,14 +170,11 @@ func _place_staff() -> void:
 func _on_schedule_confirmed(_schedule: Dictionary) -> void:
 	_place_staff()
 
-## Window 1's NPC line steps aside for the player's own line
-## (CustomerQueue, unchanged): its waiting customers move over to Window 2
-## where there's room. The loan worker stops deciding while the player
-## works the Loan Desk.
+## Only the Loan Desk is shared with staff (the player's teller window is
+## their own): its worker stops deciding and walks to the break room while
+## the player works it.
 func _on_player_clocked_in(slot_name: String) -> void:
-	if slot_name == ScheduleManager.SLOT_TELLER_WINDOW_1:
-		window1_npc_line.deactivate(window2_line)
-	elif slot_name == ScheduleManager.SLOT_LOAN_DESK:
+	if slot_name == ScheduleManager.SLOT_LOAN_DESK:
 		loan_desk_worker.active = false
 	if not _player_desk_slots.has(slot_name):
 		_player_desk_slots.append(slot_name)
@@ -183,12 +182,10 @@ func _on_player_clocked_in(slot_name: String) -> void:
 	if npc != null:
 		npc.follow_route(_route_to_break(slot_name), StaffNPC.State.ON_BREAK)
 
-## The NPC line / loan worker resume, but only actually serve once the staff
-## member is back at their desk (both check StaffNPC.State.AT_DESK).
+## The loan worker resumes, but only actually decides once the staff
+## member is back at their desk (it checks StaffNPC.State.AT_DESK).
 func _on_player_clocked_out(slot_name: String) -> void:
-	if slot_name == ScheduleManager.SLOT_TELLER_WINDOW_1:
-		window1_npc_line.activate()
-	elif slot_name == ScheduleManager.SLOT_LOAN_DESK:
+	if slot_name == ScheduleManager.SLOT_LOAN_DESK:
 		loan_desk_worker.active = true
 	_player_desk_slots.erase(slot_name)
 	var npc: StaffNPC = _staff_by_slot.get(slot_name)

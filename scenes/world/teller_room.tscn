@@ -92,7 +92,7 @@ shape = SubResource("RectangleShape2D_player")
 zoom = Vector2(1, 1)
 
 [node name="TellerDesk" type="Area2D" parent="." unique_id=1888430049]
-position = Vector2(560, 336)
+position = Vector2(464, 336)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("desk_script")
@@ -103,7 +103,13 @@ texture = ExtResource("tex_teller_counter")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TellerDesk" unique_id=1229555149]
 shape = SubResource("RectangleShape2D_desk")
 
-[node name="StaffSpot" type="Marker2D" parent="TellerDesk"]
+[node name="TellerWindow1" type="Node2D" parent="."]
+position = Vector2(560, 336)
+
+[node name="Sprite2D" type="Sprite2D" parent="TellerWindow1"]
+texture = ExtResource("tex_teller_counter")
+
+[node name="StaffSpot" type="Marker2D" parent="TellerWindow1"]
 position = Vector2(0, -22)
 
 [node name="TellerWindow2" type="Node2D" parent="."]
@@ -162,18 +168,18 @@ script = ExtResource("customer_queue_script")
 customer_scene = ExtResource("customer_npc_scene")
 
 [node name="SpawnPoint" type="Marker2D" parent="CustomerQueue"]
-position = Vector2(560, 528)
+position = Vector2(464, 528)
 
 [node name="QueuePositions" type="Node2D" parent="CustomerQueue"]
 
 [node name="QueuePoint1" type="Marker2D" parent="CustomerQueue/QueuePositions"]
-position = Vector2(560, 400)
+position = Vector2(464, 400)
 
 [node name="QueuePoint2" type="Marker2D" parent="CustomerQueue/QueuePositions"]
-position = Vector2(560, 432)
+position = Vector2(464, 432)
 
 [node name="QueuePoint3" type="Marker2D" parent="CustomerQueue/QueuePositions"]
-position = Vector2(560, 464)
+position = Vector2(464, 464)
 
 [node name="SpawnTimer" type="Timer" parent="CustomerQueue"]
 wait_time = 20.0

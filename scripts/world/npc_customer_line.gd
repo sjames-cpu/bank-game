@@ -22,10 +22,9 @@ class_name NpcCustomerLine
 ## — it's never recorded in the player's drawer — and logged as a STAFF
 ## record in HistoryManager. Everything runs on unpaused time only.
 ##
-## teller_room.gd sets staff_npc, and turns the line on/off: Teller Window
-## 2's line is always on; Teller Window 1's is on only while the player
-## isn't clocked in there (its own CustomerQueue serves the player's
-## shift), and hands its customers over to Window 2 when switched off.
+## teller_room.gd sets staff_npc and switches both lines (Teller Windows 1
+## and 2) on at the start; they stay on. The player works their own
+## Player Teller Window with its own CustomerQueue.
 
 signal customer_served(customer: CustomerNPC, staff: StaffMember, was_mistake: bool)
 
@@ -72,36 +71,6 @@ func _on_spawn_timer_timeout() -> void:
 	super._on_spawn_timer_timeout()
 	if active:
 		spawn_timer.start(_next_spawn_interval())
-
-## Turns the line off. Customers still waiting move to `hand_over_to` while
-## it has room; anyone else just walks out. A service in progress is
-## dropped (nothing was applied yet).
-func deactivate(hand_over_to: NpcCustomerLine = null) -> void:
-	active = false
-	spawn_timer.stop()
-	_cancel_service()
-	for customer in queue.duplicate():
-		queue.erase(customer)
-		for connection in customer.patience_expired.get_connections():
-			if connection["callable"].get_object() == self:
-				customer.patience_expired.disconnect(connection["callable"])
-		if hand_over_to != null and hand_over_to.has_room():
-			hand_over_to.adopt_customer(customer)
-		else:
-			customer.stop_waiting()
-			customer.arrived.connect(customer.queue_free, CONNECT_ONE_SHOT)
-			customer.walk_to(spawn_point.global_position)
-
-func has_room() -> bool:
-	return queue.size() < queue_positions.size()
-
-## Takes over a customer from another line (keeps their place in the world,
-## joins the back of this line).
-func adopt_customer(customer: CustomerNPC) -> void:
-	customer.reparent(self)
-	queue.append(customer)
-	customer.patience_expired.connect(_on_customer_patience_expired.bind(customer))
-	_advance_queue()
 
 func is_serving() -> bool:
 	return _serving != null
