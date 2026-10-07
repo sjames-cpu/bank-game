@@ -164,10 +164,30 @@ func _ready() -> void:
 	_sprite.sprite_frames = CUSTOMER_FRAME_SETS.pick_random()
 	_base_modulate = _sprite.modulate
 
+## Which queue spot (index into CustomerQueue.queue_positions) this customer
+## stands at or is stepping into; -1 until their line gives them one.
+## Owned by CustomerQueue._update_queue_movement().
+var queue_spot: int = -1
+
+## Remaining waypoints after target_position (see walk_route()).
+var _route: Array[Vector2] = []
+
 ## Starts walking toward new_target; arrived fires once it gets there.
 func walk_to(new_target: Vector2) -> void:
+	_route.clear()
 	target_position = new_target
 	_walking = true
+
+## Walks through `points` in order; arrived fires once, at the last one.
+func walk_route(points: Array[Vector2]) -> void:
+	if points.is_empty():
+		return
+	_route = points.duplicate()
+	target_position = _route.pop_front()
+	_walking = true
+
+func is_walking() -> bool:
+	return _walking
 
 ## Short speech line above the customer (reuses the farewell label) — used
 ## by staff-served lines (NpcCustomerLine) to show what's happening at the
@@ -195,14 +215,13 @@ func stop_waiting() -> void:
 
 ## Phase 6i: called once by CustomerQueue.send_customer_off() after this
 ## customer has been served and the Teller screen closed. Shows a random
-## farewell line for FAREWELL_DISPLAY_SECONDS, then walks to exit_position
-## (the room's spawn point, i.e. entry path reversed — see walk_to() above,
-## the same movement this customer used to enter the queue) and frees
-## itself once it arrives. By the time this runs the customer has already
-## been popped out of CustomerQueue.queue (see serve_front_customer()), so
-## this whole sequence plays independently in the background and never
-## delays queue advancement for anyone else.
-func say_farewell_and_leave(exit_position: Vector2) -> void:
+## farewell line for FAREWELL_DISPLAY_SECONDS, then walks `exit_route` (out
+## of the line sideways, then down a corridor clear of the waiting line —
+## see CustomerQueue.send_customer_off()) and frees itself at the end. By
+## the time this runs the customer has already been popped out of
+## CustomerQueue.queue (see serve_front_customer()); their line keeps the
+## counter spot blocked until they've walked clear of it.
+func say_farewell_and_leave(exit_route: Array[Vector2]) -> void:
 	if _leaving:
 		return
 	_leaving = true
@@ -214,7 +233,7 @@ func say_farewell_and_leave(exit_position: Vector2) -> void:
 	_farewell_label.visible = false
 
 	arrived.connect(queue_free, CONNECT_ONE_SHOT)
-	walk_to(exit_position)
+	walk_route(exit_route)
 
 func _physics_process(delta: float) -> void:
 	if not _walking:
@@ -228,6 +247,9 @@ func _physics_process(delta: float) -> void:
 	# around the spot forever instead of arriving.
 	if to_target.length() <= maxf(ARRIVAL_DISTANCE, speed * delta):
 		global_position = target_position
+		if not _route.is_empty():
+			target_position = _route.pop_front()
+			return
 		velocity = Vector2.ZERO
 		_walking = false
 		_update_animation(false)

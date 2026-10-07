@@ -210,6 +210,7 @@ wait_time = 15.0
 script = ExtResource("npc_customer_line_script")
 customer_scene = ExtResource("customer_npc_scene")
 slot_name = "Teller Window 2"
+exit_side_offset = 48.0
 
 [node name="SpawnPoint" type="Marker2D" parent="Window2Line"]
 position = Vector2(624, 528)

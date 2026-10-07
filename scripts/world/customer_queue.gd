@@ -92,6 +92,22 @@ var _complaint_pool: Array[CustomerComplaint] = CustomerComplaintsData.get_compl
 
 var queue: Array[CustomerNPC] = []
 
+## Customers leave sideways by this many pixels (into the corridor between
+## this lane and the next), then walk down to exit_y — see
+## send_customer_off(). Negative = to the left.
+@export var exit_side_offset: float = -48.0
+@export var exit_y: float = 600.0
+
+## A queue spot counts as occupied while anyone is within this distance of
+## it; the counter spot also while a served customer is within
+## COUNTER_CLEAR_DISTANCE (they've sidestepped 48px once they're clear).
+const SPOT_CLEAR_DISTANCE: float = 20.0
+const COUNTER_CLEAR_DISTANCE: float = 28.0
+
+## Served customers who may still be standing at / walking away from the
+## counter spot (see serve_front_customer()).
+var _departing: Array[CustomerNPC] = []
+
 ## Reset in start_shift() so each shift gets its own fresh cap.
 var _customers_spawned_this_shift: int = 0
 
@@ -142,17 +158,25 @@ func serve_front_customer() -> CustomerNPC:
 	if queue.is_empty():
 		return null
 	var served: CustomerNPC = queue.pop_front()
+	# Still physically at the counter (waiting for their farewell, or
+	# saying it): the counter spot stays blocked until they've walked clear.
+	_departing.append(served)
 	_advance_queue()
 	return served
 
-## Phase 6i: hands a served customer off to say_farewell_and_leave(), sending
-## them back out toward spawn_point — the reverse of the walk_to() call that
-## brought them into the queue in _spawn_customer(). Called by teller_room.gd
-## once the Teller screen closes for a visit that served this customer; by
-## then they're already out of `queue` (see serve_front_customer() above), so
-## this runs entirely in the background and never delays anyone still in line.
+## Phase 6i: hands a served customer off to say_farewell_and_leave(). They
+## leave sideways out of the line by exit_side_offset, then straight down
+## that corridor to exit_y and vanish — a path between the lanes, so they
+## never walk through anyone still waiting. Called by teller_room.gd once
+## the Teller screen closes for a visit that served this customer (and by
+## NpcCustomerLine right after a staff service).
 func send_customer_off(customer: CustomerNPC) -> void:
-	customer.say_farewell_and_leave(spawn_point.global_position)
+	var corridor_x := queue_positions[0].global_position.x + exit_side_offset
+	var route: Array[Vector2] = [
+		Vector2(corridor_x, customer.global_position.y),
+		Vector2(corridor_x, exit_y),
+	]
+	customer.say_farewell_and_leave(route)
 
 func _on_spawn_timer_timeout() -> void:
 	if queue.size() >= queue_positions.size():
@@ -257,9 +281,55 @@ func _build_intent_dialogue_line(intent_type: ShiftTransaction.Type, amount: flo
 	line.mood = flavor.mood
 	return line
 
+## Re-evaluates who may step forward (also runs every physics tick).
 func _advance_queue() -> void:
+	_update_queue_movement()
+
+func _physics_process(_delta: float) -> void:
+	_update_queue_movement()
+
+## Visual pacing only — never changes who's in `queue`, service, patience or
+## anything graded. Each customer holds one spot (CustomerNPC.queue_spot)
+## and steps forward one spot at a time, only once they've finished their
+## current step and the spot ahead is clear (_spot_free()). A new arrival
+## walks up the empty lane straight to the back of the line once every spot
+## from there back is clear. The counter spot (0) additionally stays blocked
+## while a served customer is still within COUNTER_CLEAR_DISTANCE of it —
+## waiting for their farewell or saying it — see serve_front_customer().
+func _update_queue_movement() -> void:
+	# Drop departed customers once freed (checked untyped first — a freed
+	# instance can't be passed as a CustomerNPC).
+	var still_here: Array[CustomerNPC] = []
+	for leaving: Variant in _departing:
+		if is_instance_valid(leaving) and not (leaving as Node).is_queued_for_deletion():
+			still_here.append(leaving)
+	_departing = still_here
 	for i in queue.size():
-		queue[i].walk_to(queue_positions[i].global_position)
+		var customer := queue[i]
+		if customer.queue_spot == i or customer.is_walking():
+			continue
+		if customer.queue_spot == -1:
+			for k in range(i, queue_positions.size()):
+				if not _spot_free(k, customer):
+					return
+			customer.queue_spot = i
+			customer.walk_to(queue_positions[i].global_position)
+		elif _spot_free(customer.queue_spot - 1, customer):
+			customer.queue_spot -= 1
+			customer.walk_to(queue_positions[customer.queue_spot].global_position)
+
+func _spot_free(spot: int, mover: CustomerNPC) -> bool:
+	var point := queue_positions[spot].global_position
+	for other in queue:
+		if other == mover:
+			continue
+		if other.queue_spot == spot or other.global_position.distance_to(point) < SPOT_CLEAR_DISTANCE:
+			return false
+	if spot == 0:
+		for leaving in _departing:
+			if leaving.global_position.distance_to(point) < COUNTER_CLEAR_DISTANCE:
+				return false
+	return true
 
 ## Same "pop + advance" shape serve_front_customer() uses, except this can
 ## remove a customer from anywhere in the line (whoever's patience ran out
