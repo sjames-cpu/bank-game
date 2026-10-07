@@ -33,6 +33,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/discipline_letter_screen.tscn" id="discipline_letter_screen_scene"]
 [ext_resource type="Script" path="res://scripts/world/npc_customer_line.gd" id="npc_customer_line_script"]
 [ext_resource type="Script" path="res://scripts/world/npc_loan_desk_worker.gd" id="npc_loan_desk_worker_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_room"]
 texture = ExtResource("tiles_tex")
@@ -102,6 +103,9 @@ texture = ExtResource("tex_teller_counter")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TellerDesk" unique_id=1229555149]
 shape = SubResource("RectangleShape2D_desk")
+
+[node name="StaffSpot" type="Marker2D" parent="TellerDesk"]
+position = Vector2(0, -22)
 
 [node name="TellerWindow1" type="Node2D" parent="."]
 position = Vector2(560, 336)
@@ -229,6 +233,28 @@ position = Vector2(656, 464)
 [node name="SpawnTimer" type="Timer" parent="Window2Line"]
 wait_time = 15.0
 
+[node name="Window3Line" type="Node2D" parent="."]
+script = ExtResource("npc_customer_line_script")
+customer_scene = ExtResource("customer_npc_scene")
+slot_name = "Teller Window 3"
+
+[node name="SpawnPoint" type="Marker2D" parent="Window3Line"]
+position = Vector2(464, 528)
+
+[node name="QueuePositions" type="Node2D" parent="Window3Line"]
+
+[node name="QueuePoint1" type="Marker2D" parent="Window3Line/QueuePositions"]
+position = Vector2(464, 400)
+
+[node name="QueuePoint2" type="Marker2D" parent="Window3Line/QueuePositions"]
+position = Vector2(464, 432)
+
+[node name="QueuePoint3" type="Marker2D" parent="Window3Line/QueuePositions"]
+position = Vector2(464, 464)
+
+[node name="SpawnTimer" type="Timer" parent="Window3Line"]
+wait_time = 15.0
+
 [node name="LoanDeskWorker" type="Node" parent="."]
 script = ExtResource("npc_loan_desk_worker_script")
 
@@ -346,6 +372,28 @@ layout_mode = 3
 
 [node name="ATMScreen" parent="UI" instance=ExtResource("atm_screen_scene")]
 layout_mode = 3
+
+[node name="DeskNotice" type="PanelContainer" parent="UI"]
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -84.0
+offset_right = 260.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 0
+theme = ExtResource("banking_theme")
+
+[node name="Label" type="Label" parent="UI/DeskNotice"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
 
 [node name="DisciplineLetterScreen" parent="UI" instance=ExtResource("discipline_letter_screen_scene")]
 layout_mode = 3

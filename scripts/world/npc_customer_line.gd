@@ -24,7 +24,9 @@ class_name NpcCustomerLine
 ##
 ## teller_room.gd sets staff_npc and switches both lines (Teller Windows 1
 ## and 2) on at the start; they stay on. The player works their own
-## Player Teller Window with its own CustomerQueue.
+## Player Teller Window with its own CustomerQueue — until promotion to
+## Branch Manager, when Window3Line (same lane) takes it over as Teller
+## Window 3.
 
 signal customer_served(customer: CustomerNPC, staff: StaffMember, was_mistake: bool)
 
@@ -141,7 +143,7 @@ func _complete_service() -> void:
 	var description := "%s (%s) %s" % [staff.staff_name, slot_name, what]
 	if customer.was_mistake:
 		description += " — mistake: %s, then fixed it" % _mistake_detail
-	HistoryManager.add_staff_record(staff.staff_name, description, "Mistake" if customer.was_mistake else "Correct")
+	HistoryManager.add_staff_record(staff.staff_name, slot_name, description, "Mistake" if customer.was_mistake else "Correct")
 
 	last_service_seconds = _elapsed
 	_serving_staff.say("All set — have a nice day!")

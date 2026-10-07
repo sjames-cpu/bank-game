@@ -57,6 +57,7 @@ func decide_next() -> void:
 	var action := _action_text(application, decision)
 	HistoryManager.add_staff_record(
 		staff.staff_name,
+		ScheduleManager.SLOT_LOAN_DESK,
 		"%s (Loan Desk) %s %s's $%.0f %s loan — %s" % [staff.staff_name, action, application.applicant_name, application.requested_amount, application.loan_purpose.to_lower(), LoanApplication.grade_description(grade)],
 		"Correct" if correct else "Mistake"
 	)

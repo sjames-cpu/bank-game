@@ -48,6 +48,20 @@ var is_loan_officer_unlocked: bool = false
 ## Same "never cleared once earned" rule as is_loan_officer_unlocked above.
 var is_branch_manager_unlocked: bool = false
 
+## Set when the Branch Manager thresholds are met while the player is
+## mid-shift at a desk (see begin_player_shift()) — the promotion takes
+## effect once they clock out, not in the middle of serving customers.
+var is_branch_manager_promotion_pending: bool = false
+
+## Set once the Branch Manager orientation letter has been shown (first
+## Branch Manager clock-in) — once per career; see
+## discipline_letter_screen.gd's show_branch_orientation_once().
+var has_seen_branch_orientation: bool = false
+
+## Desks the player is currently clocked in at (teller_room.gd reports
+## clock-in/out for the Player Teller Window and the Loan Desk).
+var _desks_on_shift: Array[String] = []
+
 ## Both unlocks need XP *and* Reputation, so the checks also run on
 ## reputation changes — otherwise reputation crossing its floor after XP
 ## already did would wait until the next XP event to unlock. Each check's
@@ -68,7 +82,20 @@ func reset() -> void:
 	total_xp = 0
 	is_loan_officer_unlocked = false
 	is_branch_manager_unlocked = false
+	is_branch_manager_promotion_pending = false
+	has_seen_branch_orientation = false
+	_desks_on_shift.clear()
 	xp_changed.emit(total_xp)
+
+func begin_player_shift(desk: String) -> void:
+	if not _desks_on_shift.has(desk):
+		_desks_on_shift.append(desk)
+
+## Grants a promotion that was held back while the player was on shift.
+func end_player_shift(desk: String) -> void:
+	_desks_on_shift.erase(desk)
+	if is_branch_manager_promotion_pending and _desks_on_shift.is_empty():
+		_grant_branch_manager()
 
 func add_shift_xp(shift_score: int) -> void:
 	total_xp = maxi(0, total_xp + shift_score * XP_PER_SCORE_POINT)
@@ -86,9 +113,19 @@ func _check_unlock() -> void:
 ## Kept as its own function (rather than folded into _check_unlock() above)
 ## so the original Loan Officer check stays exactly as it was — this is a
 ## second, independent check added alongside it, not a restructuring of it.
+## Every route to the promotion (real shifts, reputation changes, the F1
+## debug cheat) comes through here, so all of them get the same mid-shift
+## deferral.
 func _check_branch_manager_unlock() -> void:
-	if is_branch_manager_unlocked:
+	if is_branch_manager_unlocked or is_branch_manager_promotion_pending:
 		return
 	if total_xp >= XP_UNLOCK_THRESHOLD_BRANCH_MANAGER and ReputationManager.reputation >= REPUTATION_UNLOCK_FLOOR_BRANCH_MANAGER:
-		is_branch_manager_unlocked = true
-		branch_manager_unlocked.emit()
+		if _desks_on_shift.is_empty():
+			_grant_branch_manager()
+		else:
+			is_branch_manager_promotion_pending = true
+
+func _grant_branch_manager() -> void:
+	is_branch_manager_promotion_pending = false
+	is_branch_manager_unlocked = true
+	branch_manager_unlocked.emit()
