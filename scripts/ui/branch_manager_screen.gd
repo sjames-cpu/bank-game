@@ -211,9 +211,10 @@ func _on_vault_count_submitted(total: float) -> void:
 	_vault_reconciled_this_shift = true
 	_update_shift_controls()
 
-	var discrepancy := total - VaultReconciliationScreen.EXPECTED_VAULT_BALANCE
+	var discrepancy_cents := MoneyMath.to_cents(total) - MoneyMath.to_cents(VaultReconciliationScreen.EXPECTED_VAULT_BALANCE)
+	var discrepancy := discrepancy_cents / 100.0
 	var excess_bills := vault_reconciliation_screen.get_excess_bill_count()
-	var discrepancy_result := _categorize_vault_discrepancy(discrepancy, excess_bills)
+	var discrepancy_result := _categorize_vault_discrepancy(discrepancy_cents, excess_bills)
 	var result_label := _vault_discrepancy_result_label(discrepancy_result)
 
 	var score := _vault_score_for_result(discrepancy_result)
@@ -232,10 +233,10 @@ func _on_vault_count_submitted(total: float) -> void:
 ## kept as its own copy here (rather than calling into the screen) the
 ## same way teller_screen.gd owns its own copy for DrawerCountScreen
 ## rather than reading DrawerCountScreen's.
-func _categorize_vault_discrepancy(discrepancy: float, excess_bills: int) -> VaultReconciliationScreen.DiscrepancyResult:
-	if discrepancy == 0.0 and excess_bills <= VaultReconciliationScreen.PERFECT_BILL_COUNT_TOLERANCE:
+func _categorize_vault_discrepancy(discrepancy_cents: int, excess_bills: int) -> VaultReconciliationScreen.DiscrepancyResult:
+	if discrepancy_cents == 0 and excess_bills <= VaultReconciliationScreen.PERFECT_BILL_COUNT_TOLERANCE:
 		return VaultReconciliationScreen.DiscrepancyResult.PERFECT
-	elif abs(discrepancy) <= VaultReconciliationScreen.MINOR_DISCREPANCY_THRESHOLD and excess_bills <= VaultReconciliationScreen.MINOR_BILL_COUNT_TOLERANCE:
+	elif absi(discrepancy_cents) <= MoneyMath.to_cents(VaultReconciliationScreen.MINOR_DISCREPANCY_THRESHOLD) and excess_bills <= VaultReconciliationScreen.MINOR_BILL_COUNT_TOLERANCE:
 		return VaultReconciliationScreen.DiscrepancyResult.MINOR
 	else:
 		return VaultReconciliationScreen.DiscrepancyResult.MAJOR

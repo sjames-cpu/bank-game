@@ -197,7 +197,11 @@ func _assign_transaction_intent(customer: CustomerNPC) -> void:
 
 	var max_amount := INTENT_MAX_AMOUNT
 	if intent_type == ShiftTransaction.Type.WITHDRAWAL:
-		max_amount = minf(INTENT_MAX_AMOUNT, customer.account.balance)
+		## Floored to a $10 multiple — customer balances carry cents, so
+		## clamping to the raw balance below could otherwise yield a non-whole
+		## amount (e.g. $147.32). Still >= INTENT_MIN_AMOUNT, since that's a
+		## $10 multiple and the balance was already checked against it above.
+		max_amount = minf(INTENT_MAX_AMOUNT, floorf(customer.account.balance / 10.0) * 10.0)
 
 	## Rounded to the nearest $10 so the stated amount reads like something
 	## a person would actually say ("$150", not "$147.32"), then clamped

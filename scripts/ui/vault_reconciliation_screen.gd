@@ -169,10 +169,12 @@ func _update_live_total() -> void:
 ## possible for EXPECTED_VAULT_BALANCE (see get_excess_bill_count()) — a
 ## correct total no longer grades Perfect on its own if the breakdown
 ## behind it is implausible.
-func _categorize_discrepancy(discrepancy: float, excess_bills: int) -> DiscrepancyResult:
-	if discrepancy == 0.0 and excess_bills <= PERFECT_BILL_COUNT_TOLERANCE:
+## discrepancy_cents is integer cents rather than float dollars — see
+## MoneyMath.
+func _categorize_discrepancy(discrepancy_cents: int, excess_bills: int) -> DiscrepancyResult:
+	if discrepancy_cents == 0 and excess_bills <= PERFECT_BILL_COUNT_TOLERANCE:
 		return DiscrepancyResult.PERFECT
-	elif abs(discrepancy) <= MINOR_DISCREPANCY_THRESHOLD and excess_bills <= MINOR_BILL_COUNT_TOLERANCE:
+	elif absi(discrepancy_cents) <= MoneyMath.to_cents(MINOR_DISCREPANCY_THRESHOLD) and excess_bills <= MINOR_BILL_COUNT_TOLERANCE:
 		return DiscrepancyResult.MINOR
 	else:
 		return DiscrepancyResult.MAJOR
@@ -193,16 +195,16 @@ func _discrepancy_result_label(discrepancy_result: DiscrepancyResult) -> String:
 ## screen has no scoring responsibility at all.
 func _on_submit_button_pressed() -> void:
 	var total := _calculate_total()
-	var discrepancy := total - EXPECTED_VAULT_BALANCE
+	var discrepancy_cents := MoneyMath.to_cents(total) - MoneyMath.to_cents(EXPECTED_VAULT_BALANCE)
 	var excess_bills := get_excess_bill_count()
-	var discrepancy_result := _categorize_discrepancy(discrepancy, excess_bills)
+	var discrepancy_result := _categorize_discrepancy(discrepancy_cents, excess_bills)
 	var result_label := _discrepancy_result_label(discrepancy_result)
 
 	result_expected_label.text = "Expected Balance: $%.2f" % EXPECTED_VAULT_BALANCE
 	result_total_label.text = "Your Total: $%.2f" % total
-	discrepancy_label.text = "Discrepancy: $%.2f" % discrepancy
+	discrepancy_label.text = "Discrepancy: $%.2f" % (discrepancy_cents / 100.0)
 	status_label.text = "%s Count!" % result_label if discrepancy_result == DiscrepancyResult.PERFECT else "%s Discrepancy" % result_label
-	if discrepancy == 0.0 and discrepancy_result != DiscrepancyResult.PERFECT:
+	if discrepancy_cents == 0 and discrepancy_result != DiscrepancyResult.PERFECT:
 		status_label.text += " (correct total, but an implausible bill mix)"
 	results_container.visible = true
 

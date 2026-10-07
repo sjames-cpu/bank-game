@@ -560,10 +560,13 @@ func _begin_shift(starting_total: float) -> void:
 ## count than the minimum possible for that total (see DrawerCountScreen.
 ## get_excess_bill_count()) — a correct total no longer grades Perfect on
 ## its own if the bill breakdown behind it is implausible.
-func _categorize_discrepancy(discrepancy: float, excess_bills: int) -> DiscrepancyResult:
-	if discrepancy == 0.0 and excess_bills <= DrawerCountScreen.PERFECT_BILL_COUNT_TOLERANCE:
+##
+## discrepancy_cents is integer cents rather than float dollars — see
+## MoneyMath for why.
+func _categorize_discrepancy(discrepancy_cents: int, excess_bills: int) -> DiscrepancyResult:
+	if discrepancy_cents == 0 and excess_bills <= DrawerCountScreen.PERFECT_BILL_COUNT_TOLERANCE:
 		return DiscrepancyResult.PERFECT
-	elif abs(discrepancy) <= DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD and excess_bills <= DrawerCountScreen.MINOR_BILL_COUNT_TOLERANCE:
+	elif absi(discrepancy_cents) <= MoneyMath.to_cents(DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD) and excess_bills <= DrawerCountScreen.MINOR_BILL_COUNT_TOLERANCE:
 		return DiscrepancyResult.MINOR
 	else:
 		return DiscrepancyResult.MAJOR
@@ -600,9 +603,10 @@ func _discrepancy_result_label(discrepancy_result: DiscrepancyResult) -> String:
 
 func _prepare_shift_summary(ending_total: float) -> void:
 	var expected := _calculate_expected_ending_balance()
-	var discrepancy := ending_total - expected
+	var discrepancy_cents := MoneyMath.to_cents(ending_total) - MoneyMath.to_cents(expected)
+	var discrepancy := discrepancy_cents / 100.0
 	var shift_end_time := Time.get_datetime_string_from_system()
-	var discrepancy_result := _categorize_discrepancy(discrepancy, drawer_count_screen.get_excess_bill_count())
+	var discrepancy_result := _categorize_discrepancy(discrepancy_cents, drawer_count_screen.get_excess_bill_count())
 	var shift_score := _calculate_shift_score(discrepancy_result)
 	var reputation_delta := _calculate_reputation_delta(discrepancy_result)
 

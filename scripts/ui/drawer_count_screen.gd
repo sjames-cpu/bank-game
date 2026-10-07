@@ -152,22 +152,23 @@ func _update_live_total() -> void:
 
 func _on_submit_button_pressed() -> void:
 	var total := _calculate_total()
-	var discrepancy := total - expected_balance
+	## Integer cents, not float dollars — see MoneyMath.
+	var discrepancy_cents := MoneyMath.to_cents(total) - MoneyMath.to_cents(expected_balance)
 	var excess_bills := get_excess_bill_count()
 
 	result_expected_label.text = "Expected Balance: $%.2f" % expected_balance
 	result_total_label.text = "Your Total: $%.2f" % total
-	discrepancy_label.text = "Discrepancy: $%.2f" % discrepancy
+	discrepancy_label.text = "Discrepancy: $%.2f" % (discrepancy_cents / 100.0)
 
-	if discrepancy == 0.0 and excess_bills <= PERFECT_BILL_COUNT_TOLERANCE:
+	if discrepancy_cents == 0 and excess_bills <= PERFECT_BILL_COUNT_TOLERANCE:
 		status_label.text = "Perfect Count!"
-	elif abs(discrepancy) <= MINOR_DISCREPANCY_THRESHOLD and excess_bills <= MINOR_BILL_COUNT_TOLERANCE:
+	elif absi(discrepancy_cents) <= MoneyMath.to_cents(MINOR_DISCREPANCY_THRESHOLD) and excess_bills <= MINOR_BILL_COUNT_TOLERANCE:
 		status_label.text = "Minor Discrepancy"
-		if discrepancy == 0.0:
+		if discrepancy_cents == 0:
 			status_label.text += " (correct total, but an unusual bill mix)"
 	else:
 		status_label.text = "Major Discrepancy"
-		if discrepancy == 0.0:
+		if discrepancy_cents == 0:
 			status_label.text += " (correct total, but an implausible bill mix)"
 
 	results_container.visible = true
