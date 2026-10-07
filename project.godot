@@ -24,6 +24,7 @@ XPManager="*res://scripts/autoload/xp_manager.gd"
 InterviewManager="*res://scripts/autoload/interview_manager.gd"
 HistoryManager="*res://scripts/autoload/history_manager.gd"
 ScheduleManager="*res://scripts/autoload/schedule_manager.gd"
+ReportManager="*res://scripts/autoload/report_manager.gd"
 
 [display]
 

@@ -17,8 +17,15 @@ signal reputation_changed(new_reputation: int)
 ## expected to move once real tuning starts.
 const LOW_REPUTATION_THRESHOLD: int = 0
 
-var reputation: int = 50
+const STARTING_REPUTATION: int = 50
+
+var reputation: int = STARTING_REPUTATION
 
 func add_reputation(delta: int) -> void:
 	reputation = clampi(reputation + delta, 0, 100)
+	reputation_changed.emit(reputation)
+
+## New career after termination — see CareerReset.
+func reset() -> void:
+	reputation = STARTING_REPUTATION
 	reputation_changed.emit(reputation)

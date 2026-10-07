@@ -61,6 +61,15 @@ func _on_reputation_changed(_new_reputation: int) -> void:
 	_check_unlock()
 	_check_branch_manager_unlock()
 
+## New career after termination — see CareerReset. The only place the
+## "never cleared once earned" unlock flags are cleared: a fired employee
+## starts over and has to earn the roles again.
+func reset() -> void:
+	total_xp = 0
+	is_loan_officer_unlocked = false
+	is_branch_manager_unlocked = false
+	xp_changed.emit(total_xp)
+
 func add_shift_xp(shift_score: int) -> void:
 	total_xp = maxi(0, total_xp + shift_score * XP_PER_SCORE_POINT)
 	xp_changed.emit(total_xp)

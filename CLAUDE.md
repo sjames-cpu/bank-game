@@ -10,7 +10,7 @@ Treat any architectural description here as provisional — update this file as 
 
 ### Flow
 
-`run/main_scene` is `scenes/world/teller_room.tscn` (spawns the player in a small tile room with a `TellerDesk`) — the hiring interview (`scenes/ui/interview_screen.tscn`, `InterviewManager`) is disabled as the entry point for now since it's being rebuilt from scratch; its scene/scripts are untouched and still work standalone, just not wired into `run/main_scene`. `is_on_probation` therefore stays at its default `false` for every session until the interview is reconnected. Interacting with the desk (`ui_accept` or `E`) opens `TellerScreen`, which pauses the tree and drives clock-in → deposits/withdrawals → clock-out → shift summary.
+`run/main_scene` is `scenes/world/teller_room.tscn` (spawns the player in a small tile room with a `TellerDesk`) — the hiring interview (`scenes/ui/interview_screen.tscn`, `InterviewManager`) is not the entry point for now since it's being rebuilt from scratch. Its only way in is termination: 3 disciplinary reports (`ReportManager`) show a termination letter (`discipline_letter_screen.tscn`, in teller_room's `UI` layer) whose "Apply for a new job" button wipes all career progress via `CareerReset.reset_all()` (each autoload has a `reset()`) and loads the interview; passing it loads teller_room again. `is_on_probation` therefore stays `false` until the player has been through that path. Interacting with the desk (`ui_accept` or `E`) opens `TellerScreen`, which pauses the tree and drives clock-in → deposits/withdrawals → clock-out → shift summary.
 
 ### Autoloads (`scripts/autoload/`)
 
@@ -18,6 +18,7 @@ Global singletons registered in `project.godot`'s `[autoload]` section, each a p
 
 - **ScoreManager** — `total_score`, a running per-session tally adjusted via `add_shift_score()`.
 - **ReputationManager** — `reputation`, clamped to `[0, 100]`, adjusted via `add_reputation()`. `LOW_REPUTATION_THRESHOLD` gates a warning label; a Loan Officer role unlock is planned but not wired up.
+- **ReportManager** — disciplinary reports: every 2 mistaken teller customers (`CustomerNPC.was_mistake`) = 1 report, 3 reports = termination. Carries across shifts/roles; cleared and disabled once Branch Manager unlocks (TODO: Regional Manager review for managers). Logs to HistoryManager under `DecisionRecord.Role.DISCIPLINARY` (never actionable in approvals). Registered last in `[autoload]` since it connects to XPManager in `_ready()`.
 - **InterviewManager** — resolves the interview mini-game's outcome (`resolve_outcome()`), exposes `Outcome` enum (`HIRED` / `HIRED_ON_PROBATION` / `REJECTED`), `HIRE_THRESHOLD`/`PROBATION_THRESHOLD` constants, and `is_on_probation` (set but not yet used by gameplay).
 
 ### Data resources (`scripts/data/`)

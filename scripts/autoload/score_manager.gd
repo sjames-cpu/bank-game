@@ -22,3 +22,8 @@ var total_score: int = 0
 func add_shift_score(points: int) -> void:
 	total_score += points
 	score_changed.emit(total_score)
+
+## New career after termination — see CareerReset.
+func reset() -> void:
+	total_score = 0
+	score_changed.emit(total_score)

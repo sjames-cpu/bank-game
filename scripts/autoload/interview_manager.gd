@@ -20,6 +20,11 @@ const PROBATION_THRESHOLD: int = 5
 
 var is_on_probation: bool = false
 
+## New career after termination — see CareerReset. The next interview sets
+## this again via resolve_outcome().
+func reset() -> void:
+	is_on_probation = false
+
 ## Called once the interview screen has asked every question (or hit an
 ## instant-reject answer). instant_rejected always wins regardless of
 ## total_score — see InterviewAnswer.is_instant_reject.

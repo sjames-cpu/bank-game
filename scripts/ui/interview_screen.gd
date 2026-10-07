@@ -1,9 +1,11 @@
 extends Control
 
-## First-shift interview mini-game (2h). This scene is the project's
-## main_scene, so it's the very first thing the player sees — teller_room
-## (and its Player/first shift) only loads once the interview ends in
-## Hired or Hired-on-Probation. A Rejected outcome loops back to the
+## First-shift interview mini-game (2h). No longer the main_scene (the
+## game currently boots straight into teller_room); it's reached after a
+## termination, via the "Apply for a new job" button on
+## discipline_letter_screen.gd, which resets all career progress first.
+## teller_room (and its Player/first shift) loads once the interview ends
+## in Hired or Hired-on-Probation. A Rejected outcome loops back to the
 ## first question right here instead of needing any "quit game" flow.
 
 const TELLER_ROOM_SCENE: String = "res://scenes/world/teller_room.tscn"

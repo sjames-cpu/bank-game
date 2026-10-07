@@ -23,7 +23,18 @@ signal accounts_changed
 var accounts: Array[Account] = []
 
 func _ready() -> void:
+	_create_default_accounts()
+
+func _create_default_accounts() -> void:
 	create_account("Johnathan Jamestar", 1000.0)
+
+## New career after termination — see CareerReset. Drops every customer and
+## player-opened account and restores the demo account to its starting
+## balance.
+func reset() -> void:
+	accounts.clear()
+	_create_default_accounts()
+	accounts_changed.emit()
 
 ## Flat list, not keyed by name — customer names aren't guaranteed unique
 ## (see find_account_by_name() below), so index/reference is still how

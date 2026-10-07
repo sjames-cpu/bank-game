@@ -30,6 +30,7 @@
 [ext_resource type="Script" path="res://scripts/world/day_night_cycle.gd" id="day_night_cycle_script"]
 [ext_resource type="Script" path="res://scripts/world/atm.gd" id="atm_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atm_screen.tscn" id="atm_screen_scene"]
+[ext_resource type="PackedScene" path="res://scenes/ui/discipline_letter_screen.tscn" id="discipline_letter_screen_scene"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_room"]
 texture = ExtResource("tiles_tex")
@@ -259,4 +260,7 @@ layout_mode = 3
 layout_mode = 3
 
 [node name="ATMScreen" parent="UI" instance=ExtResource("atm_screen_scene")]
+layout_mode = 3
+
+[node name="DisciplineLetterScreen" parent="UI" instance=ExtResource("discipline_letter_screen_scene")]
 layout_mode = 3

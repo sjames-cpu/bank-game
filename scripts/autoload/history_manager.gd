@@ -14,6 +14,10 @@ extends Node
 
 var records: Array[DecisionRecord] = []
 
+## New career after termination — see CareerReset.
+func reset() -> void:
+	records.clear()
+
 func add_record(role: DecisionRecord.Role, description: String, grade_label: String = "") -> DecisionRecord:
 	var record := DecisionRecord.new()
 	record.role = role

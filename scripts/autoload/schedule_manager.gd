@@ -23,6 +23,10 @@ signal schedule_confirmed(schedule: Dictionary)
 ## simply absent rather than mapped to null.
 var schedule: Dictionary = {}
 
+## New career after termination — see CareerReset.
+func reset() -> void:
+	schedule = {}
+
 func confirm_schedule(new_schedule: Dictionary) -> void:
 	schedule = new_schedule
 	schedule_confirmed.emit(schedule)

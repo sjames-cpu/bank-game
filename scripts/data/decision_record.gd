@@ -24,7 +24,10 @@ class_name DecisionRecord
 ## screens — a frozen copy of just the fields that matter is safer than a
 ## reference that could go stale).
 
-enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER }
+## DISCIPLINARY records are ReportManager's reports/termination notices —
+## logged for the record only. approvals_screen.gd offers actions only on
+## TELLER and LOAN_OFFICER rows, so these are never flaggable/overridable.
+enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY }
 
 @export var role: Role
 @export var description: String = ""
@@ -50,5 +53,7 @@ static func role_label(role_value: Role) -> String:
 			return "Teller"
 		Role.LOAN_OFFICER:
 			return "Loan Officer"
+		Role.DISCIPLINARY:
+			return "Disciplinary"
 		_:
 			return "Branch Manager"

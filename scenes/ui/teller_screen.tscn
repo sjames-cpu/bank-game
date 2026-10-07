@@ -188,7 +188,7 @@ anchor_right = 1.0
 offset_left = -200.0
 offset_top = 8.0
 offset_right = -8.0
-offset_bottom = 96.0
+offset_bottom = 124.0
 grow_horizontal = 0
 theme_type_variation = &"HudPanel"
 
@@ -218,6 +218,11 @@ text = "Reputation: 50"
 layout_mode = 2
 horizontal_alignment = 2
 text = "XP: 0"
+
+[node name="ReportsLabel" type="Label" parent="ScoreHudPanel/VBox"]
+layout_mode = 2
+horizontal_alignment = 2
+text = "Reports: 0 / 3"
 
 [node name="NotificationStack" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -355,6 +360,11 @@ horizontal_alignment = 1
 [node name="TotalReputationLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
 text = "Reputation: 50"
+horizontal_alignment = 1
+
+[node name="TotalReportsLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Reports: 0 / 3"
 horizontal_alignment = 1
 
 [node name="DoneButton" type="Button" parent="ShiftSummaryPanel/VBox"]

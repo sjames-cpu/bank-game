@@ -1,0 +1,65 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/discipline_letter_screen.gd" id="screen_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
+
+[node name="DisciplineLetterScreen" type="Control"]
+process_mode = 3
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("banking_theme")
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="LetterPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_right = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="LetterPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="LetterPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Written Warning"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="FromLabel" type="Label" parent="LetterPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "From: Branch Manager"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="LetterPanel/VBox"]
+layout_mode = 2
+
+[node name="BodyLabel" type="Label" parent="LetterPanel/VBox"]
+layout_mode = 2
+text = ""
+autowrap_mode = 2
+
+[node name="ActionButton" type="Button" parent="LetterPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Acknowledge"

@@ -57,6 +57,7 @@ class_name TellerScreen
 @onready var corner_total_score_label: Label = $ScoreHudPanel/VBox/TotalScoreLabel
 @onready var corner_reputation_label: Label = $ScoreHudPanel/VBox/ReputationLabel
 @onready var corner_xp_label: Label = $ScoreHudPanel/VBox/XPLabel
+@onready var corner_reports_label: Label = $ScoreHudPanel/VBox/ReportsLabel
 ## Warning/unlock labels live in a top-left VBox stack rather than being
 ## pinned top-center: the main Panel is centered and already fills the full
 ## viewport height, so anything anchored above it lands on its title. The
@@ -77,6 +78,7 @@ class_name TellerScreen
 @onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalXPLabel
 @onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/ReputationLabel
 @onready var shift_total_reputation_label: Label = $ShiftSummaryPanel/VBox/TotalReputationLabel
+@onready var shift_total_reports_label: Label = $ShiftSummaryPanel/VBox/TotalReportsLabel
 @onready var shift_customer_results_label: Label = $ShiftSummaryPanel/VBox/CustomerResultsLabel
 @onready var shift_customer_points_label: Label = $ShiftSummaryPanel/VBox/CustomerPointsLabel
 @onready var shift_summary_done_button: Button = $ShiftSummaryPanel/VBox/DoneButton
@@ -265,6 +267,7 @@ func _ready() -> void:
 	ScoreManager.score_changed.connect(_on_total_score_changed)
 	ReputationManager.reputation_changed.connect(_on_reputation_changed)
 	XPManager.xp_changed.connect(_on_total_xp_changed)
+	ReportManager.reports_changed.connect(_on_reports_changed)
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 
@@ -275,6 +278,7 @@ func _ready() -> void:
 	_on_total_score_changed(ScoreManager.total_score)
 	_on_reputation_changed(ReputationManager.reputation)
 	_on_total_xp_changed(XPManager.total_xp)
+	_on_reports_changed(ReportManager.get_report_count())
 	if XPManager.is_loan_officer_unlocked:
 		_on_loan_officer_unlocked()
 	if XPManager.is_branch_manager_unlocked:
@@ -467,6 +471,9 @@ func _on_customer_transaction(type: ShiftTransaction.Type, amount: float, shift_
 	if not customer.was_mistake:
 		customer.was_mistake = true
 		_grade_first_transaction(customer, type, amount, false)
+		# Counted once per mistaken customer, fixed or not — every
+		# ReportManager.MISTAKES_PER_REPORT of these becomes a report.
+		ReportManager.record_mistake(DecisionRecord.Role.TELLER, customer.display_name)
 	else:
 		_show_feedback("Still not right — %s is still waiting for a correction." % customer.display_name, FEEDBACK_BAD_COLOR)
 	customer.correction_line = _describe_mistake(customer)
@@ -1018,6 +1025,7 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	ReputationManager.add_reputation(reputation_delta)
 	shift_reputation_label.text = "Reputation: %+d" % reputation_delta
 	shift_total_reputation_label.text = "Reputation: %d" % ReputationManager.reputation
+	shift_total_reports_label.text = ReportManager.status_text()
 
 	var shift_xp := shift_score * XPManager.XP_PER_SCORE_POINT
 	XPManager.add_shift_xp(shift_score)
@@ -1063,6 +1071,9 @@ func _on_reputation_changed(new_reputation: int) -> void:
 
 func _on_total_xp_changed(new_total: int) -> void:
 	corner_xp_label.text = "XP: %d" % new_total
+
+func _on_reports_changed(_count: int) -> void:
+	corner_reports_label.text = ReportManager.status_text()
 
 ## Fires once, the first time XPManager's unlock condition is met — see
 ## XPManager.is_loan_officer_unlocked for why this never gets hidden
