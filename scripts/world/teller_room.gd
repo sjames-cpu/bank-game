@@ -32,11 +32,13 @@ extends Node2D
 ## remembers which customer was at the front of the line when the screen
 ## opened (passed to show_screen() so it can display "Serving: X"). That
 ## customer is only actually popped from the queue once TellerScreen reports
-## a completed deposit/withdrawal for them (transaction_completed), or, for
-## a complaint customer, a resolved complaint (complaint_resolved) — not
-## just whenever the screen is closed, since closing without doing anything
-## (checking a balance, clocking in/out) shouldn't silently drop them from
-## the line. See _on_teller_desk_interacted and _serve_current_customer.
+## their request done (customer_request_satisfied), or, for a complaint
+## customer, a resolved complaint (complaint_resolved) — not just whenever
+## the screen is closed, since closing without doing anything (checking a
+## balance, clocking in/out) shouldn't silently drop them from the line. The
+## one exception is a customer whose transaction was done wrong and never
+## fixed: closing the screen sends them off upset (customer_left_unfixed).
+## See _on_teller_desk_interacted and _serve_current_customer.
 ##
 ## Phase 6f adds the ATM: unlike the three job desks above, it has no
 ## availability gating at all — see _on_atm_interacted() — since it's a
@@ -74,7 +76,8 @@ var _customers_awaiting_farewell: Array[CustomerNPC] = []
 
 func _ready() -> void:
 	$TellerDesk.interacted.connect(_on_teller_desk_interacted)
-	teller_screen.transaction_completed.connect(_on_teller_transaction_completed)
+	teller_screen.customer_request_satisfied.connect(_on_teller_customer_request_satisfied)
+	teller_screen.customer_left_unfixed.connect(_on_teller_customer_left_unfixed)
 	teller_screen.screen_closed.connect(_on_teller_screen_closed)
 	teller_screen.complaint_resolved.connect(_on_teller_complaint_resolved)
 	teller_screen.remaining_shift_work = _describe_remaining_shift_work
@@ -108,16 +111,26 @@ func _on_teller_desk_interacted() -> void:
 	_customer_being_served = customer_queue.get_front_customer()
 	teller_screen.show_screen(_customer_being_served)
 
-## Fires once a deposit or withdrawal actually succeeds. If a regular
-## customer is being served, that transaction is theirs (TellerScreen has
-## already graded it against their request) — serve them and move on to
-## whoever's next. No customer waiting is a no-op. A complaint customer
-## isn't served by a transaction (they have no request); they're handled
-## by resolving the complaint instead — see _on_teller_complaint_resolved().
-func _on_teller_transaction_completed() -> void:
-	if _customer_being_served == null or _customer_being_served.complaint != null:
+## Fires once a regular customer's request is done (first try, or after a
+## mistake was fixed) — serve them and move on to whoever's next. Complaint
+## customers are handled by resolving the complaint instead — see
+## _on_teller_complaint_resolved().
+func _on_teller_customer_request_satisfied(customer: CustomerNPC) -> void:
+	if customer != _customer_being_served:
 		return
 	_serve_current_customer()
+
+## The screen is closing with this customer's mistake unfixed: they leave
+## the line upset (CustomerNPC.left_upset picks the farewell line) with the
+## same farewell timing as a served customer. The screen is closing, so
+## there's no "next customer" to advance to here.
+func _on_teller_customer_left_unfixed(customer: CustomerNPC) -> void:
+	if customer != _customer_being_served:
+		return
+	var leaving := customer_queue.serve_front_customer()
+	if leaving != null:
+		_customers_awaiting_farewell.append(leaving)
+	_customer_being_served = null
 
 ## Resolving a complaint is how a complaint customer gets served.
 func _on_teller_complaint_resolved(customer: CustomerNPC) -> void:
@@ -153,13 +166,18 @@ func _on_teller_screen_closed() -> void:
 ## Backs TellerScreen.remaining_shift_work: clock-out is allowed only once
 ## every customer this shift brings has been handled (served, complaint
 ## resolved, or abandoned) — the per-shift cap has been reached, the queue
-## is empty, and nobody is mid-service. Returns "" when that's the case,
-## otherwise a short description of what's left for the error message.
+## is empty, and nobody is mid-service. A customer at the desk waiting for a
+## mistake to be corrected is still in the queue, so they block clock-out
+## too (named separately). Returns "" when that's the case, otherwise a
+## short description of what's left for the error message.
 func _describe_remaining_shift_work() -> String:
 	var parts: PackedStringArray = []
 	var waiting := customer_queue.queue.size()
+	if is_instance_valid(_customer_being_served) and _customer_being_served.was_mistake and customer_queue.queue.has(_customer_being_served):
+		parts.append("%s is still waiting for a correction" % _customer_being_served.display_name)
+		waiting -= 1
 	if waiting > 0:
-		parts.append("%d customer%s still waiting" % [waiting, "" if waiting == 1 else "s"])
+		parts.append("%d %scustomer%s still waiting" % [waiting, "more " if parts.size() > 0 else "", "" if waiting == 1 else "s"])
 	var to_arrive := customer_queue.get_customers_left_to_spawn()
 	if to_arrive > 0:
 		parts.append("%d more customer%s still to arrive" % [to_arrive, "" if to_arrive == 1 else "s"])
@@ -176,8 +194,7 @@ func _on_teller_shift_clocked_out() -> void:
 
 ## Fires when CustomerQueue removes a customer whose patience ran out before
 ## being served. If they happened to be whoever the desk interaction was
-## about to serve, clear that reference/UI the same way
-## _on_teller_transaction_completed() does — belt-and-suspenders, since the
+## about to serve, clear that reference/UI — belt-and-suspenders, since the
 ## tree being paused whenever the screen is actually open should already
 ## prevent a customer mid-visit from reaching that state (see
 ## CustomerNPC._process()'s doc comment).

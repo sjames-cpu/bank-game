@@ -133,31 +133,49 @@ visible = false
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="DepositButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+[node name="TransactionButtonsHBox" type="HBoxContainer" parent="Panel/VBox/ActionsSection/ActionsVBox"]
 layout_mode = 2
+
+[node name="DepositButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox/TransactionButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"PrimaryButton"
 text = "Deposit"
 
-[node name="WithdrawButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+[node name="WithdrawButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox/TransactionButtonsHBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"PrimaryButton"
 text = "Withdraw"
 
-[node name="OpenAccountButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
-layout_mode = 2
-text = "Open New Account"
-
-[node name="ClockInButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
-layout_mode = 2
-text = "Clock In"
-
-[node name="ClockOutButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+[node name="ReverseTransactionButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox/TransactionButtonsHBox"]
 layout_mode = 2
 visible = false
+size_flags_horizontal = 3
+text = "Reverse Transaction"
+
+[node name="ShiftButtonsHBox" type="HBoxContainer" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+
+[node name="OpenAccountButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox/ShiftButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Open New Account"
+
+[node name="ClockInButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox/ShiftButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Clock In"
+
+[node name="ClockOutButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox/ShiftButtonsHBox"]
+layout_mode = 2
+visible = false
+size_flags_horizontal = 3
 text = "Clock Out"
 
-[node name="CloseButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+[node name="CloseButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox/ShiftButtonsHBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Close"
 
 [node name="DrawerCountScreen" parent="." instance=ExtResource("drawer_count_screen_scene")]

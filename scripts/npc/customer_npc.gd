@@ -61,6 +61,22 @@ var intent_amount: float = 0.0
 ## the normal serving UI instead of the complaint prompt a second time.
 var complaint_resolved: bool = false
 
+## Set the first time the teller's transaction for this (regular) customer
+## doesn't match their request — and never cleared, even once the mistake
+## is fixed, so a later report system can count mistakes per customer. See
+## TellerScreen._on_customer_transaction().
+var was_mistake: bool = false
+
+## Set if this customer leaves with a mistake still unfixed (the teller
+## closed the screen before correcting it) — picks an unhappy farewell line
+## instead of a thank-you in say_farewell_and_leave().
+var left_upset: bool = false
+
+## While a mistake is pending, what this customer says about it (e.g. "I
+## asked for $300, you only gave me $250."). Shown by TellerScreen in place
+## of dialogue_line; empty otherwise.
+var correction_line: String = ""
+
 ## Phase 6e: assigned independently of dialogue_line/complaint above — a
 ## customer can be a complaint AND pay by card, or any combination.
 ## Reuses ShiftTransaction's enum rather than declaring a second,
@@ -103,6 +119,14 @@ const FAREWELL_LINES: Array[String] = [
 	"Appreciate your help!",
 	"Have a great day!",
 	"Thanks so much!",
+]
+
+## Used instead of FAREWELL_LINES when left_upset is set.
+const UPSET_FAREWELL_LINES: Array[String] = [
+	"Unbelievable. My account's still wrong.",
+	"I'll be taking this up with your manager.",
+	"You didn't even fix it!",
+	"I'm moving my money elsewhere.",
 ]
 
 const FAREWELL_DISPLAY_SECONDS: float = 1.5
@@ -160,7 +184,7 @@ func say_farewell_and_leave(exit_position: Vector2) -> void:
 	_leaving = true
 	_abandoning = true # stop the patience tint — this customer is done, not waiting
 
-	_farewell_label.text = FAREWELL_LINES.pick_random()
+	_farewell_label.text = (UPSET_FAREWELL_LINES if left_upset else FAREWELL_LINES).pick_random()
 	_farewell_label.visible = true
 	await get_tree().create_timer(FAREWELL_DISPLAY_SECONDS).timeout
 	_farewell_label.visible = false
