@@ -63,11 +63,20 @@ signal customer_abandoned(customer: CustomerNPC)
 
 ## Names aren't guaranteed unique, matching Account.customer_name's own
 ## "customer names aren't guaranteed unique" caveat (see teller_screen.gd) —
-## real people share names, and nothing here keys off a customer's name.
+## real people share names, and a repeat name reuses that name's account
+## (see _get_or_create_customer_account()). The pool is large enough (36)
+## that a repeat within one shift is uncommon, so two different customers
+## rarely read as one (e.g. in a disciplinary report's customer list).
 const CUSTOMER_NAMES: Array[String] = [
 	"Alex Rivera", "Sam Chen", "Jordan Blake", "Taylor Morgan",
 	"Casey Nguyen", "Morgan Lee", "Riley Patel", "Avery Kim",
-	"Jamie Fischer", "Drew Sanders",
+	"Jamie Fischer", "Drew Sanders", "Priya Desai", "Marcus Bell",
+	"Elena Rossi", "Kofi Mensah", "Hana Sato", "Diego Alvarez",
+	"Grace O'Connor", "Omar Haddad", "Lena Novak", "Tomás Ortega",
+	"Mei Lin", "Samuel Okafor", "Nadia Petrov", "Ethan Brooks",
+	"Aisha Rahman", "Lucas Moreau", "Ingrid Larsen", "Mateo Silva",
+	"Chloe Dubois", "Ravi Iyer", "Sofia Marino", "Ben Adler",
+	"Yuki Tanaka", "Fatima Bello", "Noel Grant", "Zoe Whitaker",
 ]
 
 @onready var spawn_point: Marker2D = $SpawnPoint
