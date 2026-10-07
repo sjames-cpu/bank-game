@@ -117,16 +117,12 @@ func _on_application_graded(score_delta: int, reputation_delta: int, xp_delta: i
 	shift_xp_total += xp_delta
 	_update_shift_controls()
 
-## LoanReviewScreen reports whether the application it was showing got
-## decided before it closed — the player can hit its Close button before
-## deciding at all. That still has to consume a slot toward
-## APPLICATIONS_PER_SHIFT (with no Score/Reputation/XP change, since
-## nothing was graded); otherwise the same application could be reopened
-## and skipped indefinitely without review_next_button ever disabling.
-func _on_loan_review_screen_closed(was_decided: bool) -> void:
-	if not was_decided:
-		applications_reviewed += 1
-		_update_shift_controls()
+## Closing without a decision doesn't use up a slot toward
+## APPLICATIONS_PER_SHIFT — only an actual decision does (counted in
+## _on_application_graded()). LoanReviewScreen keeps the undecided
+## application current, so "Review Next Application" brings the same one
+## back rather than letting it be skipped.
+func _on_loan_review_screen_closed(_was_decided: bool) -> void:
 	_show_main_panel()
 
 ## Gated on work, not time: the shift only ends once all

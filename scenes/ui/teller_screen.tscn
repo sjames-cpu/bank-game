@@ -245,6 +245,7 @@ grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="ShiftSummaryPanel"]
 layout_mode = 2
+theme_override_constants/separation = 6
 
 [node name="TitleLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
@@ -275,14 +276,18 @@ text = "Final Discrepancy: $0.00"
 horizontal_alignment = 1
 autowrap_mode = 2
 
+[node name="DrawerSeparator" type="HSeparator" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+
+[node name="DrawerHeaderLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Drawer Count"
+horizontal_alignment = 1
+
 [node name="ShiftScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
 text = "Shift Score: +0"
-horizontal_alignment = 1
-
-[node name="TotalScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
-layout_mode = 2
-text = "Total Score: 0"
 horizontal_alignment = 1
 
 [node name="ShiftXPLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
@@ -290,14 +295,48 @@ layout_mode = 2
 text = "Shift XP: +0"
 horizontal_alignment = 1
 
+[node name="ReputationLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Reputation: +0"
+horizontal_alignment = 1
+
+[node name="CustomerSeparator" type="HSeparator" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+
+[node name="CustomerHeaderLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Customers"
+horizontal_alignment = 1
+
+[node name="CustomerResultsLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Served correctly: 0 · Incorrectly: 0"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="CustomerPointsLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Score +0 · Reputation +0 · XP +0"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="TotalsSeparator" type="HSeparator" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+
+[node name="TotalScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = "Total Score: 0"
+horizontal_alignment = 1
+
 [node name="TotalXPLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
 text = "Total XP: 0"
 horizontal_alignment = 1
 
-[node name="ReputationLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="TotalReputationLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
-text = "Reputation: +0 (now 50)"
+text = "Reputation: 50"
 horizontal_alignment = 1
 
 [node name="DoneButton" type="Button" parent="ShiftSummaryPanel/VBox"]

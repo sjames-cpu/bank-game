@@ -186,6 +186,7 @@ func _on_customer_abandoned(customer: CustomerNPC) -> void:
 		_customer_being_served = null
 		teller_screen.set_serving_customer(null)
 	ReputationManager.add_reputation(ABANDONMENT_REPUTATION_PENALTY)
+	teller_screen.note_customer_abandoned(ABANDONMENT_REPUTATION_PENALTY)
 	HistoryManager.add_record(
 		DecisionRecord.Role.TELLER,
 		"Customer abandoned the line: %s" % customer.display_name,

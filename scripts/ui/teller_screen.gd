@@ -70,6 +70,9 @@ class_name TellerScreen
 @onready var shift_xp_label: Label = $ShiftSummaryPanel/VBox/ShiftXPLabel
 @onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalXPLabel
 @onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/ReputationLabel
+@onready var shift_total_reputation_label: Label = $ShiftSummaryPanel/VBox/TotalReputationLabel
+@onready var shift_customer_results_label: Label = $ShiftSummaryPanel/VBox/CustomerResultsLabel
+@onready var shift_customer_points_label: Label = $ShiftSummaryPanel/VBox/CustomerPointsLabel
 @onready var shift_summary_done_button: Button = $ShiftSummaryPanel/VBox/DoneButton
 
 signal shift_clocked_in
@@ -190,6 +193,20 @@ var shift_start_time: String = ""
 ## Always the assigned float (STARTING_EXPECTED_BALANCE), never the
 ## player's opening count — see _begin_shift().
 var shift_start_balance: float = 0.0
+
+## Per-shift customer-service tallies for the shift summary, kept separate
+## from the drawer count's points so the summary can show where each came
+## from. Points include every customer-driven consequence: graded requests
+## (_grade_customer_transaction()), complaint responses
+## (_on_complaint_response_selected()) and abandonments
+## (note_customer_abandoned()). Reset in _begin_shift().
+var _customers_correct: int = 0
+var _customers_incorrect: int = 0
+var _complaints_resolved: int = 0
+var _customers_abandoned: int = 0
+var _customer_score: int = 0
+var _customer_reputation: int = 0
+var _customer_xp: int = 0
 
 ## Every deposit/withdrawal made since clock-in. This is the source of
 ## truth for both the clock-out "expected balance" math (starting
@@ -373,8 +390,17 @@ func _grade_customer_transaction(type: ShiftTransaction.Type, amount: float) -> 
 	ScoreManager.add_shift_score(score_delta)
 	if reputation_delta != 0:
 		ReputationManager.add_reputation(reputation_delta)
+	var xp_delta := 0
 	if score_delta > 0:
 		XPManager.add_shift_xp(score_delta)
+		xp_delta = score_delta * XPManager.XP_PER_SCORE_POINT
+	if correct:
+		_customers_correct += 1
+	else:
+		_customers_incorrect += 1
+	_customer_score += score_delta
+	_customer_reputation += reputation_delta
+	_customer_xp += xp_delta
 
 	var did := "%s $%.0f" % [_past_tense_label(type), amount]
 	var points := "%+d Score" % score_delta
@@ -491,6 +517,9 @@ func _on_complaint_response_selected(customer: CustomerNPC, response: ComplaintR
 		grade_label
 	)
 	customer.complaint_resolved = true
+	if shift_state == ShiftState.CLOCKED_IN:
+		_complaints_resolved += 1
+		_customer_reputation += response.score
 	_show_main_panel()
 	_show_feedback("Complaint handled (%s, %+d Reputation)." % [grade_label, response.score], FEEDBACK_GOOD_COLOR if response.score > 0 else (FEEDBACK_NEUTRAL_COLOR if response.score == 0 else FEEDBACK_BAD_COLOR))
 	complaint_resolved.emit(customer)
@@ -503,6 +532,15 @@ func _on_complaint_response_selected(customer: CustomerNPC, response: ComplaintR
 ## (see teller_room.gd).
 func _on_complaint_later_button_pressed() -> void:
 	_show_main_panel()
+
+## Called by teller_room.gd when a queued customer abandons the line, after
+## it has applied the Reputation penalty itself — this only tallies it for
+## the shift summary (this screen doesn't otherwise see the queue).
+func note_customer_abandoned(reputation_delta: int) -> void:
+	if shift_state != ShiftState.CLOCKED_IN:
+		return
+	_customers_abandoned += 1
+	_customer_reputation += reputation_delta
 
 func _on_respond_complaint_button_pressed() -> void:
 	if _has_unresolved_complaint(_serving_customer):
@@ -671,6 +709,13 @@ func _begin_shift(starting_total: float) -> void:
 	shift_start_balance = STARTING_EXPECTED_BALANCE
 	shift_start_time = Time.get_datetime_string_from_system()
 	shift_transactions.clear()
+	_customers_correct = 0
+	_customers_incorrect = 0
+	_complaints_resolved = 0
+	_customers_abandoned = 0
+	_customer_score = 0
+	_customer_reputation = 0
+	_customer_xp = 0
 
 	var opening_cents := MoneyMath.to_cents(starting_total) - MoneyMath.to_cents(STARTING_EXPECTED_BALANCE)
 	var opening_result := _categorize_discrepancy(opening_cents, drawer_count_screen.get_excess_bill_count())
@@ -752,12 +797,19 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	shift_total_score_label.text = "Total Score: %d" % ScoreManager.total_score
 
 	ReputationManager.add_reputation(reputation_delta)
-	shift_reputation_label.text = "Reputation: %+d (now %d)" % [reputation_delta, ReputationManager.reputation]
+	shift_reputation_label.text = "Reputation: %+d" % reputation_delta
+	shift_total_reputation_label.text = "Reputation: %d" % ReputationManager.reputation
 
 	var shift_xp := shift_score * XPManager.XP_PER_SCORE_POINT
 	XPManager.add_shift_xp(shift_score)
 	shift_xp_label.text = "Shift XP: %+d" % shift_xp
 	shift_total_xp_label.text = "Total XP: %d" % XPManager.total_xp
+
+	## Drawer lines above sit under the summary's "Drawer Count" header;
+	## these sit under "Customers" — already applied as each happened, so
+	## shown here for the breakdown only, not re-applied.
+	shift_customer_results_label.text = "Served correctly: %d · Incorrectly: %d\nComplaints resolved: %d · Abandoned: %d" % [_customers_correct, _customers_incorrect, _complaints_resolved, _customers_abandoned]
+	shift_customer_points_label.text = "Score %+d · Reputation %+d · XP %+d" % [_customer_score, _customer_reputation, _customer_xp]
 
 	var discrepancy_label := _discrepancy_result_label(discrepancy_result)
 	HistoryManager.add_record(DecisionRecord.Role.TELLER, "Drawer count: %s (discrepancy $%.2f)" % [discrepancy_label, discrepancy], discrepancy_label)

@@ -103,12 +103,18 @@ func hide_screen() -> void:
 
 	closed.emit(_decision_made_for_current)
 
+## An application closed without a decision stays current — it's shown
+## again (from a fresh, un-credit-checked state) next time rather than
+## skipped, so only an actual Approve/Reject/Counter-Offer moves on to the
+## next applicant.
 func _display_next_application() -> void:
 	if applications.is_empty():
 		return
 
-	var application := applications[_next_application_index]
-	_next_application_index = (_next_application_index + 1) % applications.size()
+	var application := _current_application
+	if application == null or _decision_made_for_current:
+		application = applications[_next_application_index]
+		_next_application_index = (_next_application_index + 1) % applications.size()
 	_current_application = application
 	_decision_made_for_current = false
 
