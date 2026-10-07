@@ -49,9 +49,14 @@ class_name TellerScreen
 @onready var corner_total_score_label: Label = $ScoreHudPanel/VBox/TotalScoreLabel
 @onready var corner_reputation_label: Label = $ScoreHudPanel/VBox/ReputationLabel
 @onready var corner_xp_label: Label = $ScoreHudPanel/VBox/XPLabel
-@onready var low_reputation_warning_label: Label = $LowReputationWarningLabel
-@onready var loan_officer_unlocked_label: Label = $LoanOfficerUnlockedLabel
-@onready var branch_manager_unlocked_label: Label = $BranchManagerUnlockedLabel
+## Warning/unlock labels live in a top-left VBox stack rather than being
+## pinned top-center: the main Panel is centered and already fills the full
+## viewport height, so anything anchored above it lands on its title. The
+## stack sits in the empty margin left of the panel (mirroring ScoreHudPanel
+## on the right) and the VBox keeps multiple visible labels from colliding.
+@onready var low_reputation_warning_label: Label = $NotificationStack/LowReputationWarningLabel
+@onready var loan_officer_unlocked_label: Label = $NotificationStack/LoanOfficerUnlockedLabel
+@onready var branch_manager_unlocked_label: Label = $NotificationStack/BranchManagerUnlockedLabel
 
 @onready var shift_summary_panel: PanelContainer = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
