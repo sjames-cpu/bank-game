@@ -528,14 +528,28 @@ func _requested_cents(customer: CustomerNPC) -> int:
 	var cents := MoneyMath.to_cents(customer.intent_amount)
 	return cents if customer.intent_type == ShiftTransaction.Type.DEPOSIT else -cents
 
+## Satisfied only when the customer's own account shows the requested net
+## change AND nothing this visit did to another account on their behalf is
+## still standing — a stray wrong-account transaction has to be reversed
+## (Reverse Transaction), not just compensated for on the right account.
 func _is_request_satisfied(customer: CustomerNPC) -> bool:
-	return _net_own_account_cents(customer) == _requested_cents(customer)
+	return _net_own_account_cents(customer) == _requested_cents(customer) and _stray_transactions(customer).is_empty()
+
+## This visit's transactions that hit an account other than the customer's.
+func _stray_transactions(customer: CustomerNPC) -> Array[Dictionary]:
+	var stray: Array[Dictionary] = []
+	for entry in _customer_transactions:
+		if entry["account"] != customer.account:
+			stray.append(entry)
+	return stray
 
 ## What the customer says about the current (unsatisfied) state of their
 ## request: wrong account if the latest transaction hit someone else's
-## account, wrong type if their own account moved the opposite way, and
-## otherwise too little / too much. An empty string (after reversing
-## everything) falls back to their original request line.
+## account, wrong type if their own account moved the opposite way, too
+## little / too much otherwise, and — once their own account is right — a
+## reminder about any wrong-account transaction still not reversed. An
+## empty string (after reversing everything) falls back to their original
+## request line.
 func _describe_mistake(customer: CustomerNPC) -> String:
 	if _customer_transactions.is_empty():
 		return ""
@@ -550,6 +564,9 @@ func _describe_mistake(customer: CustomerNPC) -> String:
 		var other := ShiftTransaction.Type.WITHDRAWAL if deposit_intent else ShiftTransaction.Type.DEPOSIT
 		return "I wanted to %s %s, not %s it." % [_verb_label(customer.intent_type), _money(asked), _verb_label(other)]
 
+	if net == _requested_cents(customer):
+		return _describe_stray(customer)
+
 	var done := absi(net)
 	if deposit_intent:
 		if done < asked:
@@ -558,6 +575,22 @@ func _describe_mistake(customer: CustomerNPC) -> String:
 	if done < asked:
 		return "I asked for %s, you only gave me %s." % [_money(asked), _money(done)]
 	return "You gave me %s — I only asked for %s." % [_money(done), _money(asked)]
+
+## Own account is right, but a wrong-account transaction is still standing.
+func _describe_stray(customer: CustomerNPC) -> String:
+	var deposited := 0
+	var withdrawn := 0
+	for entry in _stray_transactions(customer):
+		var cents := MoneyMath.to_cents(entry["amount"])
+		if entry["type"] == ShiftTransaction.Type.DEPOSIT:
+			deposited += cents
+		else:
+			withdrawn += cents
+	if deposited > 0 and withdrawn == 0:
+		return "Thanks — but my %s is still sitting in someone else's account." % _money(deposited)
+	if withdrawn > 0 and deposited == 0:
+		return "Thanks — but that %s came out of someone else's account, and it's still missing from theirs." % _money(withdrawn)
+	return "Thanks — but you still need to undo what you did to someone else's account."
 
 func _money(cents: int) -> String:
 	if cents % 100 == 0:
