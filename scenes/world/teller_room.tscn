@@ -31,6 +31,8 @@
 [ext_resource type="Script" path="res://scripts/world/atm.gd" id="atm_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atm_screen.tscn" id="atm_screen_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ui/discipline_letter_screen.tscn" id="discipline_letter_screen_scene"]
+[ext_resource type="Script" path="res://scripts/world/npc_customer_line.gd" id="npc_customer_line_script"]
+[ext_resource type="Script" path="res://scripts/world/npc_loan_desk_worker.gd" id="npc_loan_desk_worker_script"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_room"]
 texture = ExtResource("tiles_tex")
@@ -175,6 +177,53 @@ position = Vector2(560, 464)
 
 [node name="SpawnTimer" type="Timer" parent="CustomerQueue"]
 wait_time = 20.0
+
+[node name="Window1NpcLine" type="Node2D" parent="."]
+script = ExtResource("npc_customer_line_script")
+customer_scene = ExtResource("customer_npc_scene")
+slot_name = "Teller Window 1"
+
+[node name="SpawnPoint" type="Marker2D" parent="Window1NpcLine"]
+position = Vector2(560, 528)
+
+[node name="QueuePositions" type="Node2D" parent="Window1NpcLine"]
+
+[node name="QueuePoint1" type="Marker2D" parent="Window1NpcLine/QueuePositions"]
+position = Vector2(560, 400)
+
+[node name="QueuePoint2" type="Marker2D" parent="Window1NpcLine/QueuePositions"]
+position = Vector2(560, 432)
+
+[node name="QueuePoint3" type="Marker2D" parent="Window1NpcLine/QueuePositions"]
+position = Vector2(560, 464)
+
+[node name="SpawnTimer" type="Timer" parent="Window1NpcLine"]
+wait_time = 15.0
+
+[node name="Window2Line" type="Node2D" parent="."]
+script = ExtResource("npc_customer_line_script")
+customer_scene = ExtResource("customer_npc_scene")
+slot_name = "Teller Window 2"
+
+[node name="SpawnPoint" type="Marker2D" parent="Window2Line"]
+position = Vector2(624, 528)
+
+[node name="QueuePositions" type="Node2D" parent="Window2Line"]
+
+[node name="QueuePoint1" type="Marker2D" parent="Window2Line/QueuePositions"]
+position = Vector2(656, 400)
+
+[node name="QueuePoint2" type="Marker2D" parent="Window2Line/QueuePositions"]
+position = Vector2(656, 432)
+
+[node name="QueuePoint3" type="Marker2D" parent="Window2Line/QueuePositions"]
+position = Vector2(656, 464)
+
+[node name="SpawnTimer" type="Timer" parent="Window2Line"]
+wait_time = 15.0
+
+[node name="LoanDeskWorker" type="Node" parent="."]
+script = ExtResource("npc_loan_desk_worker_script")
 
 [node name="Decor" type="Node2D" parent="."]
 

@@ -74,6 +74,9 @@ const ABANDONMENT_REPUTATION_PENALTY: int = -2
 @onready var atm_screen: ATMScreen = $UI/ATMScreen
 @onready var staff_layer: Node2D = $Staff
 @onready var staff_break_area: Node2D = $StaffBreakArea
+@onready var window1_npc_line: NpcCustomerLine = $Window1NpcLine
+@onready var window2_line: NpcCustomerLine = $Window2Line
+@onready var loan_desk_worker: NpcLoanDeskWorker = $LoanDeskWorker
 
 const STAFF_NPC_SCENE: PackedScene = preload("res://scenes/characters/staff_npc.tscn")
 
@@ -129,6 +132,13 @@ func _ready() -> void:
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
 	_place_staff()
 
+	# Staff serve customers from the start; Window 1's NPC line and the loan
+	# worker pause while the player works those desks (see
+	# _on_player_clocked_in/_out).
+	window2_line.activate()
+	window1_npc_line.activate()
+	loan_desk_worker.active = true
+
 ## (Re)creates one StaffNPC per assigned desk from ScheduleManager. A desk
 ## the player is clocked in at gets its staff member placed straight in the
 ## break room instead.
@@ -151,18 +161,35 @@ func _place_staff() -> void:
 			npc.place_at(_break_spot_for(slot_name), StaffNPC.State.ON_BREAK)
 		else:
 			npc.place_at(_desk_spot(slot_name), StaffNPC.State.AT_DESK)
+	window1_npc_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_1)
+	window2_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_2)
+	loan_desk_worker.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_LOAN_DESK)
 
 func _on_schedule_confirmed(_schedule: Dictionary) -> void:
 	_place_staff()
 
+## Window 1's NPC line steps aside for the player's own line
+## (CustomerQueue, unchanged): its waiting customers move over to Window 2
+## where there's room. The loan worker stops deciding while the player
+## works the Loan Desk.
 func _on_player_clocked_in(slot_name: String) -> void:
+	if slot_name == ScheduleManager.SLOT_TELLER_WINDOW_1:
+		window1_npc_line.deactivate(window2_line)
+	elif slot_name == ScheduleManager.SLOT_LOAN_DESK:
+		loan_desk_worker.active = false
 	if not _player_desk_slots.has(slot_name):
 		_player_desk_slots.append(slot_name)
 	var npc: StaffNPC = _staff_by_slot.get(slot_name)
 	if npc != null:
 		npc.follow_route(_route_to_break(slot_name), StaffNPC.State.ON_BREAK)
 
+## The NPC line / loan worker resume, but only actually serve once the staff
+## member is back at their desk (both check StaffNPC.State.AT_DESK).
 func _on_player_clocked_out(slot_name: String) -> void:
+	if slot_name == ScheduleManager.SLOT_TELLER_WINDOW_1:
+		window1_npc_line.activate()
+	elif slot_name == ScheduleManager.SLOT_LOAN_DESK:
+		loan_desk_worker.active = true
 	_player_desk_slots.erase(slot_name)
 	var npc: StaffNPC = _staff_by_slot.get(slot_name)
 	if npc == null:

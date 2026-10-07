@@ -17,6 +17,7 @@ var records: Array[DecisionRecord] = []
 ## New career after termination — see CareerReset.
 func reset() -> void:
 	records.clear()
+	_staff_record_count = 0
 
 func add_record(role: DecisionRecord.Role, description: String, grade_label: String = "") -> DecisionRecord:
 	var record := DecisionRecord.new()
@@ -25,6 +26,28 @@ func add_record(role: DecisionRecord.Role, description: String, grade_label: Str
 	record.grade_label = grade_label
 	record.timestamp = Time.get_datetime_string_from_system()
 	records.append(record)
+	return record
+
+## Staff records arrive continuously (every NPC transaction and loan
+## decision), so only the most recent MAX_STAFF_RECORDS are kept; the
+## oldest staff record is dropped when a new one would exceed it. Every
+## other role's records stay uncapped.
+const MAX_STAFF_RECORDS: int = 200
+
+var _staff_record_count: int = 0
+
+## An NPC coworker's transaction or loan decision. grade_label is "Correct"
+## or "Mistake".
+func add_staff_record(staff_name: String, description: String, grade_label: String) -> DecisionRecord:
+	var record := add_record(DecisionRecord.Role.STAFF, description, grade_label)
+	record.staff_name = staff_name
+	_staff_record_count += 1
+	if _staff_record_count > MAX_STAFF_RECORDS:
+		for i in records.size():
+			if records[i].role == DecisionRecord.Role.STAFF:
+				records.remove_at(i)
+				_staff_record_count -= 1
+				break
 	return record
 
 ## Same as add_record(), plus the structured loan context (Phase 5d's

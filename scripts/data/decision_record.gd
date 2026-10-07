@@ -27,7 +27,11 @@ class_name DecisionRecord
 ## DISCIPLINARY records are ReportManager's reports/termination notices —
 ## logged for the record only. approvals_screen.gd offers actions only on
 ## TELLER and LOAN_OFFICER rows, so these are never flaggable/overridable.
-enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY }
+##
+## STAFF records are NPC coworkers' transactions and loan decisions
+## (NpcCustomerLine, NpcLoanDeskWorker), with staff_name set. Not
+## actionable yet — a later staff review/discipline step will use them.
+enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY, STAFF }
 
 @export var role: Role
 @export var description: String = ""
@@ -40,6 +44,9 @@ enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY }
 ## description/grade_label are never rewritten — this is the only field
 ## a review action ever changes on an existing record.
 @export var reviewed: bool = false
+
+## STAFF records only: which staff member did it.
+@export var staff_name: String = ""
 
 @export var has_loan_context: bool = false
 @export var risk_assessment: LoanApplication.RiskTier = LoanApplication.RiskTier.MEDIUM
@@ -55,5 +62,7 @@ static func role_label(role_value: Role) -> String:
 			return "Loan Officer"
 		Role.DISCIPLINARY:
 			return "Disciplinary"
+		Role.STAFF:
+			return "Staff"
 		_:
 			return "Branch Manager"

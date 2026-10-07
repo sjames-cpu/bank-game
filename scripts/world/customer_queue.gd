@@ -157,9 +157,19 @@ func send_customer_off(customer: CustomerNPC) -> void:
 func _on_spawn_timer_timeout() -> void:
 	if queue.size() >= queue_positions.size():
 		return
-	if _customers_spawned_this_shift >= CUSTOMERS_PER_SHIFT_CAP:
+	if not _may_spawn():
 		return
 	_spawn_customer()
+
+## The player's line stops at CUSTOMERS_PER_SHIFT_CAP per shift. Overridden
+## by NpcCustomerLine, whose staff-served lines have no per-shift cap.
+func _may_spawn() -> bool:
+	return _customers_spawned_this_shift < CUSTOMERS_PER_SHIFT_CAP
+
+## Overridden by NpcCustomerLine — staff-served lines get regular customers
+## only.
+func _rolls_complaint() -> bool:
+	return randf() < COMPLAINT_CHANCE
 
 ## Random name + account + dialogue/intent are all picked here, once, at
 ## spawn — not at serve-time — so a customer keeps the same name, account,
@@ -171,7 +181,7 @@ func _spawn_customer() -> void:
 	customer.global_position = spawn_point.global_position
 	customer.display_name = CUSTOMER_NAMES.pick_random()
 	customer.account = _get_or_create_customer_account(customer.display_name)
-	if randf() < COMPLAINT_CHANCE:
+	if _rolls_complaint():
 		customer.complaint = _complaint_pool.pick_random()
 	else:
 		_assign_transaction_intent(customer)

@@ -169,6 +169,30 @@ func walk_to(new_target: Vector2) -> void:
 	target_position = new_target
 	_walking = true
 
+## Short speech line above the customer (reuses the farewell label) — used
+## by staff-served lines (NpcCustomerLine) to show what's happening at the
+## window. Hidden again after `seconds` of unpaused time unless something
+## newer replaced it; never overrides the farewell.
+var _speech_token: int = 0
+
+func say(text: String, seconds: float = 2.2) -> void:
+	if _leaving:
+		return
+	_speech_token += 1
+	_farewell_label.text = text
+	_farewell_label.visible = true
+	get_tree().create_timer(seconds, false).timeout.connect(_hide_speech.bind(_speech_token))
+
+func _hide_speech(token: int) -> void:
+	if token == _speech_token and not _leaving:
+		_farewell_label.visible = false
+
+## Stops the patience clock — a customer whose service has started doesn't
+## abandon the line mid-transaction.
+func stop_waiting() -> void:
+	_abandoning = true
+	_sprite.modulate = _base_modulate
+
 ## Phase 6i: called once by CustomerQueue.send_customer_off() after this
 ## customer has been served and the Teller screen closed. Shows a random
 ## farewell line for FAREWELL_DISPLAY_SECONDS, then walks to exit_position
@@ -192,13 +216,17 @@ func say_farewell_and_leave(exit_position: Vector2) -> void:
 	arrived.connect(queue_free, CONNECT_ONE_SHOT)
 	walk_to(exit_position)
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if not _walking:
 		_update_animation(false)
 		return
 
 	var to_target := target_position - global_position
-	if to_target.length() <= ARRIVAL_DISTANCE:
+	# Also arrive if this step would reach/overshoot the target — with a
+	# long frame (low FPS, or time_scale > 1) a single step can be larger
+	# than ARRIVAL_DISTANCE, and the customer would otherwise oscillate
+	# around the spot forever instead of arriving.
+	if to_target.length() <= maxf(ARRIVAL_DISTANCE, speed * delta):
 		global_position = target_position
 		velocity = Vector2.ZERO
 		_walking = false

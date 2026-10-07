@@ -40,8 +40,9 @@ const BACK_OFFICE_DOORS := [3, 9, 10, 16, 21]
 ## Main entrance gap in the bottom outer wall.
 const ENTRANCE_DOOR_COLUMNS := [11, 12]
 
-## Carpet runner down the Teller queue lane, right under the queue Marker2Ds.
-const QUEUE_LANE_COLUMN := 17
+## Carpet runners down each teller window's queue lane (Window 1 at column
+## 17, Window 2 at column 20), right under the queue Marker2Ds.
+const QUEUE_LANE_COLUMNS := [17, 20]
 const QUEUE_LANE_ROWS := [11, 12, 13, 14, 15, 16]
 
 ## Rug under the Waiting Lounge couch cluster.
@@ -69,7 +70,7 @@ func _tile_for(x: int, y: int) -> Vector2i:
 	if y == BACK_OFFICE_ROWS:
 		return FLOOR_WOOD if x in BACK_OFFICE_DOORS else WALL_OFFICE
 
-	if x == QUEUE_LANE_COLUMN and y in QUEUE_LANE_ROWS:
+	if x in QUEUE_LANE_COLUMNS and y in QUEUE_LANE_ROWS:
 		return FLOOR_RUNNER
 
 	if x in RUG_COLUMNS and y in RUG_ROWS:

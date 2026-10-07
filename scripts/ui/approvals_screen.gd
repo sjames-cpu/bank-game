@@ -124,7 +124,14 @@ func _populate_entries() -> void:
 	for child in entries_vbox.get_children():
 		child.queue_free()
 
-	var records := HistoryManager.records
+	# Staff (NPC coworker) records are left out of this inbox: they aren't
+	# reviewable yet, and staff serve customers continuously, so they'd
+	# quickly push every actionable Teller/Loan Officer entry out of the
+	# MAX_VISIBLE_ENTRIES window. A later staff-review step will surface them.
+	var records: Array[DecisionRecord] = []
+	for record in HistoryManager.records:
+		if record.role != DecisionRecord.Role.STAFF:
+			records.append(record)
 	var start_index: int = max(0, records.size() - MAX_VISIBLE_ENTRIES)
 
 	if start_index > 0:

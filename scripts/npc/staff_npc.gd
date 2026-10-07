@@ -21,9 +21,10 @@ enum State { AT_DESK, WALKING, ON_BREAK }
 const ARRIVAL_DISTANCE: float = 4.0
 const SPEED: float = 110.0
 
-## Blue tint marks staff apart from customers (who start untinted and only
-## redden with impatience).
-const STAFF_TINT: Color = Color(0.55, 0.75, 1.0)
+## Strong blue "uniform" tint plus a gold name badge (Badge in the scene)
+## mark staff apart from customers at a glance — customers start untinted
+## and only redden with impatience, and never wear a badge.
+const STAFF_TINT: Color = Color(0.3, 0.5, 1.0)
 
 var staff: StaffMember = null
 var state: State = State.AT_DESK
@@ -42,6 +43,9 @@ var _facing_flip: bool = false
 
 @onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var _name_label: Label = $NameLabel
+@onready var _speech_label: Label = $SpeechLabel
+
+var _speech_token: int = 0
 
 func _ready() -> void:
 	_sprite.modulate = STAFF_TINT
@@ -53,6 +57,18 @@ func setup(member: StaffMember) -> void:
 	staff = member
 	if is_node_ready():
 		_name_label.text = member.staff_name
+
+## Short speech line above the name label, hidden after `seconds` of
+## unpaused time unless something newer replaced it.
+func say(text: String, seconds: float = 2.2) -> void:
+	_speech_token += 1
+	_speech_label.text = text
+	_speech_label.visible = true
+	get_tree().create_timer(seconds, false).timeout.connect(_hide_speech.bind(_speech_token))
+
+func _hide_speech(token: int) -> void:
+	if token == _speech_token:
+		_speech_label.visible = false
 
 ## Walks through `points` in order, ending in `end_state`.
 func follow_route(points: Array[Vector2], end_state: State) -> void:
@@ -70,14 +86,15 @@ func place_at(point: Vector2, new_state: State) -> void:
 	state = new_state
 	_update_animation(false)
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if _route.is_empty():
 		velocity = Vector2.ZERO
 		_update_animation(false)
 		return
 
 	var to_target := _route[0] - global_position
-	if to_target.length() <= ARRIVAL_DISTANCE:
+	# Arrive if this step would reach/overshoot the target (see CustomerNPC).
+	if to_target.length() <= maxf(ARRIVAL_DISTANCE, SPEED * delta):
 		global_position = _route[0]
 		_route.pop_front()
 		waypoints_reached += 1
