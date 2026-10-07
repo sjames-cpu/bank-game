@@ -49,7 +49,12 @@ const WORST_DECISION_REPUTATION: int = -2
 @export var requested_amount: float = 0.0
 @export var credit_score: int = 0
 @export var annual_income: float = 0.0
+## Total outstanding balance on the applicant's existing debt — a balance,
+## not a payment. See monthly_debt_payments for what DTI actually uses.
 @export var existing_debt: float = 0.0
+## The applicant's current required monthly payments on existing_debt.
+## This (not the balance) is what debt_to_income_ratio() measures.
+@export var monthly_debt_payments: float = 0.0
 @export var loan_purpose: String = ""
 @export var risk_tier: RiskTier = RiskTier.MEDIUM
 
@@ -71,11 +76,19 @@ var risk_assessment: RiskTier = RiskTier.MEDIUM
 var decision: DecisionType = DecisionType.NONE
 var decision_amount: float = 0.0
 
-## existing_debt as a fraction of annual_income (e.g. 0.25 == 25%).
+## Standard (monthly) DTI: monthly_debt_payments as a fraction of gross
+## monthly income (e.g. 0.25 == 25%). Previously this divided the existing
+## debt *balance* by *annual* income, which isn't what DTI measures.
+##
+## Non-housing only: there's no rent/mortgage payment field yet, so this
+## excludes housing (the review screen labels it "non-housing, monthly").
+## A housing-payment field and a total (back-end) DTI are deferred to the
+## later Loan Officer rework — when they land, calculate_risk_assessment()'s
+## DTI bands will need recalibrating to the total-DTI scale.
 func debt_to_income_ratio() -> float:
 	if annual_income <= 0.0:
 		return 0.0
-	return existing_debt / annual_income
+	return monthly_debt_payments / (annual_income / 12.0)
 
 ## requested_amount as a fraction of annual_income (e.g. 1.5 == 150%).
 func loan_to_income_ratio() -> float:
@@ -115,12 +128,21 @@ func calculate_risk_assessment() -> RiskTier:
 	else:
 		points += 4
 
+	## Bands for the monthly DTI above. monthly_debt_payments only covers
+	## payments on existing (non-housing) debt — there's no rent/mortgage
+	## field — so these sit on a consumer-debt scale rather than the
+	## ~36%/~50% bands usually quoted for total DTI including housing: under
+	## ~5% is a light load, ~10% is where non-housing payments start to
+	## weigh, and ~20%+ is heavy. Rough game-balance guides, not lending
+	## rules. Calibrated so each sample application keeps the same DTI points
+	## (and so the same risk_assessment) it had under the old balance-based
+	## ratio — see loan_applications_data.gd.
 	var dti := debt_to_income_ratio()
-	if dti < 0.20:
+	if dti < 0.05:
 		points += 0
-	elif dti < 0.35:
+	elif dti < 0.10:
 		points += 1
-	elif dti < 0.50:
+	elif dti < 0.20:
 		points += 2
 	else:
 		points += 3

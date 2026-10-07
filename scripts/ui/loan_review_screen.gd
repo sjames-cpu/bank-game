@@ -45,6 +45,7 @@ class_name LoanReviewScreen
 @onready var credit_score_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/CreditScoreLabel
 @onready var annual_income_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/AnnualIncomeLabel
 @onready var existing_debt_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/ExistingDebtLabel
+@onready var monthly_debt_payments_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/MonthlyDebtPaymentsLabel
 @onready var loan_purpose_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/LoanPurposeLabel
 @onready var run_credit_check_button: Button = $Panel/VBox/RunCreditCheckButton
 @onready var debt_to_income_label: Label = $Panel/VBox/ApplicantSection/ApplicantVBox/DebtToIncomeLabel
@@ -127,7 +128,8 @@ func _display_next_application() -> void:
 	requested_amount_label.text = "Requested Amount: $%.2f" % application.requested_amount
 	credit_score_label.text = "Credit Score: %d" % application.credit_score
 	annual_income_label.text = "Annual Income: $%.2f" % application.annual_income
-	existing_debt_label.text = "Existing Debt: $%.2f" % application.existing_debt
+	existing_debt_label.text = "Existing Debt (balance): $%.2f" % application.existing_debt
+	monthly_debt_payments_label.text = "Monthly Debt Payments: $%.2f" % application.monthly_debt_payments
 	loan_purpose_label.text = "Loan Purpose: %s" % application.loan_purpose
 
 	run_credit_check_button.disabled = false
@@ -146,7 +148,7 @@ func _on_run_credit_check_button_pressed() -> void:
 
 	var application := _current_application
 	credit_score_label.text = "Credit Score: %d — %s" % [application.credit_score, LoanApplication.credit_score_band(application.credit_score)]
-	debt_to_income_label.text = "Debt-to-Income: %.1f%%" % (application.debt_to_income_ratio() * 100.0)
+	debt_to_income_label.text = "Debt-to-Income (non-housing, monthly): %.1f%%" % (application.debt_to_income_ratio() * 100.0)
 	loan_to_income_label.text = "Loan-to-Income: %.1f%%" % (application.loan_to_income_ratio() * 100.0)
 	debt_to_income_label.visible = true
 	loan_to_income_label.visible = true

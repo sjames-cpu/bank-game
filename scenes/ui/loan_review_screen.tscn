@@ -77,7 +77,13 @@ autowrap_mode = 2
 
 [node name="ExistingDebtLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
-text = "Existing Debt: $0.00"
+text = "Existing Debt (balance): $0.00"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="MonthlyDebtPaymentsLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+text = "Monthly Debt Payments: $0.00"
 horizontal_alignment = 1
 autowrap_mode = 2
 
@@ -91,7 +97,7 @@ autowrap_mode = 2
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
 visible = false
-text = "Debt-to-Income: 0.0%"
+text = "Debt-to-Income (non-housing, monthly): 0.0%"
 horizontal_alignment = 1
 
 [node name="LoanToIncomeLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
