@@ -34,6 +34,9 @@ extends Control
 ## bring its own menu back, the same way loan_officer_screen.gd reacts to
 ## LoanReviewScreen's decision_graded/closed.
 
+## teller_room.gd shows the one-time orientation letter off this.
+signal shift_clocked_in
+
 @onready var main_panel: PanelContainer = $Panel
 @onready var schedule_staff_button: Button = $Panel/VBox/ScheduleStaffButton
 @onready var review_approvals_button: Button = $Panel/VBox/ReviewApprovalsButton
@@ -61,6 +64,7 @@ extends Control
 @onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/ReputationLabel
 @onready var shift_xp_label: Label = $ShiftSummaryPanel/VBox/ShiftXPLabel
 @onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalXPLabel
+@onready var shift_branch_label: Label = $ShiftSummaryPanel/VBox/BranchLabel
 @onready var shift_summary_done_button: Button = $ShiftSummaryPanel/VBox/DoneButton
 
 enum ShiftState { CLOCKED_OUT, CLOCKED_IN }
@@ -95,7 +99,15 @@ var shift_score_total: int = 0
 var shift_reputation_total: int = 0
 var shift_xp_total: int = 0
 
+## Every staff history record (HistoryManager.staff_record_added) made
+## between this shift's clock-in and clock-out — the "Branch" section of
+## the summary is built from these. Collected as they arrive rather than
+## filtered from HistoryManager.records afterwards, so its staff-record cap
+## can't drop part of a long shift.
+var shift_staff_records: Array[DecisionRecord] = []
+
 func _ready() -> void:
+	HistoryManager.staff_record_added.connect(_on_staff_record_added)
 	visible = false
 	close_button.pressed.connect(_on_close_button_pressed)
 	clock_in_button.pressed.connect(_on_clock_in_button_pressed)
@@ -150,7 +162,13 @@ func _begin_shift() -> void:
 	shift_score_total = 0
 	shift_reputation_total = 0
 	shift_xp_total = 0
+	shift_staff_records.clear()
 	_update_shift_controls()
+	shift_clocked_in.emit()
+
+func _on_staff_record_added(record: DecisionRecord) -> void:
+	if shift_state == ShiftState.CLOCKED_IN:
+		shift_staff_records.append(record)
 
 func _on_schedule_staff_button_pressed() -> void:
 	main_panel.visible = false
@@ -295,11 +313,63 @@ func _prepare_shift_summary() -> void:
 	shift_reputation_label.text = "Reputation: %+d (now %d)" % [shift_reputation_total, ReputationManager.reputation]
 	shift_xp_label.text = "Shift XP: %+d" % shift_xp_total
 	shift_total_xp_label.text = "Total XP: %d" % XPManager.total_xp
+	shift_branch_label.text = branch_summary_text(shift_staff_records)
 
 	shift_state = ShiftState.CLOCKED_OUT
 	main_panel.visible = false
 	shift_summary_panel.visible = true
 	_update_shift_controls()
+
+## The summary's "Branch" section — report only, no points. One line per
+## (desk, staff member) in desk order: customers served and mistakes for a
+## teller window, decisions and how many were correct for the Loan Desk.
+## Whoever is assigned to a desk is listed even with no work this shift; a
+## desk reassigned mid-shift gets a line per person who worked it. The
+## totals line keeps teller mistakes and wrong loan decisions separate.
+## A loan decision is "correct" only when NpcLoanDeskWorker graded it BEST
+## (the record's "Correct" label) — a PARTIAL call counts as wrong, the
+## same definition as the worker's decision_made `correct` flag.
+static func branch_summary_text(records: Array[DecisionRecord]) -> String:
+	var slot_order: Array[String] = []
+	for slot in ScheduleManager.get_desk_slots():
+		slot_order.append(slot["name"])
+	for record in records:
+		if not slot_order.has(record.staff_slot):
+			slot_order.append(record.staff_slot)
+
+	var lines: PackedStringArray = []
+	var total_served := 0
+	var teller_mistakes := 0
+	var wrong_loans := 0
+	for slot_name in slot_order:
+		var names: Array[String] = []
+		var assigned := ScheduleManager.get_assigned(slot_name)
+		if assigned != null:
+			names.append(assigned.staff_name)
+		for record in records:
+			if record.staff_slot == slot_name and not names.has(record.staff_name):
+				names.append(record.staff_name)
+		for staff_name in names:
+			var done := 0
+			var mistakes := 0
+			for record in records:
+				if record.staff_slot == slot_name and record.staff_name == staff_name:
+					done += 1
+					if record.grade_label == "Mistake":
+						mistakes += 1
+			if slot_name == ScheduleManager.SLOT_LOAN_DESK:
+				wrong_loans += mistakes
+				lines.append("%s — %s: %d decision%s, %d correct" % [slot_name, staff_name, done, "" if done == 1 else "s", done - mistakes])
+			else:
+				total_served += done
+				teller_mistakes += mistakes
+				lines.append("%s — %s: %d served, %d mistake%s" % [slot_name, staff_name, done, mistakes, "" if mistakes == 1 else "s"])
+	lines.append("Total: %d customer%s served by staff, %d teller mistake%s, %d wrong loan decision%s" % [
+		total_served, "" if total_served == 1 else "s",
+		teller_mistakes, "" if teller_mistakes == 1 else "s",
+		wrong_loans, "" if wrong_loans == 1 else "s",
+	])
+	return "\n".join(lines)
 
 func _on_shift_summary_done_pressed() -> void:
 	_show_main_panel()

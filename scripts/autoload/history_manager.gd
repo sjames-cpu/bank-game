@@ -36,11 +36,18 @@ const MAX_STAFF_RECORDS: int = 200
 
 var _staff_record_count: int = 0
 
-## An NPC coworker's transaction or loan decision. grade_label is "Correct"
-## or "Mistake".
-func add_staff_record(staff_name: String, description: String, grade_label: String) -> DecisionRecord:
+## Emitted for every new staff record, before any capping — lets the Branch
+## Manager shift summary tally a whole shift's staff work even if the cap
+## drops older records meanwhile.
+signal staff_record_added(record: DecisionRecord)
+
+## An NPC coworker's transaction or loan decision at desk `slot_name`.
+## grade_label is "Correct" or "Mistake".
+func add_staff_record(staff_name: String, slot_name: String, description: String, grade_label: String) -> DecisionRecord:
 	var record := add_record(DecisionRecord.Role.STAFF, description, grade_label)
 	record.staff_name = staff_name
+	record.staff_slot = slot_name
+	staff_record_added.emit(record)
 	_staff_record_count += 1
 	if _staff_record_count > MAX_STAFF_RECORDS:
 		for i in records.size():

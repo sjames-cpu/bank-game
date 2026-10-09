@@ -22,7 +22,13 @@ signal schedule_confirmed(schedule: Dictionary)
 
 const SLOT_TELLER_WINDOW_1: String = "Teller Window 1"
 const SLOT_TELLER_WINDOW_2: String = "Teller Window 2"
+const SLOT_TELLER_WINDOW_3: String = "Teller Window 3"
 const SLOT_LOAN_DESK: String = "Loan Desk"
+
+## The Player Teller Window, staffed once the player is promoted to Branch
+## Manager (see open_teller_window_3()). Not in DESK_SLOTS: it only exists
+## after promotion — use get_desk_slots() for the current set.
+const TELLER_WINDOW_3_SLOT: Dictionary = {"name": SLOT_TELLER_WINDOW_3, "role": "Teller"}
 
 ## One slot per staffed desk, with the StaffMember.role that can work it.
 ## (Previously four abstract "Teller/Loan Officer Shift 1/2" slots; now that
@@ -38,16 +44,54 @@ const DESK_SLOTS: Array[Dictionary] = [
 ## assigned — an unassigned slot is simply absent rather than mapped to null.
 var schedule: Dictionary = {}
 
+## Set once Teller Window 3 exists (after promotion to Branch Manager).
+var is_teller_window_3_open: bool = false
+
 func _ready() -> void:
 	schedule = _default_schedule()
+	# XPManager is registered before ScheduleManager in project.godot, and
+	# connecting here (before any scene) means the slot is already filled
+	# when teller_room.gd reacts to the same signal and places its staff.
+	XPManager.branch_manager_unlocked.connect(open_teller_window_3)
 
 func get_assigned(slot_name: String) -> StaffMember:
 	return schedule.get(slot_name, null)
 
+## Every desk that currently takes staff: DESK_SLOTS, plus Teller Window 3
+## after promotion.
+func get_desk_slots() -> Array[Dictionary]:
+	var slots: Array[Dictionary] = DESK_SLOTS.duplicate()
+	if is_teller_window_3_open:
+		slots.insert(2, TELLER_WINDOW_3_SLOT) # after the other teller windows
+	return slots
+
+## The player's own window becomes NPC-staffed. Defaults to a roster member
+## not working any desk, preferring a Teller (no new roster entry).
+func open_teller_window_3() -> void:
+	if is_teller_window_3_open:
+		return
+	is_teller_window_3_open = true
+	var member := _first_unassigned("Teller")
+	if member == null:
+		member = _first_unassigned("")
+	if member != null:
+		schedule[SLOT_TELLER_WINDOW_3] = member
+
 ## New career after termination — see CareerReset. Back to the default
-## desk assignment, not an empty branch.
+## desk assignment, not an empty branch, and no Teller Window 3.
 func reset() -> void:
+	is_teller_window_3_open = false
 	schedule = _default_schedule()
+
+## First roster member (of `role`, or any role if empty) not at a desk.
+func _first_unassigned(role: String) -> StaffMember:
+	var assigned_names: Array[String] = []
+	for member: StaffMember in schedule.values():
+		assigned_names.append(member.staff_name)
+	for staff in StaffRosterData.get_staff():
+		if (role == "" or staff.role == role) and not assigned_names.has(staff.staff_name):
+			return staff
+	return null
 
 func confirm_schedule(new_schedule: Dictionary) -> void:
 	schedule = new_schedule

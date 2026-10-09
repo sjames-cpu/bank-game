@@ -40,8 +40,9 @@ signal closed
 ## always leaves someone of each role off the floor — which ones to pick is
 ## an actual choice rather than "assign everyone." Each slot starts on its
 ## current assignment so confirming without changes keeps the desks as
-## they are.
-var _shift_slots: Array[Dictionary] = ScheduleManager.DESK_SLOTS
+## they are. Rebuilt every time the screen opens, since Teller Window 3
+## only exists after promotion (ScheduleManager.get_desk_slots()).
+var _shift_slots: Array[Dictionary] = []
 
 @onready var roster_vbox: VBoxContainer = $Panel/VBox/RosterScrollContainer/RosterVBox
 @onready var slots_grid: GridContainer = $Panel/VBox/SlotsGrid
@@ -61,6 +62,8 @@ func _ready() -> void:
 	_populate_slots()
 
 func show_screen() -> void:
+	_populate_slots()
+	status_label.visible = false
 	visible = true
 
 	_paused_by_self = false
@@ -90,6 +93,11 @@ func _populate_roster() -> void:
 		roster_vbox.add_child(HSeparator.new())
 
 func _populate_slots() -> void:
+	for child in slots_grid.get_children():
+		slots_grid.remove_child(child)
+		child.queue_free()
+	_slot_option_buttons.clear()
+	_shift_slots = ScheduleManager.get_desk_slots()
 	var all_staff := StaffRosterData.get_staff()
 
 	for slot in _shift_slots:
@@ -103,7 +111,10 @@ func _populate_slots() -> void:
 
 		var assigned := ScheduleManager.get_assigned(slot["name"])
 		for staff in all_staff:
-			if staff.role == slot["role"]:
+			# The current assignee is always listed — Teller Window 3's default
+			# can be a non-Teller if no Teller was free.
+			var is_assigned := assigned != null and assigned.staff_name == staff.staff_name
+			if staff.role == slot["role"] or is_assigned:
 				var item_index := option_button.item_count
 				option_button.add_item(staff.staff_name)
 				option_button.set_item_metadata(item_index, staff)

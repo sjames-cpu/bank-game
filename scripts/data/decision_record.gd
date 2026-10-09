@@ -45,8 +45,10 @@ enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY, STAFF }
 ## a review action ever changes on an existing record.
 @export var reviewed: bool = false
 
-## STAFF records only: which staff member did it.
+## STAFF records only: which staff member did it, and at which desk
+## (ScheduleManager.SLOT_*).
 @export var staff_name: String = ""
+@export var staff_slot: String = ""
 
 @export var has_loan_context: bool = false
 @export var risk_assessment: LoanApplication.RiskTier = LoanApplication.RiskTier.MEDIUM

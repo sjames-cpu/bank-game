@@ -136,8 +136,8 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -160.0
-offset_right = 160.0
+offset_left = -230.0
+offset_right = 230.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -197,6 +197,21 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "Reputation: +0 (now 50)"
 horizontal_alignment = 1
+
+[node name="BranchSeparator" type="HSeparator" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+
+[node name="BranchHeaderLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Branch"
+horizontal_alignment = 1
+
+[node name="BranchLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="DoneButton" type="Button" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2

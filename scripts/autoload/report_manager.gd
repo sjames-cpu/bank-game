@@ -22,7 +22,6 @@ extends Node
 signal reports_changed(count: int)
 signal report_issued(report: DisciplinaryReport)
 signal termination_issued(reports: Array[DisciplinaryReport])
-signal record_cleared_for_promotion(cleared_count: int)
 
 const MISTAKES_PER_REPORT: int = 2
 const REPORTS_FOR_TERMINATION: int = 3
@@ -42,6 +41,13 @@ var is_exempt: bool = false
 ## Set when the termination letter is issued; nothing more is recorded
 ## until CareerReset clears it.
 var is_terminated: bool = false
+
+## How many reports the promotion to Branch Manager removed — read by the
+## promotion letter (discipline_letter_screen.gd), which reports the
+## cleared record itself rather than a separate notice. Set before the
+## letter reads it: this autoload connects to branch_manager_unlocked
+## before any scene does.
+var reports_cleared_on_promotion: int = 0
 
 ## Role -> PackedStringArray of mistakes not yet rolled into a report.
 var _pending_mistakes: Dictionary = {}
@@ -103,6 +109,7 @@ func _on_branch_manager_unlocked() -> void:
 	if is_terminated or is_exempt:
 		return
 	var cleared := reports.size()
+	reports_cleared_on_promotion = cleared
 	reports.clear()
 	_pending_mistakes.clear()
 	is_exempt = true
@@ -112,11 +119,11 @@ func _on_branch_manager_unlocked() -> void:
 		"Cleared"
 	)
 	reports_changed.emit(0)
-	record_cleared_for_promotion.emit(cleared)
 
 func reset() -> void:
 	reports.clear()
 	_pending_mistakes.clear()
 	is_exempt = false
 	is_terminated = false
+	reports_cleared_on_promotion = 0
 	reports_changed.emit(0)
