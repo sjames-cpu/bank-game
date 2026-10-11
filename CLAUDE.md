@@ -56,4 +56,18 @@ This file is hand-editable but the header explicitly warns it's best edited via 
 
 ## Development workflow
 
-There is no build/lint/test tooling set up yet (no C# project file, no test framework, no CI config). Since there's no `.csproj`, C# scripts can't be compiled outside the Godot editor until one is generated. Running/testing changes currently means opening the project in the Godot 4.7 editor and using its Play/Run functionality; update this section once scripts, scenes, and a test setup exist.
+Since there's no `.csproj`, C# scripts can't be compiled outside the Godot editor until one is generated. Playing the game means opening the project in the Godot 4.7 editor and using Play/Run.
+
+### Tests
+
+Automated tests use **gdUnit4 v6.2.1** (`addons/gdUnit4/`, supports Godot 4.7/4.7.1; the addon's own self-tests were left out). Suites live in `tests/` (`*_test.gd`, extending `GdUnitTestSuite`). Suites that drive the real teller room extend `tests/support/teller_room_suite.gd`, which gives each test a fresh `teller_room.tscn` and a fresh career (`CareerReset`), seeds the RNG, and has helpers for clocking in/out, spawning customers with fixed requests, and pressing the teller buttons.
+
+Run everything locally with one command (Git Bash on Windows):
+
+```sh
+GODOT_BIN="/c/Users/USER/Downloads/Godot_v4.7.1-stable_win64.exe/Godot_v4.7.1-stable_win64_console.exe" ./run_tests.sh
+```
+
+`run_tests.sh` imports the project, runs every suite in `tests/`, then does a `--headless --quit-after 300` boot. It fails if a test fails, the boot fails, or Godot prints any `ERROR:`/`SCRIPT ERROR:` line. HTML/XML reports go to `reports/` (gitignored). CI (`.github/workflows/tests.yml`) runs the same script on every push and pull request with a pinned Godot 4.7.1 Linux build. Keep the CI version, the local version and the gdUnit4 version in step.
+
+**Rule: when you verify a fix or feature, add or update permanent tests in `tests/`.** Don't write temporary verification scripts and delete them afterwards. If something can't be reached from a test, make it injectable (e.g. `teller_room.gd`'s `debug_cheats_enabled`) rather than skipping the test.

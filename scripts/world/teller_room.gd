@@ -64,6 +64,11 @@ extends Node2D
 
 const DEBUG_UNLOCK_KEY := KEY_F1
 
+## Whether DEBUG_UNLOCK_KEY works — only in debug builds. A variable rather
+## than a direct OS.is_debug_build() call so tests (which always run in a
+## debug build) can check the release-build behaviour (B7).
+var debug_cheats_enabled: bool = OS.is_debug_build()
+
 ## Name the player's own window is reported to XPManager under while on shift.
 const PLAYER_TELLER_WINDOW: String = "Player Teller Window"
 
@@ -480,10 +485,11 @@ func _on_atm_interacted() -> void:
 ## normal unlock check, a Branch Manager unlock pressed mid-shift waits for
 ## clock-out and shows the same promotion letter as a real one.
 ##
-## Gated on OS.is_debug_build() so it works when running from the editor
-## (or a debug export) but never in an exported release build.
+## Gated on debug_cheats_enabled (OS.is_debug_build()) so it works when
+## running from the editor (or a debug export) but never in an exported
+## release build.
 func _unhandled_input(event: InputEvent) -> void:
-	if not OS.is_debug_build():
+	if not debug_cheats_enabled:
 		return
 	var key_event := event as InputEventKey
 	if key_event != null and key_event.pressed and not key_event.echo and key_event.keycode == DEBUG_UNLOCK_KEY:
