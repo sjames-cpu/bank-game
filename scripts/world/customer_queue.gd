@@ -227,13 +227,23 @@ func _spawn_customer() -> void:
 ## get_browsable_accounts()) — an existing match keeps whatever flag it
 ## already had, so a name that happens to collide with a player-opened
 ## account never gets wrongly hidden from that dropdown.
+##
+## Staff-served lines (NpcCustomerLine) look up and create accounts in their
+## own namespace (Account.is_staff_line_account), so a staff transaction can
+## never touch the account of a customer in the player's line.
 func _get_or_create_customer_account(customer_name: String) -> Account:
-	var existing := AccountManager.find_account_by_name(customer_name)
+	var staff_line := _uses_staff_line_accounts()
+	var existing := AccountManager.find_account_by_name(customer_name, staff_line)
 	if existing != null:
 		return existing
 	var new_account := AccountManager.create_account(customer_name, randf_range(CUSTOMER_ACCOUNT_MIN_BALANCE, CUSTOMER_ACCOUNT_MAX_BALANCE))
 	new_account.is_customer_account = true
+	new_account.is_staff_line_account = staff_line
 	return new_account
+
+## Overridden by NpcCustomerLine — see _get_or_create_customer_account().
+func _uses_staff_line_accounts() -> bool:
+	return false
 
 ## Regular (non-complaint) customers state a specific Deposit/Withdraw
 ## request instead of a pure flavor line. A withdrawal request never

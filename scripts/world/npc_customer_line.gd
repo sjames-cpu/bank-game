@@ -12,6 +12,9 @@ class_name NpcCustomerLine
 ##   of patience just leaves (no Reputation effect — NPC work never touches
 ##   the player's Score/Reputation/XP).
 ##
+## - customers' accounts are their own namespace (staff-line accounts), so
+##   a same-named customer in the player's line never shares one.
+##
 ## Service: once the front customer has reached the window and the staff
 ## member is at their desk, the staff member works for
 ## StaffMember.service_seconds(). With StaffMember.mistake_chance() the
@@ -82,6 +85,12 @@ func _may_spawn() -> bool:
 
 func _rolls_complaint() -> bool:
 	return false
+
+## Staff-line customers bank in their own account namespace, never sharing
+## an account with a customer in the player's line (see
+## Account.is_staff_line_account).
+func _uses_staff_line_accounts() -> bool:
+	return true
 
 func _process(delta: float) -> void:
 	if _serving != null:

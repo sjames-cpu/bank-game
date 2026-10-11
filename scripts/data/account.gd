@@ -19,6 +19,14 @@ class_name Account
 ## customer who's ever been served.
 @export var is_customer_account: bool = false
 
+## True for an account auto-created for a customer in a staff-served line
+## (NpcCustomerLine). Those accounts are a separate namespace: staff lines
+## only ever reuse each other's accounts by name, and the player's line (and
+## any other by-name lookup) never sees them — so staff transactions can't
+## change the balance of a customer waiting in the player's line, even when
+## the two share a name. See AccountManager.find_account_by_name().
+@export var is_staff_line_account: bool = false
+
 func deposit(amount: float) -> void:
 	if amount <= 0.0:
 		return

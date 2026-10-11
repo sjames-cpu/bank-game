@@ -69,9 +69,13 @@ func create_account(customer_name: String, starting_balance: float = 0.0) -> Acc
 ## convenience lookup, not a stand-in for an account number — callers that
 ## already hold an Account reference (e.g. via OptionButton selection)
 ## should keep using that reference directly.
-func find_account_by_name(customer_name: String) -> Account:
+##
+## staff_line picks the namespace: false (the default, used by the player's
+## line) never matches a staff-line account, and true (NpcCustomerLine)
+## only matches staff-line accounts — see Account.is_staff_line_account.
+func find_account_by_name(customer_name: String, staff_line: bool = false) -> Account:
 	for existing_account in accounts:
-		if existing_account.customer_name == customer_name:
+		if existing_account.customer_name == customer_name and existing_account.is_staff_line_account == staff_line:
 			return existing_account
 	return null
 
