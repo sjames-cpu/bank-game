@@ -236,7 +236,9 @@ func _get_or_create_customer_account(customer_name: String) -> Account:
 	var existing := AccountManager.find_account_by_name(customer_name, staff_line)
 	if existing != null:
 		return existing
-	var new_account := AccountManager.create_account(customer_name, randf_range(CUSTOMER_ACCOUNT_MIN_BALANCE, CUSTOMER_ACCOUNT_MAX_BALANCE))
+	# Whole dollars (B3): a raw randf_range() balance carries fractions of a
+	# cent into the balance label and can_withdraw().
+	var new_account := AccountManager.create_account(customer_name, roundf(randf_range(CUSTOMER_ACCOUNT_MIN_BALANCE, CUSTOMER_ACCOUNT_MAX_BALANCE)))
 	new_account.is_customer_account = true
 	new_account.is_staff_line_account = staff_line
 	return new_account
@@ -257,9 +259,10 @@ func _assign_transaction_intent(customer: CustomerNPC) -> void:
 
 	var max_amount := INTENT_MAX_AMOUNT
 	if intent_type == ShiftTransaction.Type.WITHDRAWAL:
-		## Floored to a $10 multiple — customer balances carry cents, so
-		## clamping to the raw balance below could otherwise yield a non-whole
-		## amount (e.g. $147.32). Still >= INTENT_MIN_AMOUNT, since that's a
+		## Floored to a $10 multiple — customer balances aren't round tens
+		## (and a reused account's balance can be anything), so clamping to
+		## the raw balance below could otherwise yield an odd amount (e.g.
+		## $147.32). Still >= INTENT_MIN_AMOUNT, since that's a
 		## $10 multiple and the balance was already checked against it above.
 		max_amount = minf(INTENT_MAX_AMOUNT, floorf(customer.account.balance / 10.0) * 10.0)
 
