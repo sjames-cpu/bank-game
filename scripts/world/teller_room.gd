@@ -341,15 +341,20 @@ func _on_teller_screen_closed() -> void:
 ## every customer this shift brings has been handled (served, complaint
 ## resolved, or abandoned) — the per-shift cap has been reached, the queue
 ## is empty, and nobody is mid-service. A customer at the desk waiting for a
-## mistake to be corrected is still in the queue, so they block clock-out
-## too (named separately). Returns "" when that's the case, otherwise a
-## short description of what's left for the error message.
+## mistake to be corrected, or for Complete Transaction, is still in the
+## queue, so they block clock-out too (named separately). Returns "" when
+## that's the case, otherwise a short description of what's left for the
+## error message.
 func _describe_remaining_shift_work() -> String:
 	var parts: PackedStringArray = []
 	var waiting := customer_queue.queue.size()
-	if is_instance_valid(_customer_being_served) and _customer_being_served.was_mistake and customer_queue.queue.has(_customer_being_served):
-		parts.append("%s is still waiting for a correction" % _customer_being_served.display_name)
-		waiting -= 1
+	if is_instance_valid(_customer_being_served) and customer_queue.queue.has(_customer_being_served):
+		if _customer_being_served.was_mistake:
+			parts.append("%s is still waiting for a correction" % _customer_being_served.display_name)
+			waiting -= 1
+		elif teller_screen.has_uncompleted_transactions():
+			parts.append("%s's transaction isn't completed yet" % _customer_being_served.display_name)
+			waiting -= 1
 	if waiting > 0:
 		parts.append("%d %scustomer%s still waiting" % [waiting, "more " if parts.size() > 0 else "", "" if waiting == 1 else "s"])
 	var to_arrive := customer_queue.get_customers_left_to_spawn()

@@ -58,13 +58,6 @@ text = "No customer waiting."
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="PaymentMethodLabel" type="Label" parent="Panel/VBox/ServingSection/ServingVBox"]
-layout_mode = 2
-theme_type_variation = &"MutedLabel"
-visible = false
-text = "Payment Method: Cash"
-horizontal_alignment = 1
-
 [node name="CustomerDialoguePanel" type="PanelContainer" parent="Panel/VBox/ServingSection/ServingVBox"]
 layout_mode = 2
 visible = false
@@ -153,6 +146,13 @@ layout_mode = 2
 visible = false
 size_flags_horizontal = 3
 text = "Reverse Transaction"
+
+[node name="CompleteTransactionButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+visible = false
+disabled = true
+theme_type_variation = &"PrimaryButton"
+text = "Complete Transaction"
 
 [node name="ShiftButtonsHBox" type="HBoxContainer" parent="Panel/VBox/ActionsSection/ActionsVBox"]
 layout_mode = 2

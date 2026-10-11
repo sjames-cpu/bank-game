@@ -30,12 +30,15 @@ class_name TellerScreen
 @onready var amount_input: SpinBox = $Panel/VBox/ActionsSection/ActionsVBox/AmountSpinBox
 @onready var account_option_button: OptionButton = $Panel/VBox/AccountSection/AccountVBox/AccountOptionButton
 @onready var serving_status_label: Label = $Panel/VBox/ServingSection/ServingVBox/ServingStatusLabel
-@onready var payment_method_label: Label = $Panel/VBox/ServingSection/ServingVBox/PaymentMethodLabel
 @onready var customer_dialogue_panel: PanelContainer = $Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel
 @onready var customer_dialogue_label: Label = $Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel/CustomerDialogueLabel
 @onready var respond_complaint_button: Button = $Panel/VBox/ServingSection/ServingVBox/RespondComplaintButton
 @onready var feedback_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/FeedbackLabel
 @onready var reverse_transaction_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/TransactionButtonsHBox/ReverseTransactionButton
+## Own full-width row under the transaction buttons: Deposit/Withdraw/Reverse
+## already fill the 420px panel, and a fourth button there would squash all
+## of them.
+@onready var complete_transaction_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/CompleteTransactionButton
 @onready var account_label: Label = $Panel/VBox/AccountSection/AccountVBox/AccountLabel
 @onready var balance_label: Label = $Panel/VBox/AccountSection/AccountVBox/BalanceLabel
 @onready var error_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/ErrorLabel
@@ -86,18 +89,19 @@ class_name TellerScreen
 signal shift_clocked_in
 signal shift_clocked_out
 
-## Emitted once the net effect of this visit's transactions on a regular
-## customer's own account matches their request — right away for a correct
-## first transaction, or once a mistake has been fixed. teller_room.gd
-## listens for this to serve them (pop them from the queue): serving is
-## "their request got done," not "the player closed the screen" or "any
-## transaction happened," so checking a balance, clocking in/out, or a
-## wrong transaction doesn't remove them from the line.
+## Emitted when Complete Transaction (or closing the screen, which completes
+## any open transactions) finds the net effect of this visit's transactions
+## on a regular customer's own account matches their request — first try,
+## or once a mistake has been fixed. teller_room.gd listens for this to
+## serve them (pop them from the queue): serving is "their request got
+## done," not "the player closed the screen" or "any transaction happened,"
+## so checking a balance, clocking in/out, or a wrong transaction doesn't
+## remove them from the line.
 signal customer_request_satisfied(customer: CustomerNPC)
 
-## Emitted from hide_screen() when the player closes the screen while the
-## serving customer's mistake is still unfixed. teller_room.gd pops them
-## from the queue and sends them off with an upset farewell.
+## Emitted from hide_screen() when the player closes the screen with the
+## serving customer's request still wrong. teller_room.gd pops them from the
+## queue and sends them off with an upset farewell.
 signal customer_left_unfixed(customer: CustomerNPC)
 
 ## Phase 6i: emitted whenever the player closes this screen (currently only
@@ -165,8 +169,8 @@ const PERFECT_COUNT_REPUTATION: int = 2
 const MINOR_DISCREPANCY_REPUTATION: int = 0
 const MAJOR_DISCREPANCY_REPUTATION: int = -5
 
-## Grading for the transaction performed for a customer's stated request
-## (see _grade_first_transaction()). Pitched well below the drawer
+## Grading for a customer's request, applied once at Complete Transaction
+## (see _grade_request()). Pitched well below the drawer
 ## count's +10/+5/-5: a shift has up to CustomerQueue.CUSTOMERS_PER_SHIFT_CAP
 ## (4) of these, so four correct requests (+8) roughly match one Perfect
 ## count rather than dwarfing it. A wrong request costs more than a right
@@ -226,7 +230,7 @@ var shift_start_balance: float = 0.0
 ## Per-shift customer-service tallies for the shift summary, kept separate
 ## from the drawer count's points so the summary can show where each came
 ## from. Points include every customer-driven consequence: graded requests
-## (_grade_first_transaction()), complaint responses
+## (_grade_request()), complaint responses
 ## (_on_complaint_response_selected()) and abandonments
 ## (note_customer_abandoned()). Reset in _begin_shift().
 var _customers_correct: int = 0
@@ -256,6 +260,7 @@ func _ready() -> void:
 	complaint_later_button.pressed.connect(_on_complaint_later_button_pressed)
 	respond_complaint_button.pressed.connect(_on_respond_complaint_button_pressed)
 	reverse_transaction_button.pressed.connect(_on_reverse_transaction_button_pressed)
+	complete_transaction_button.pressed.connect(_on_complete_transaction_button_pressed)
 	account_option_button.item_selected.connect(_on_account_option_selected)
 	clock_in_button.pressed.connect(_on_clock_in_button_pressed)
 	clock_out_button.pressed.connect(_on_clock_out_button_pressed)
@@ -325,14 +330,13 @@ func set_serving_customer(customer: CustomerNPC) -> void:
 		_customer_transactions.clear()
 	_serving_customer = customer
 	if customer != null:
-		serving_status_label.text = "Serving: %s" % customer.display_name
-		payment_method_label.visible = true
-		payment_method_label.text = "Payment Method: %s" % _payment_method_display_name(customer.payment_method)
+		# Payment method shares the status line (it used to have its own) to
+		# leave room for the Complete Transaction row within 648px.
+		serving_status_label.text = "Serving: %s · Paying by %s" % [customer.display_name, _payment_method_display_name(customer.payment_method)]
 		if customer.account != null:
 			account = customer.account
 	else:
 		serving_status_label.text = "No customer waiting."
-		payment_method_label.visible = false
 	_refresh_customer_dialogue()
 	respond_complaint_button.visible = _has_unresolved_complaint(customer)
 
@@ -348,13 +352,29 @@ func _refresh_customer_dialogue() -> void:
 			text = customer.dialogue_line.text
 	customer_dialogue_panel.visible = text != ""
 	customer_dialogue_label.text = "\"%s\"" % text
-	reverse_transaction_button.visible = _has_pending_mistake() and not _customer_transactions.is_empty()
+	_update_customer_buttons()
 
-## True while the serving regular customer has had a wrong transaction that
+## Reverse and Complete only apply to a regular customer being served on
+## shift; both need at least one of this visit's transactions still standing.
+func _update_customer_buttons() -> void:
+	var serving_request := shift_state == ShiftState.CLOCKED_IN and _is_serving_regular_customer()
+	reverse_transaction_button.visible = serving_request and not _customer_transactions.is_empty()
+	complete_transaction_button.visible = serving_request
+	complete_transaction_button.disabled = _customer_transactions.is_empty()
+
+func _is_serving_regular_customer() -> bool:
+	return is_instance_valid(_serving_customer) and _serving_customer.complaint == null
+
+## True while the serving regular customer was graded wrong at Complete and
 ## hasn't been fixed yet — a fixed (satisfied) customer is served and moves
 ## off _serving_customer immediately, so was_mistake alone is enough here.
 func _has_pending_mistake() -> bool:
-	return is_instance_valid(_serving_customer) and _serving_customer.complaint == null and _serving_customer.was_mistake
+	return _is_serving_regular_customer() and _serving_customer.was_mistake
+
+## True while the serving customer has transactions waiting for Complete
+## Transaction. teller_room.gd's clock-out gate names them separately.
+func has_uncompleted_transactions() -> bool:
+	return _is_serving_regular_customer() and not _customer_transactions.is_empty()
 
 ## Called by teller_room.gd mid-visit once the current customer has been
 ## handled, so the screen moves straight on to whoever's next in line (or
@@ -375,16 +395,21 @@ func _payment_method_display_name(payment_method: ShiftTransaction.PaymentMethod
 		return "Card"
 	return "Cash"
 
-## Closing with a mistake still unfixed means the customer gives up and
-## leaves upset — see _leave_unfixed().
+## Closing with transactions made but not completed counts as completing
+## them (graded here); if the request is still wrong — or a flagged mistake
+## was left with everything reversed — the customer gives up and leaves
+## upset (see _leave_unfixed()). Closing with no transactions made and no
+## mistake flagged leaves the customer waiting in line.
 func hide_screen() -> void:
+	if has_uncompleted_transactions():
+		_complete_transaction(true)
 	if _has_pending_mistake():
 		_leave_unfixed(_serving_customer)
 	visible = false
 	get_tree().paused = false
 	screen_closed.emit()
 
-## The original B6 penalty was already applied on the first wrong attempt;
+## The original B6 penalty was already applied on the first wrong Complete;
 ## this adds CUSTOMER_LEFT_UNFIXED_REPUTATION for walking out wronged.
 func _leave_unfixed(customer: CustomerNPC) -> void:
 	ReputationManager.add_reputation(CUSTOMER_LEFT_UNFIXED_REPUTATION)
@@ -405,8 +430,7 @@ func _on_close_button_pressed() -> void:
 func _on_deposit_button_pressed() -> void:
 	var amount := amount_input.value
 	if amount <= 0.0:
-		error_label.text = "Enter a valid amount."
-		error_label.visible = true
+		_show_error("Enter a valid amount.")
 		return
 	if _current_payment_method() == ShiftTransaction.PaymentMethod.CARD and randf() < CARD_DECLINE_CHANCE:
 		_start_card_decline_cooldown()
@@ -420,12 +444,10 @@ func _on_deposit_button_pressed() -> void:
 func _on_withdraw_button_pressed() -> void:
 	var amount := amount_input.value
 	if amount <= 0.0:
-		error_label.text = "Enter a valid amount."
-		error_label.visible = true
+		_show_error("Enter a valid amount.")
 		return
 	if not account.can_withdraw(amount):
-		error_label.text = "Insufficient funds."
-		error_label.visible = true
+		_show_error("Insufficient funds.")
 		return
 	if _current_payment_method() == ShiftTransaction.PaymentMethod.CARD and randf() < CARD_DECLINE_CHANCE:
 		_start_card_decline_cooldown()
@@ -437,44 +459,57 @@ func _on_withdraw_button_pressed() -> void:
 	_on_customer_transaction(ShiftTransaction.Type.WITHDRAWAL, amount, shift_transaction)
 
 ## Every deposit/withdrawal made while serving a regular (non-complaint)
-## customer counts toward their request. A wrong transaction isn't blocked
-## (it already went through above): the first one is graded as a mistake
-## (B6 penalty, once per customer) and the customer stays at the desk,
-## saying what's wrong, until the net effect on their own account matches
-## their request — fixed either by another transaction for the difference
-## or via Reverse Transaction and a redo. A fixed mistake still counts as a
-## mistake (was_mistake stays set). Complaint customers have no request to
-## compare against and are handled by resolving the complaint (see
+## customer counts toward their request, but nothing is graded until
+## Complete Transaction (see _complete_transaction()) — so a request done in
+## several steps ($200 + $300 for a $500 deposit) is fine as long as the
+## result is right. Complaint customers have no request to compare against
+## and are handled by resolving the complaint (see
 ## _on_complaint_response_selected()).
 func _on_customer_transaction(type: ShiftTransaction.Type, amount: float, shift_transaction: ShiftTransaction) -> void:
 	if shift_state != ShiftState.CLOCKED_IN:
 		return
-	if not is_instance_valid(_serving_customer) or _serving_customer.complaint != null:
+	if not _is_serving_regular_customer():
 		return
-	var customer := _serving_customer
 	_customer_transactions.append({
 		"account": account,
 		"type": type,
 		"amount": amount,
 		"shift_transaction": shift_transaction,
 	})
+	_show_feedback("%s $%.0f %s %s's account. Press Complete Transaction when done." % [_past_tense_label(type).capitalize(), amount, _account_preposition(type), account.customer_name], FEEDBACK_NEUTRAL_COLOR)
+	_update_customer_buttons()
 
+func _on_complete_transaction_button_pressed() -> void:
+	if has_uncompleted_transactions():
+		_complete_transaction(false)
+
+## Grades the serving customer's request against this visit's transactions.
+## Right: the correct-request reward (or, after an earlier wrong Complete,
+## counted as fixed with no further change) and the customer is served.
+## Wrong: the first time, the mistake penalty (once per customer, counted
+## toward reports); either way the customer stays at the desk saying what's
+## wrong (correction_line) until a later Complete finds it right. A fixed
+## mistake still counts as a mistake (was_mistake stays set). closing is
+## true when hide_screen() completes on the player's behalf.
+func _complete_transaction(closing: bool) -> void:
+	var customer := _serving_customer
 	if _is_request_satisfied(customer):
 		if customer.was_mistake:
 			_mistakes_fixed += 1
+			HistoryManager.add_record(DecisionRecord.Role.TELLER, "Fixed %s's request: %s" % [customer.display_name, _describe_visit_transactions(customer)], "Fixed")
 			_show_feedback("Fixed — %s's account now matches their request." % customer.display_name, FEEDBACK_NEUTRAL_COLOR)
 		else:
-			_grade_first_transaction(customer, type, amount, true)
+			_grade_request(customer, true)
 		_complete_customer_request(customer)
 		return
 
 	if not customer.was_mistake:
 		customer.was_mistake = true
-		_grade_first_transaction(customer, type, amount, false)
+		_grade_request(customer, false)
 		# Counted once per mistaken customer, fixed or not — every
 		# ReportManager.MISTAKES_PER_REPORT of these becomes a report.
 		ReportManager.record_mistake(DecisionRecord.Role.TELLER, customer.display_name)
-	else:
+	elif not closing:
 		_show_feedback("Still not right — %s is still waiting for a correction." % customer.display_name, FEEDBACK_BAD_COLOR)
 	customer.correction_line = _describe_mistake(customer)
 	_refresh_customer_dialogue()
@@ -483,12 +518,11 @@ func _on_customer_transaction(type: ShiftTransaction.Type, amount: float, shift_
 ## account balance and removes it from shift_transactions, so the drawer's
 ## expected cash goes back too. Only ever reaches transactions made for the
 ## customer currently being served (_customer_transactions is cleared
-## whenever that changes). Undoing never counts as fixing on its own unless
-## the remaining net effect happens to match the request.
+## whenever that changes). Nothing is graded here — that waits for Complete
+## Transaction.
 func _on_reverse_transaction_button_pressed() -> void:
-	if not _has_pending_mistake() or _customer_transactions.is_empty():
+	if not has_uncompleted_transactions():
 		return
-	var customer := _serving_customer
 	var entry: Dictionary = _customer_transactions.pop_back()
 	var entry_account: Account = entry["account"]
 	var entry_amount: float = entry["amount"]
@@ -496,8 +530,7 @@ func _on_reverse_transaction_button_pressed() -> void:
 	if entry_type == ShiftTransaction.Type.DEPOSIT:
 		if not AccountManager.withdraw(entry_account, entry_amount):
 			_customer_transactions.append(entry)
-			error_label.text = "Can't reverse — the account no longer holds that deposit."
-			error_label.visible = true
+			_show_error("Can't reverse — the account no longer holds that deposit.")
 			return
 	else:
 		AccountManager.deposit(entry_account, entry_amount)
@@ -507,17 +540,12 @@ func _on_reverse_transaction_button_pressed() -> void:
 	error_label.visible = false
 	_refresh_display()
 	_show_feedback("Reversed: %s $%.0f %s %s's account." % [_past_tense_label(entry_type), entry_amount, _account_preposition(entry_type), entry_account.customer_name], FEEDBACK_NEUTRAL_COLOR)
-
-	if not _customer_transactions.is_empty() and _is_request_satisfied(customer):
-		_mistakes_fixed += 1
-		_complete_customer_request(customer)
-		return
-	customer.correction_line = _describe_mistake(customer)
-	_refresh_customer_dialogue()
+	_update_customer_buttons()
 
 func _complete_customer_request(customer: CustomerNPC) -> void:
 	customer.correction_line = ""
 	_customer_transactions.clear()
+	_update_customer_buttons()
 	customer_request_satisfied.emit(customer)
 
 ## Net signed effect (in cents) of this visit's transactions on the
@@ -604,11 +632,10 @@ func _money(cents: int) -> String:
 		return "$%d" % (cents / 100)
 	return "$%.2f" % (cents / 100.0)
 
-## The B6 grade for a customer's first transaction: a correct one earns the
-## small reward; a wrong one takes the mistake penalty — once per customer,
-## however many further wrong attempts follow.
-func _grade_first_transaction(customer: CustomerNPC, type: ShiftTransaction.Type, amount: float, correct: bool) -> void:
-	var account_ok := account == customer.account
+## The B6 grade for a customer's first Complete Transaction: a correct
+## request earns the reward; a wrong one takes the mistake penalty — once per
+## customer, however many further wrong attempts follow.
+func _grade_request(customer: CustomerNPC, correct: bool) -> void:
 	var score_delta := CUSTOMER_REQUEST_CORRECT_SCORE if correct else CUSTOMER_REQUEST_WRONG_SCORE
 	var reputation_delta := CUSTOMER_REQUEST_CORRECT_REPUTATION if correct else CUSTOMER_REQUEST_WRONG_REPUTATION
 	ScoreManager.add_shift_score(score_delta)
@@ -624,32 +651,37 @@ func _grade_first_transaction(customer: CustomerNPC, type: ShiftTransaction.Type
 	_customer_reputation += reputation_delta
 	_customer_xp += xp_delta
 
-	var did := "%s $%.0f" % [_past_tense_label(type), amount]
+	var asked := "%s $%.0f" % [_verb_label(customer.intent_type), customer.intent_amount]
+	var did := _describe_visit_transactions(customer)
 	var points := "%+d Score" % score_delta
 	if reputation_delta != 0:
 		points += ", %+d Reputation" % reputation_delta
 	var message: String
 	if correct:
-		message = "Correct — %s as requested. (%s)" % [did, points]
+		message = "Correct — %s as requested. (%s)" % [asked, points]
 	else:
-		var asked := "%s $%.0f" % [_verb_label(customer.intent_type), customer.intent_amount]
-		var you_did := "you " + did
-		if not account_ok:
-			asked += " %s their own account" % _account_preposition(customer.intent_type)
-			you_did += " %s %s's account" % [_account_preposition(type), account.customer_name]
-		message = "Customer asked to %s — %s. (%s)" % [asked, you_did, points]
+		message = "Not right — customer asked to %s; you %s. (%s)" % [asked, did, points]
 	_show_feedback(message, FEEDBACK_GOOD_COLOR if correct else FEEDBACK_BAD_COLOR)
 
 	var grade_label := "Correct" if correct else "Incorrect"
 	HistoryManager.add_record(
 		DecisionRecord.Role.TELLER,
-		"Served %s: asked to %s $%.0f, teller %s $%.0f%s" % [
-			customer.display_name, _verb_label(customer.intent_type), customer.intent_amount,
-			_past_tense_label(type), amount,
-			"" if account_ok else " (on %s's account)" % account.customer_name,
-		],
+		"Served %s: asked to %s, teller %s" % [customer.display_name, asked, did],
 		grade_label
 	)
+
+## This visit's transactions in order, e.g. "deposited $200, deposited $300"
+## — with the account named on any that hit someone else's.
+func _describe_visit_transactions(customer: CustomerNPC) -> String:
+	var parts: PackedStringArray = []
+	for entry in _customer_transactions:
+		var entry_type: ShiftTransaction.Type = entry["type"]
+		var entry_account: Account = entry["account"]
+		var part := "%s $%.0f" % [_past_tense_label(entry_type), entry["amount"]]
+		if entry_account != customer.account:
+			part += " %s %s's account" % [_account_preposition(entry_type), entry_account.customer_name]
+		parts.append(part)
+	return ", ".join(parts)
 
 func _verb_label(type: ShiftTransaction.Type) -> String:
 	return "deposit" if type == ShiftTransaction.Type.DEPOSIT else "withdraw"
@@ -660,18 +692,26 @@ func _past_tense_label(type: ShiftTransaction.Type) -> String:
 func _account_preposition(type: ShiftTransaction.Type) -> String:
 	return "into" if type == ShiftTransaction.Type.DEPOSIT else "from"
 
+## Feedback and errors share one spot: whichever was shown last replaces the
+## other, so the panel never stacks both (it has to fit the 648px window
+## alongside a customer's correction line and the Complete row).
 func _show_feedback(text: String, color: Color) -> void:
+	error_label.visible = false
 	feedback_label.text = text
 	feedback_label.modulate = color
 	feedback_label.visible = true
+
+func _show_error(text: String) -> void:
+	feedback_label.visible = false
+	error_label.text = text
+	error_label.visible = true
 
 ## Disables Deposit/Withdraw for CARD_DECLINE_COOLDOWN_SECONDS instead of
 ## just showing an error — otherwise the 10% decline chance is trivial to
 ## re-roll by spamming the button, which reads as broken/spammy rather
 ## than an actual declined card.
 func _start_card_decline_cooldown() -> void:
-	error_label.text = "Card Declined. Please wait a moment before retrying."
-	error_label.visible = true
+	_show_error("Card Declined. Please wait a moment before retrying.")
 	_card_decline_on_cooldown = true
 	_update_shift_controls()
 	get_tree().create_timer(CARD_DECLINE_COOLDOWN_SECONDS).timeout.connect(_on_card_decline_cooldown_finished)
@@ -834,6 +874,7 @@ func _update_shift_controls() -> void:
 	clock_out_button.visible = clocked_in
 	deposit_button.disabled = not clocked_in or _card_decline_on_cooldown
 	withdraw_button.disabled = not clocked_in or _card_decline_on_cooldown
+	_update_customer_buttons()
 
 ## Returns the recorded transaction (so Reverse Transaction can remove it
 ## again), or null when clocked out and nothing was recorded.
@@ -879,8 +920,7 @@ func _on_clock_in_button_pressed() -> void:
 func _on_clock_out_button_pressed() -> void:
 	var remaining: String = remaining_shift_work.call() if remaining_shift_work.is_valid() else ""
 	if remaining != "":
-		error_label.text = "Can't clock out yet — %s." % remaining
-		error_label.visible = true
+		_show_error("Can't clock out yet — %s." % remaining)
 		return
 	error_label.visible = false
 	pending_drawer_count_purpose = DrawerCountPurpose.ENDING
