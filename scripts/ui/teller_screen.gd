@@ -340,6 +340,12 @@ func set_serving_customer(customer: CustomerNPC) -> void:
 			account = customer.account
 	else:
 		serving_status_label.text = "No customer waiting."
+		# B6 gap 1: nobody at the desk, so don't leave `account` on the last
+		# customer's account — a deposit now would hit it ungraded. Reached
+		# only once that customer has left the desk: served (open
+		# transactions are graded first, at Complete or on close), left
+		# upset, abandoned, or cleared at clock-out.
+		_reset_account_selection()
 	_refresh_customer_dialogue()
 	respond_complaint_button.visible = _has_unresolved_complaint(customer)
 
@@ -1117,9 +1123,10 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	_reset_account_selection()
 	shift_clocked_out.emit()
 
-## Clock-out ends any service (teller_room.gd clears the serving customer
-## off shift_clocked_out), so don't leave `account` pointing at the last
-## served customer's own account — fall back to the first browsable
+## Called whenever nobody is being served (set_serving_customer(null)) and
+## at clock-out, which ends any service (teller_room.gd clears the serving
+## customer off shift_clocked_out): don't leave `account` pointing at the
+## last served customer's own account — fall back to the first browsable
 ## account, the same default _ready() starts from. `account` is never left
 ## null since _refresh_display()/deposit/withdraw all read it directly.
 func _reset_account_selection() -> void:
