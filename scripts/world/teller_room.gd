@@ -75,6 +75,11 @@ const PLAYER_TELLER_WINDOW: String = "Player Teller Window"
 ## customer_complaints_data.gd) for the same reason.
 const ABANDONMENT_REPUTATION_PENALTY: int = -2
 
+## B2: abandoning also costs Score, so ignoring customers can't pay — the
+## same cost as a wrong request (TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE).
+## No XP is taken, matching a wrong request.
+const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
+
 @onready var teller_screen: TellerScreen = $UI/TellerScreen
 @onready var loan_officer_desk: Area2D = $LoanOfficerDesk
 @onready var loan_officer_screen: Control = $UI/LoanOfficerScreen
@@ -381,8 +386,9 @@ func _on_customer_abandoned(customer: CustomerNPC) -> void:
 	if _customer_being_served == customer:
 		_customer_being_served = null
 		teller_screen.set_serving_customer(null)
+	ScoreManager.add_shift_score(ABANDONMENT_SCORE_PENALTY)
 	ReputationManager.add_reputation(ABANDONMENT_REPUTATION_PENALTY)
-	teller_screen.note_customer_abandoned(ABANDONMENT_REPUTATION_PENALTY)
+	teller_screen.note_customer_abandoned(ABANDONMENT_SCORE_PENALTY, ABANDONMENT_REPUTATION_PENALTY)
 	HistoryManager.add_record(
 		DecisionRecord.Role.TELLER,
 		"Customer abandoned the line: %s" % customer.display_name,

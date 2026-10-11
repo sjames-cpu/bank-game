@@ -84,6 +84,8 @@ class_name TellerScreen
 @onready var shift_total_reports_label: Label = $ShiftSummaryPanel/VBox/TotalReportsLabel
 @onready var shift_customer_results_label: Label = $ShiftSummaryPanel/VBox/CustomerResultsLabel
 @onready var shift_customer_points_label: Label = $ShiftSummaryPanel/VBox/CustomerPointsLabel
+## Drawer + Customers for this shift, so the two sections visibly add up.
+@onready var shift_net_label: Label = $ShiftSummaryPanel/VBox/ShiftNetLabel
 @onready var shift_summary_done_button: Button = $ShiftSummaryPanel/VBox/DoneButton
 
 signal shift_clocked_in
@@ -170,16 +172,17 @@ const MINOR_DISCREPANCY_REPUTATION: int = 0
 const MAJOR_DISCREPANCY_REPUTATION: int = -5
 
 ## Grading for a customer's request, applied once at Complete Transaction
-## (see _grade_request()). Pitched well below the drawer
-## count's +10/+5/-5: a shift has up to CustomerQueue.CUSTOMERS_PER_SHIFT_CAP
-## (4) of these, so four correct requests (+8) roughly match one Perfect
-## count rather than dwarfing it. A wrong request costs more than a right
-## one earns (same asymmetry as Minor +5 vs Major -5 relative to Perfect),
-## and its Reputation hit matches a customer abandoning the line (-2,
-## teller_room.gd) — still below a dismissive complaint response (-3) or a
-## Major count (-5). XP follows the reward only, per the B6 spec: a wrong
-## request costs Score and Reputation but doesn't take XP away.
-const CUSTOMER_REQUEST_CORRECT_SCORE: int = 2
+## (see _grade_request()). Customers are the main score (B2): one correct
+## request earns half a Perfect count, so a shift's four
+## (CustomerQueue.CUSTOMERS_PER_SHIFT_CAP) are worth twice the drawer, and
+## the drawer bonus itself only pays in proportion to customers served (see
+## _scale_drawer_bonus()). The wrong-request penalty matches an abandoned
+## customer's Score cost (ABANDONMENT_SCORE_PENALTY, teller_room.gd), and
+## its Reputation hit matches abandoning too (-2) — still below a dismissive
+## complaint response (-3) or a Major count (-5). XP follows the reward
+## only, per the B6 spec: a wrong request costs Score and Reputation but
+## doesn't take XP away.
+const CUSTOMER_REQUEST_CORRECT_SCORE: int = 5
 const CUSTOMER_REQUEST_CORRECT_REPUTATION: int = 0
 const CUSTOMER_REQUEST_WRONG_SCORE: int = -3
 const CUSTOMER_REQUEST_WRONG_REPUTATION: int = -2
@@ -796,12 +799,14 @@ func _on_complaint_later_button_pressed() -> void:
 	_show_main_panel()
 
 ## Called by teller_room.gd when a queued customer abandons the line, after
-## it has applied the Reputation penalty itself — this only tallies it for
-## the shift summary (this screen doesn't otherwise see the queue).
-func note_customer_abandoned(reputation_delta: int) -> void:
+## it has applied the Score and Reputation penalties itself — this only
+## tallies them for the shift summary (this screen doesn't otherwise see the
+## queue).
+func note_customer_abandoned(score_delta: int, reputation_delta: int) -> void:
 	if shift_state != ShiftState.CLOCKED_IN:
 		return
 	_customers_abandoned += 1
+	_customer_score += score_delta
 	_customer_reputation += reputation_delta
 
 func _on_respond_complaint_button_pressed() -> void:
@@ -1023,6 +1028,26 @@ func _calculate_shift_score(discrepancy_result: DiscrepancyResult) -> int:
 		_:
 			return MAJOR_DISCREPANCY_SCORE
 
+## B2: a Perfect/Minor closing count only pays in proportion to the shift's
+## customers actually served, and nothing if none were — so ignoring every
+## customer and counting the untouched drawer earns nothing. A Major
+## penalty (negative) is never scaled down.
+func _scale_drawer_bonus(points: int, served: int, shift_customers: int) -> int:
+	if points <= 0:
+		return points
+	if served == 0 or shift_customers == 0:
+		return 0
+	return roundi(float(points) * served / shift_customers)
+
+## Served = request done (correctly or fixed) or complaint resolved.
+func _customers_served() -> int:
+	return _customers_correct + _mistakes_fixed + _complaints_resolved
+
+## Every customer this shift brought — the clock-out gate guarantees each
+## one has been served, left unfixed, or abandoned by now.
+func _shift_customer_count() -> int:
+	return _customers_served() + _mistakes_unfixed + _customers_abandoned
+
 func _calculate_reputation_delta(discrepancy_result: DiscrepancyResult) -> int:
 	match discrepancy_result:
 		DiscrepancyResult.PERFECT:
@@ -1050,14 +1075,18 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	var discrepancy := discrepancy_cents / 100.0
 	var shift_end_time := Time.get_datetime_string_from_system()
 	var discrepancy_result := _categorize_discrepancy(discrepancy_cents, drawer_count_screen.get_excess_bill_count())
-	var shift_score := _calculate_shift_score(discrepancy_result)
-	var reputation_delta := _calculate_reputation_delta(discrepancy_result)
+	var served := _customers_served()
+	var shift_customers := _shift_customer_count()
+	var shift_score := _scale_drawer_bonus(_calculate_shift_score(discrepancy_result), served, shift_customers)
+	var reputation_delta := _scale_drawer_bonus(_calculate_reputation_delta(discrepancy_result), served, shift_customers)
 
 	shift_start_time_label.text = "Start Time: %s" % shift_start_time
 	shift_end_time_label.text = "End Time: %s" % shift_end_time
 	shift_total_transactions_label.text = "Total Transactions: %d" % shift_transactions.size()
 	shift_final_discrepancy_label.text = "Final Discrepancy: $%.2f" % discrepancy
-	shift_score_label.text = "Shift Score: %+d" % shift_score
+	shift_score_label.text = "Score: %+d" % shift_score
+	if discrepancy_result != DiscrepancyResult.MAJOR:
+		shift_score_label.text += " (%s, %d of %d customers served)" % [_discrepancy_result_label(discrepancy_result), served, shift_customers]
 
 	ScoreManager.add_shift_score(shift_score)
 	shift_total_score_label.text = "Total Score: %d" % ScoreManager.total_score
@@ -1069,7 +1098,7 @@ func _prepare_shift_summary(ending_total: float) -> void:
 
 	var shift_xp := shift_score * XPManager.XP_PER_SCORE_POINT
 	XPManager.add_shift_xp(shift_score)
-	shift_xp_label.text = "Shift XP: %+d" % shift_xp
+	shift_xp_label.text = "XP: %+d" % shift_xp
 	shift_total_xp_label.text = "Total XP: %d" % XPManager.total_xp
 
 	## Drawer lines above sit under the summary's "Drawer Count" header;
@@ -1077,6 +1106,7 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	## shown here for the breakdown only, not re-applied.
 	shift_customer_results_label.text = "Served correctly: %d\nMistakes fixed: %d · Left unfixed: %d\nComplaints resolved: %d · Abandoned: %d" % [_customers_correct, _mistakes_fixed, _mistakes_unfixed, _complaints_resolved, _customers_abandoned]
 	shift_customer_points_label.text = "Score %+d · Reputation %+d · XP %+d" % [_customer_score, _customer_reputation, _customer_xp]
+	shift_net_label.text = "This shift: Score %+d · Reputation %+d · XP %+d" % [shift_score + _customer_score, reputation_delta + _customer_reputation, shift_xp + _customer_xp]
 
 	var discrepancy_label := _discrepancy_result_label(discrepancy_result)
 	HistoryManager.add_record(DecisionRecord.Role.TELLER, "Drawer count: %s (discrepancy $%.2f)" % [discrepancy_label, discrepancy], discrepancy_label)
