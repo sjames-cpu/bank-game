@@ -47,6 +47,11 @@ var schedule: Dictionary = {}
 ## Set once Teller Window 3 exists (after promotion to Branch Manager).
 var is_teller_window_3_open: bool = false
 
+## Names of staff terminated by the Branch Manager (StaffReviewManager) —
+## gone from the roster for the rest of the career. No hiring yet, so their
+## desk stays unassigned.
+var dismissed_staff: Array[String] = []
+
 func _ready() -> void:
 	schedule = _default_schedule()
 	# XPManager is registered before ScheduleManager in project.godot, and
@@ -81,14 +86,44 @@ func open_teller_window_3() -> void:
 ## desk assignment, not an empty branch, and no Teller Window 3.
 func reset() -> void:
 	is_teller_window_3_open = false
+	dismissed_staff.clear()
 	schedule = _default_schedule()
+
+## The branch's current staff: StaffRosterData minus anyone dismissed.
+func get_roster() -> Array[StaffMember]:
+	var roster: Array[StaffMember] = []
+	for member in StaffRosterData.get_staff():
+		if not dismissed_staff.has(member.staff_name):
+			roster.append(member)
+	return roster
+
+func is_dismissed(staff_name: String) -> bool:
+	return dismissed_staff.has(staff_name)
+
+## The desk `staff_name` is assigned to, or "" if none.
+func slot_of(staff_name: String) -> String:
+	for slot_name: String in schedule:
+		if (schedule[slot_name] as StaffMember).staff_name == staff_name:
+			return slot_name
+	return ""
+
+## Removes a staff member from the roster and their desk (which becomes
+## unassigned), then re-announces the schedule so teller_room.gd removes them
+## and closes the desk's line.
+func dismiss_staff(staff_name: String) -> void:
+	if not dismissed_staff.has(staff_name):
+		dismissed_staff.append(staff_name)
+	var slot := slot_of(staff_name)
+	if slot != "":
+		schedule.erase(slot)
+	schedule_confirmed.emit(schedule)
 
 ## First roster member (of `role`, or any role if empty) not at a desk.
 func _first_unassigned(role: String) -> StaffMember:
 	var assigned_names: Array[String] = []
 	for member: StaffMember in schedule.values():
 		assigned_names.append(member.staff_name)
-	for staff in StaffRosterData.get_staff():
+	for staff in get_roster():
 		if (role == "" or staff.role == role) and not assigned_names.has(staff.staff_name):
 			return staff
 	return null

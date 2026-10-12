@@ -29,8 +29,12 @@ class_name DecisionRecord
 ## TELLER and LOAN_OFFICER rows, so these are never flaggable/overridable.
 ##
 ## STAFF records are NPC coworkers' transactions and loan decisions
-## (NpcCustomerLine, NpcLoanDeskWorker), with staff_name set. Not
-## actionable yet — a later staff review/discipline step will use them.
+## (NpcCustomerLine, NpcLoanDeskWorker), with staff_name set. Never
+## actionable in approvals: the Branch Manager reviews staff work through
+## StaffReviewManager's own queue (which keeps what it needs, so the
+## 200-record staff cap here can't drop anything unreviewed). Review
+## decisions and terminations are logged as BRANCH_MANAGER records, which
+## approvals also never acts on.
 enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY, STAFF }
 
 @export var role: Role

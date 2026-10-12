@@ -221,13 +221,15 @@ func stop_waiting() -> void:
 ## the time this runs the customer has already been popped out of
 ## CustomerQueue.queue (see serve_front_customer()); their line keeps the
 ## counter spot blocked until they've walked clear of it.
-func say_farewell_and_leave(exit_route: Array[Vector2]) -> void:
+func say_farewell_and_leave(exit_route: Array[Vector2], farewell: String = "") -> void:
 	if _leaving:
 		return
 	_leaving = true
 	_abandoning = true # stop the patience tint — this customer is done, not waiting
 
-	_farewell_label.text = (UPSET_FAREWELL_LINES if left_upset else FAREWELL_LINES).pick_random()
+	if farewell == "":
+		farewell = (UPSET_FAREWELL_LINES if left_upset else FAREWELL_LINES).pick_random()
+	_farewell_label.text = farewell
 	_farewell_label.visible = true
 	await get_tree().create_timer(FAREWELL_DISPLAY_SECONDS).timeout
 	_farewell_label.visible = false

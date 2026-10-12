@@ -39,6 +39,7 @@ signal shift_clocked_in
 
 @onready var main_panel: PanelContainer = $Panel
 @onready var schedule_staff_button: Button = $Panel/VBox/ScheduleStaffButton
+@onready var review_staff_button: Button = $Panel/VBox/ReviewStaffButton
 @onready var review_approvals_button: Button = $Panel/VBox/ReviewApprovalsButton
 @onready var vault_reconciliation_button: Button = $Panel/VBox/VaultReconciliationButton
 @onready var clock_in_button: Button = $Panel/VBox/ClockInButton
@@ -49,6 +50,7 @@ signal shift_clocked_in
 @onready var staff_scheduling_screen: StaffSchedulingScreen = $StaffSchedulingScreen
 @onready var approvals_screen: ApprovalsScreen = $ApprovalsScreen
 @onready var vault_reconciliation_screen: VaultReconciliationScreen = $VaultReconciliationScreen
+@onready var staff_review_screen: StaffReviewScreen = $StaffReviewScreen
 
 @onready var corner_total_score_label: Label = $ScoreHudPanel/VBox/TotalScoreLabel
 @onready var corner_reputation_label: Label = $ScoreHudPanel/VBox/ReputationLabel
@@ -64,7 +66,10 @@ signal shift_clocked_in
 @onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/ReputationLabel
 @onready var shift_xp_label: Label = $ShiftSummaryPanel/VBox/ShiftXPLabel
 @onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalXPLabel
-@onready var shift_branch_label: Label = $ShiftSummaryPanel/VBox/BranchLabel
+## Branch and Staff Review sit side by side so the summary stays within the
+## 648px window.
+@onready var shift_branch_label: Label = $ShiftSummaryPanel/VBox/SectionsHBox/BranchVBox/BranchLabel
+@onready var shift_staff_review_label: Label = $ShiftSummaryPanel/VBox/SectionsHBox/StaffReviewVBox/StaffReviewLabel
 @onready var shift_summary_done_button: Button = $ShiftSummaryPanel/VBox/DoneButton
 
 enum ShiftState { CLOCKED_OUT, CLOCKED_IN }
@@ -106,6 +111,11 @@ var shift_xp_total: int = 0
 ## can't drop part of a long shift.
 var shift_staff_records: Array[DecisionRecord] = []
 
+## This shift's staff reviews for the summary's "Staff Review" section:
+## reviewed / fair / unfair_reports / ignored counts and the points they
+## earned or cost (score, reputation, xp — ignored items' penalty included).
+var shift_review_stats: Dictionary = {}
+
 func _ready() -> void:
 	HistoryManager.staff_record_added.connect(_on_staff_record_added)
 	visible = false
@@ -113,15 +123,20 @@ func _ready() -> void:
 	clock_in_button.pressed.connect(_on_clock_in_button_pressed)
 	clock_out_button.pressed.connect(_on_clock_out_button_pressed)
 	schedule_staff_button.pressed.connect(_on_schedule_staff_button_pressed)
+	review_staff_button.pressed.connect(_on_review_staff_button_pressed)
 	review_approvals_button.pressed.connect(_on_review_approvals_button_pressed)
 	vault_reconciliation_button.pressed.connect(_on_vault_reconciliation_button_pressed)
 	shift_summary_done_button.pressed.connect(_on_shift_summary_done_pressed)
 
 	staff_scheduling_screen.closed.connect(_on_sub_screen_closed)
+	staff_review_screen.closed.connect(_on_sub_screen_closed)
 	approvals_screen.closed.connect(_on_sub_screen_closed)
 	vault_reconciliation_screen.closed.connect(_on_sub_screen_closed)
 
 	approvals_screen.review_completed.connect(_on_activity_completed)
+	staff_review_screen.review_completed.connect(_on_activity_completed)
+	StaffReviewManager.review_decided.connect(_on_staff_review_decided)
+	_reset_review_stats()
 	vault_reconciliation_screen.count_submitted.connect(_on_vault_count_submitted)
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
 	ScoreManager.score_changed.connect(_on_total_score_changed)
@@ -163,16 +178,38 @@ func _begin_shift() -> void:
 	shift_reputation_total = 0
 	shift_xp_total = 0
 	shift_staff_records.clear()
+	_reset_review_stats()
 	_update_shift_controls()
 	shift_clocked_in.emit()
+
+func _reset_review_stats() -> void:
+	shift_review_stats = {"reviewed": 0, "fair": 0, "unfair_reports": 0, "ignored": 0, "score": 0, "reputation": 0, "xp": 0}
 
 func _on_staff_record_added(record: DecisionRecord) -> void:
 	if shift_state == ShiftState.CLOCKED_IN:
 		shift_staff_records.append(record)
 
+## Counts for the summary; the points themselves reach the shift totals
+## through staff_review_screen.review_completed (_on_activity_completed()).
+func _on_staff_review_decided(result: Dictionary) -> void:
+	if shift_state != ShiftState.CLOCKED_IN:
+		return
+	shift_review_stats["reviewed"] += 1
+	if result["fair"]:
+		shift_review_stats["fair"] += 1
+	if result["unfair_report"]:
+		shift_review_stats["unfair_reports"] += 1
+	shift_review_stats["score"] += result["score"]
+	shift_review_stats["reputation"] += result["reputation"]
+	shift_review_stats["xp"] += result["xp"]
+
 func _on_schedule_staff_button_pressed() -> void:
 	main_panel.visible = false
 	staff_scheduling_screen.show_screen()
+
+func _on_review_staff_button_pressed() -> void:
+	main_panel.visible = false
+	staff_review_screen.show_screen()
 
 func _on_review_approvals_button_pressed() -> void:
 	main_panel.visible = false
@@ -304,6 +341,13 @@ func _on_clock_out_button_pressed() -> void:
 func _prepare_shift_summary() -> void:
 	var shift_end_time := Time.get_datetime_string_from_system()
 
+	# Serious staff mistakes left unreviewed are closed as ignored, at a
+	# Reputation cost; minor/acceptable items carry over to the next shift.
+	var ignored := StaffReviewManager.close_ignored_serious()
+	shift_review_stats["ignored"] = ignored["count"]
+	shift_review_stats["reputation"] += ignored["reputation"]
+	shift_reputation_total += ignored["reputation"]
+
 	shift_start_time_label.text = "Start Time: %s" % shift_start_time
 	shift_end_time_label.text = "End Time: %s" % shift_end_time
 	shift_actions_completed_label.text = "Actions Completed: %d" % actions_completed
@@ -314,6 +358,7 @@ func _prepare_shift_summary() -> void:
 	shift_xp_label.text = "Shift XP: %+d" % shift_xp_total
 	shift_total_xp_label.text = "Total XP: %d" % XPManager.total_xp
 	shift_branch_label.text = branch_summary_text(shift_staff_records)
+	shift_staff_review_label.text = staff_review_summary_text(shift_review_stats, StaffReviewManager.queue.size())
 
 	shift_state = ShiftState.CLOCKED_OUT
 	main_panel.visible = false
@@ -349,6 +394,9 @@ static func branch_summary_text(records: Array[DecisionRecord]) -> String:
 		for record in records:
 			if record.staff_slot == slot_name and not names.has(record.staff_name):
 				names.append(record.staff_name)
+		if names.is_empty():
+			# e.g. its staff member was terminated — the desk is closed.
+			lines.append("%s — Unassigned" % slot_name)
 		for staff_name in names:
 			var done := 0
 			var mistakes := 0
@@ -371,6 +419,17 @@ static func branch_summary_text(records: Array[DecisionRecord]) -> String:
 	])
 	return "\n".join(lines)
 
+## The summary's "Staff Review" section.
+static func staff_review_summary_text(stats: Dictionary, still_waiting: int) -> String:
+	var lines: PackedStringArray = [
+		"Reviewed: %d" % stats["reviewed"],
+		"Fair calls: %d" % stats["fair"],
+		"Unfair reports: %d" % stats["unfair_reports"],
+		"Serious ignored: %d (still waiting: %d)" % [stats["ignored"], still_waiting],
+		"Score %+d · Reputation %+d · XP %+d" % [stats["score"], stats["reputation"], stats["xp"]],
+	]
+	return "\n".join(lines)
+
 func _on_shift_summary_done_pressed() -> void:
 	_show_main_panel()
 
@@ -379,6 +438,7 @@ func _update_shift_controls() -> void:
 	clock_in_button.visible = not clocked_in
 	clock_out_button.visible = clocked_in
 	schedule_staff_button.disabled = not clocked_in
+	review_staff_button.disabled = not clocked_in
 	review_approvals_button.disabled = not clocked_in
 	vault_reconciliation_button.disabled = not clocked_in or _vault_reconciled_this_shift
 	vault_reconciliation_button.text = "Vault Reconciliation (Done This Shift)" if _vault_reconciled_this_shift else "Vault Reconciliation"

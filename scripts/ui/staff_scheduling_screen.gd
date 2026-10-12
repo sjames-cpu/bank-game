@@ -62,6 +62,7 @@ func _ready() -> void:
 	_populate_slots()
 
 func show_screen() -> void:
+	_populate_roster()
 	_populate_slots()
 	status_label.visible = false
 	visible = true
@@ -83,11 +84,18 @@ func hide_screen() -> void:
 func _on_close_button_pressed() -> void:
 	hide_screen()
 
+## Rebuilt on every open: staff reports change during play, and terminated
+## staff (ScheduleManager.get_roster()) are no longer listed.
 func _populate_roster() -> void:
-	for staff in StaffRosterData.get_staff():
+	for child in roster_vbox.get_children():
+		roster_vbox.remove_child(child)
+		child.queue_free()
+	for staff in ScheduleManager.get_roster():
 		var entry := Label.new()
-		entry.text = "%s (%s)\nSkill %d | Reliability %d | Speed %d | Customer Service %d\n\"%s\"" % [
-			staff.staff_name, staff.role, staff.skill, staff.reliability, staff.speed, staff.customer_service, staff.flavor_text,
+		entry.text = "%s (%s) — Reports: %d / %d\nSkill %d | Reliability %d | Speed %d | Customer Service %d\n\"%s\"" % [
+			staff.staff_name, staff.role,
+			StaffReviewManager.reports_for(staff.staff_name), StaffReviewManager.STAFF_REPORTS_FOR_TERMINATION,
+			staff.skill, staff.reliability, staff.speed, staff.customer_service, staff.flavor_text,
 		]
 		roster_vbox.add_child(entry)
 		roster_vbox.add_child(HSeparator.new())
@@ -98,7 +106,7 @@ func _populate_slots() -> void:
 		child.queue_free()
 	_slot_option_buttons.clear()
 	_shift_slots = ScheduleManager.get_desk_slots()
-	var all_staff := StaffRosterData.get_staff()
+	var all_staff := ScheduleManager.get_roster()
 
 	for slot in _shift_slots:
 		var slot_label := Label.new()

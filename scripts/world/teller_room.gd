@@ -163,11 +163,10 @@ func _ready() -> void:
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
 	_place_staff()
 
-	# Staff serve customers from the start. Both teller-window lines stay on;
-	# only the loan worker pauses while the player works the Loan Desk (see
+	# Staff serve customers from the start: _place_staff() opened each
+	# staffed teller window's line (_update_staff_lines()). Only the loan
+	# worker pauses while the player works the Loan Desk (see
 	# _on_player_clocked_in/_out).
-	window2_line.activate()
-	window1_npc_line.activate()
 	loan_desk_worker.active = true
 	if XPManager.is_branch_manager_unlocked:
 		_apply_branch_manager_desks()
@@ -204,6 +203,26 @@ func _assign_staff_to_work() -> void:
 	window2_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_2)
 	window3_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_3)
 	loan_desk_worker.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_LOAN_DESK)
+	_update_staff_lines()
+
+## A staffed teller window's line is open; an unassigned one (e.g. its staff
+## member was terminated) is closed — no new customers, and anyone waiting
+## walks out (NpcCustomerLine.close_line()). Teller Window 3's line only
+## exists once the player is Branch Manager.
+func _update_staff_lines() -> void:
+	var lines := {
+		ScheduleManager.SLOT_TELLER_WINDOW_1: window1_npc_line,
+		ScheduleManager.SLOT_TELLER_WINDOW_2: window2_line,
+	}
+	if XPManager.is_branch_manager_unlocked:
+		lines[ScheduleManager.SLOT_TELLER_WINDOW_3] = window3_line
+	for slot_name: String in lines:
+		var line: NpcCustomerLine = lines[slot_name]
+		var staffed := ScheduleManager.get_assigned(slot_name) != null
+		if staffed and not line.active:
+			line.activate()
+		elif not staffed and line.active:
+			line.close_line()
 
 func _on_schedule_confirmed(_schedule: Dictionary) -> void:
 	_place_staff()
@@ -456,9 +475,7 @@ func _on_branch_manager_unlocked() -> void:
 func _apply_branch_manager_desks() -> void:
 	if not _staff_by_slot.has(ScheduleManager.SLOT_TELLER_WINDOW_3):
 		_place_slot_staff(ScheduleManager.SLOT_TELLER_WINDOW_3)
-		_assign_staff_to_work()
-	if not window3_line.active:
-		window3_line.activate()
+	_assign_staff_to_work() # opens Window3Line when the desk is staffed
 	loan_desk_worker.active = true
 	_update_loan_officer_desk_availability()
 

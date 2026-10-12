@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/branch_manager_screen.gd" id="screen_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/staff_scheduling_screen.tscn" id="staff_scheduling_screen_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ui/approvals_screen.tscn" id="approvals_screen_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ui/vault_reconciliation_screen.tscn" id="vault_reconciliation_screen_scene"]
+[ext_resource type="PackedScene" path="res://scenes/ui/staff_review_screen.tscn" id="staff_review_screen_scene"]
 [ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
 
 [node name="BranchManagerScreen" type="Control"]
@@ -51,6 +52,11 @@ layout_mode = 2
 disabled = true
 text = "Schedule Staff"
 
+[node name="ReviewStaffButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+disabled = true
+text = "Review Staff"
+
 [node name="ReviewApprovalsButton" type="Button" parent="Panel/VBox"]
 layout_mode = 2
 disabled = true
@@ -89,6 +95,9 @@ layout_mode = 1
 layout_mode = 1
 
 [node name="VaultReconciliationScreen" parent="." instance=ExtResource("vault_reconciliation_screen_scene")]
+layout_mode = 1
+
+[node name="StaffReviewScreen" parent="." instance=ExtResource("staff_review_screen_scene")]
 layout_mode = 1
 
 [node name="ScoreHudPanel" type="Panel" parent="."]
@@ -136,8 +145,8 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -230.0
-offset_right = 230.0
+offset_left = -370.0
+offset_right = 370.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -201,13 +210,38 @@ horizontal_alignment = 1
 [node name="BranchSeparator" type="HSeparator" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
 
-[node name="BranchHeaderLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="SectionsHBox" type="HBoxContainer" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="BranchVBox" type="VBoxContainer" parent="ShiftSummaryPanel/VBox/SectionsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.5
+
+[node name="BranchHeaderLabel" type="Label" parent="ShiftSummaryPanel/VBox/SectionsHBox/BranchVBox"]
 layout_mode = 2
 theme_type_variation = &"HeaderLabel"
 text = "Branch"
 horizontal_alignment = 1
 
-[node name="BranchLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="BranchLabel" type="Label" parent="ShiftSummaryPanel/VBox/SectionsHBox/BranchVBox"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="StaffReviewVBox" type="VBoxContainer" parent="ShiftSummaryPanel/VBox/SectionsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="StaffReviewHeaderLabel" type="Label" parent="ShiftSummaryPanel/VBox/SectionsHBox/StaffReviewVBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Staff Review"
+horizontal_alignment = 1
+
+[node name="StaffReviewLabel" type="Label" parent="ShiftSummaryPanel/VBox/SectionsHBox/StaffReviewVBox"]
 layout_mode = 2
 text = ""
 horizontal_alignment = 1

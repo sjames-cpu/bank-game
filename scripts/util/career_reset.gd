@@ -19,3 +19,4 @@ static func reset_all() -> void:
 	HistoryManager.reset()
 	AccountManager.reset()
 	ScheduleManager.reset()
+	StaffReviewManager.reset()

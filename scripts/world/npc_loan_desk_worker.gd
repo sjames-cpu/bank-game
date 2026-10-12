@@ -61,6 +61,7 @@ func decide_next() -> void:
 		"%s (Loan Desk) %s %s's $%.0f %s loan — %s" % [staff.staff_name, action, application.applicant_name, application.requested_amount, application.loan_purpose.to_lower(), LoanApplication.grade_description(grade)],
 		"Correct" if correct else "Mistake"
 	)
+	StaffReviewManager.add_loan_decision(staff, ScheduleManager.SLOT_LOAN_DESK, application, grade)
 	staff_npc.say("%s: %s" % [LoanApplication.decision_type_label(decision), application.applicant_name], 3.0)
 	decision_made.emit(application, staff, correct)
 

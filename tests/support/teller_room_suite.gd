@@ -38,6 +38,9 @@ func after_test() -> void:
 		scene.free()
 	room = null
 	CareerReset.reset_all()
+	# Let queue_free()'d nodes (rebuilt UI rows, re-placed staff) actually go
+	# before gdUnit's orphan check.
+	await get_tree().process_frame
 
 # --- desk -------------------------------------------------------------------
 
@@ -130,6 +133,21 @@ func serve_correctly(customer: CustomerNPC) -> void:
 
 func abandon(customer: CustomerNPC) -> void:
 	customer.patience_expired.emit()
+
+## Height a centred, auto-sizing panel settles at for its designed width.
+## (reset_size() would collapse autowrap labels to their minimum width and
+## report a bogus height.) The game window is 648px tall.
+func settled_height(panel: Control) -> float:
+	var width := panel.offset_right - panel.offset_left
+	var last := -1.0
+	for i in 10:
+		panel.size = Vector2(width, 0)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if is_equal_approx(panel.size.y, last):
+			break
+		last = panel.size.y
+	return panel.size.y
 
 ## Career totals, for before/after deltas.
 func totals() -> Vector3i:

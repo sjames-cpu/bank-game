@@ -55,6 +55,10 @@ var _time_left: float = 0.0
 var _elapsed: float = 0.0
 var _mistake_pending: bool = false
 var _mistake_detail: String = ""
+var _mistake_kind: StaffReviewItem.TellerMistake = StaffReviewItem.TellerMistake.AMOUNT_SHORT
+
+## Said by customers sent away when the desk closes (close_line()).
+const CLOSED_LINE_FAREWELL: String = "Window's closed? I'll come back another time."
 
 ## Mistake kinds a customer can point out: [customer line, log detail].
 ## "%s" is a small dollar amount. The wrong-type kind is picked to match
@@ -68,6 +72,20 @@ const _MISTAKE_WRONG_TYPE_WITHDRAW: Array = ["I asked to withdraw, not deposit!"
 func activate() -> void:
 	active = true
 	spawn_timer.start(_next_spawn_interval())
+
+## The desk has nobody assigned (e.g. its staff member was terminated): stop
+## taking customers and send everyone waiting — including whoever was
+## mid-service — out of the line. activate() opens it again.
+func close_line() -> void:
+	active = false
+	spawn_timer.stop()
+	_cancel_service()
+	var leaving := queue.duplicate()
+	queue.clear()
+	for customer in leaving:
+		if is_instance_valid(customer):
+			_departing.append(customer)
+			send_customer_off(customer, CLOSED_LINE_FAREWELL)
 
 func _next_spawn_interval() -> float:
 	return randf_range(spawn_interval_min, spawn_interval_max)
@@ -127,7 +145,11 @@ func _reveal_mistake() -> void:
 	_mistake_pending = false
 	_serving.was_mistake = true
 	var wrong_type := _MISTAKE_WRONG_TYPE_DEPOSIT if _serving.intent_type == ShiftTransaction.Type.DEPOSIT else _MISTAKE_WRONG_TYPE_WITHDRAW
-	var kind: Array = [_MISTAKE_AMOUNT_SHORT, _MISTAKE_AMOUNT_OVER, wrong_type, _MISTAKE_WRONG_ACCOUNT].pick_random()
+	var kinds: Array = [_MISTAKE_AMOUNT_SHORT, _MISTAKE_AMOUNT_OVER, wrong_type, _MISTAKE_WRONG_ACCOUNT]
+	var kind_index := randi_range(0, kinds.size() - 1)
+	# Same order as StaffReviewItem.TellerMistake.
+	_mistake_kind = kind_index as StaffReviewItem.TellerMistake
+	var kind: Array = kinds[kind_index]
 	var amount := "$%d" % (randi_range(1, 5) * 10)
 	var line: String = kind[0]
 	var detail: String = kind[1]
@@ -153,6 +175,8 @@ func _complete_service() -> void:
 	if customer.was_mistake:
 		description += " — mistake: %s, then fixed it" % _mistake_detail
 	HistoryManager.add_staff_record(staff.staff_name, slot_name, description, "Mistake" if customer.was_mistake else "Correct")
+	if customer.was_mistake:
+		StaffReviewManager.add_teller_mistake(staff, slot_name, customer, _mistake_kind, _mistake_detail)
 
 	last_service_seconds = _elapsed
 	_serving_staff.say("All set — have a nice day!")

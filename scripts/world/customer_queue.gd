@@ -169,14 +169,15 @@ func serve_front_customer() -> CustomerNPC:
 ## that corridor to exit_y and vanish — a path between the lanes, so they
 ## never walk through anyone still waiting. Called by teller_room.gd once
 ## the Teller screen closes for a visit that served this customer (and by
-## NpcCustomerLine right after a staff service).
-func send_customer_off(customer: CustomerNPC) -> void:
+## NpcCustomerLine right after a staff service). `farewell` replaces the
+## usual thank-you line when given (e.g. a closed window).
+func send_customer_off(customer: CustomerNPC, farewell: String = "") -> void:
 	var corridor_x := queue_positions[0].global_position.x + exit_side_offset
 	var route: Array[Vector2] = [
 		Vector2(corridor_x, customer.global_position.y),
 		Vector2(corridor_x, exit_y),
 	]
-	customer.say_farewell_and_leave(route)
+	customer.say_farewell_and_leave(route, farewell)
 
 func _on_spawn_timer_timeout() -> void:
 	if queue.size() >= queue_positions.size():

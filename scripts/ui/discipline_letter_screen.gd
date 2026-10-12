@@ -8,7 +8,8 @@ class_name DisciplineLetterScreen
 ## clock-out if earned mid-shift), which includes the cleared disciplinary
 ## record so the player gets one letter, not two, and the one-time
 ## "Welcome to Branch Management" orientation on the first Branch Manager
-## clock-in (show_branch_orientation_once()). Lives in
+## clock-in (show_branch_orientation_once()), and the termination letter
+## the Branch Manager sends a staff member (StaffReviewManager). Lives in
 ## teller_room's UI layer (last, so it draws on top); process_mode ALWAYS so
 ## it works whether or not a desk screen has the tree paused.
 ##
@@ -49,6 +50,16 @@ func _ready() -> void:
 	ReportManager.report_issued.connect(_on_report_issued)
 	ReportManager.termination_issued.connect(_on_termination_issued)
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
+	StaffReviewManager.staff_terminated.connect(_on_staff_terminated)
+
+## The Branch Manager (the player) terminating a staff member — a short
+## letter to them, signed by the Branch Manager.
+func _on_staff_terminated(staff_name: String, report_reasons: PackedStringArray) -> void:
+	var lines: PackedStringArray = []
+	for i in report_reasons.size():
+		lines.append("Report %d — %s" % [i + 1, report_reasons[i]])
+	var body := "To: %s\n\nFollowing %d staff reports, your employment with the branch is terminated, effective immediately.\n\n%s" % [staff_name, report_reasons.size(), "\n".join(lines)]
+	_enqueue(Mode.NOTICE, "Notice of Termination — %s" % staff_name, body, BRANCH_MANAGER_SENDER)
 
 func _on_report_issued(report: DisciplinaryReport) -> void:
 	var body := "This is a formal written warning, issued for %s.\n\nCustomers affected:\n%s\n\nThis is report %d of %d. Reaching %d reports will result in termination." % [
@@ -78,7 +89,7 @@ func _on_branch_manager_unlocked() -> void:
 	body += ". As Branch Manager you're no longer subject to branch disciplinary reports."
 	_enqueue(Mode.NOTICE, "Letter of Promotion", body, PROMOTION_SENDER)
 
-const ORIENTATION_BODY: String = "As Branch Manager, you're responsible for the whole branch, not just one desk. Your main duties:\n\nStaff scheduling — decide who works each window and the Loan Desk. Every staff member has different strengths: fast staff serve more customers but may make more mistakes, careful staff are slower but more accurate. Check their stats before assigning them.\n\nApprovals — review recent decisions and step in when one was wrong.\n\nVault reconciliation — count the branch vault once per shift and make sure it matches the records.\n\nStaff performance — you're accountable for your team's work. Staff review and discipline will be added to your duties soon."
+const ORIENTATION_BODY: String = "As Branch Manager, you're responsible for the whole branch, not just one desk. Your main duties:\n\nStaff scheduling — decide who works each window and the Loan Desk. Every staff member has different strengths: fast staff serve more customers but may make more mistakes, careful staff are slower but more accurate. Check their stats before assigning them.\n\nApprovals — review recent decisions and step in when one was wrong.\n\nVault reconciliation — count the branch vault once per shift and make sure it matches the records.\n\nStaff review — you're accountable for your team's work. Review their mistakes and questionable loan calls, and decide whether each deserves a report, feedback, or nothing. Be fair: a report for a reasonable call is too harsh, and a serious error left unreviewed at clock-out reflects on you. Three reports and you may let a staff member go."
 
 ## Called on every Branch Manager clock-in (branch_manager_screen.gd's
 ## shift_clocked_in, wired by teller_room.gd); only the first one per career

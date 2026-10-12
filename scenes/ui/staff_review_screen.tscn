@@ -1,0 +1,119 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/staff_review_screen.gd" id="screen_script"]
+
+[node name="StaffReviewScreen" type="Control"]
+process_mode = 2
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_right = 260.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Staff Review"
+horizontal_alignment = 1
+
+[node name="QueueHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="PrevButton" type="Button" parent="Panel/VBox/QueueHBox"]
+layout_mode = 2
+text = "<"
+
+[node name="QueueLabel" type="Label" parent="Panel/VBox/QueueHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"MutedLabel"
+text = "Item 1 of 1"
+horizontal_alignment = 1
+
+[node name="NextButton" type="Button" parent="Panel/VBox/QueueHBox"]
+layout_mode = 2
+text = ">"
+
+[node name="ItemSection" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="ItemVBox" type="VBoxContainer" parent="Panel/VBox/ItemSection"]
+layout_mode = 2
+
+[node name="StaffLabel" type="Label" parent="Panel/VBox/ItemSection/ItemVBox"]
+layout_mode = 2
+text = "Staff member — Desk"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="RecordLabel" type="Label" parent="Panel/VBox/ItemSection/ItemVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Reports: 0 / 3 · Feedbacks: 0"
+horizontal_alignment = 1
+
+[node name="DetailsLabel" type="Label" parent="Panel/VBox/ItemSection/ItemVBox"]
+layout_mode = 2
+text = "Details"
+autowrap_mode = 2
+
+[node name="ActionsHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="ReportButton" type="Button" parent="Panel/VBox/ActionsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Issue Report"
+
+[node name="FeedbackButton" type="Button" parent="Panel/VBox/ActionsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Give Feedback"
+
+[node name="ExcuseButton" type="Button" parent="Panel/VBox/ActionsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Excuse"
+
+[node name="ResultLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+visible = false
+text = "Result"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="TerminateVBox" type="VBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Close"
