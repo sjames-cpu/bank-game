@@ -42,7 +42,8 @@ class_name Hud
 @onready var prompt_panel: PanelContainer = $PromptPanel
 @onready var prompt_label: Label = $PromptPanel/PromptLabel
 
-## Gap between the interactable's position and the top of the prompt: the
+## Gap (in room pixels, so it holds at any camera zoom) between the
+## interactable's position and the top of the prompt: the
 ## prompt sits below it, on the player's side, clear of a player standing at
 ## the desk (their feet reach ~48px below a desk's centre) and of the staff
 ## name labels above the counters.
@@ -137,5 +138,5 @@ func hide_prompt() -> void:
 	prompt_panel.visible = false
 
 func _place_prompt() -> void:
-	var screen_position := get_viewport().get_canvas_transform() * _prompt_world_position
-	prompt_panel.position = screen_position + Vector2(-prompt_panel.size.x / 2.0, PROMPT_OFFSET_Y)
+	var screen_position := get_viewport().get_canvas_transform() * (_prompt_world_position + Vector2(0, PROMPT_OFFSET_Y))
+	prompt_panel.position = screen_position - Vector2(prompt_panel.size.x / 2.0, 0)

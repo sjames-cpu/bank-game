@@ -252,13 +252,12 @@ func assert_prompt_clear_of_labels(desk: Node2D) -> void:
 	assert_float(prompt_rect.position.y).is_greater((canvas * desk.global_position).y)
 	var player_sprite: AnimatedSprite2D = player.get_node("AnimatedSprite2D")
 	var frame := player_sprite.sprite_frames.get_frame_texture(player_sprite.animation, 0).get_size()
-	var player_rect := Rect2(canvas * (player.global_position - frame / 2.0), frame)
+	var player_rect := canvas * Rect2(player.global_position - frame / 2.0, frame)
 	assert_bool(prompt_rect.intersects(player_rect)) 		.override_failure_message("prompt %s covers the player %s" % [prompt_rect, player_rect]).is_false()
 	var labels := 0
 	for npc in room.staff_layer.get_children():
 		var name_label: Label = npc.get_node("NameLabel")
-		var world_rect := name_label.get_global_rect()
-		var label_rect := Rect2(canvas * world_rect.position, world_rect.size)
+		var label_rect := canvas * name_label.get_global_rect()
 		labels += 1
 		assert_bool(prompt_rect.intersects(label_rect)) 			.override_failure_message("prompt %s covers %s's name label %s" % [prompt_rect, name_label.text, label_rect]).is_false()
 	assert_int(labels).is_greater(2)
@@ -279,6 +278,11 @@ func test_prompt_sits_below_the_desk_clear_of_name_labels() -> void:
 	assert_prompt_clear_of_labels(room.loan_officer_desk)
 	await stand_at(room.branch_manager_desk)
 	assert_prompt_clear_of_labels(room.branch_manager_desk)
+
+	# The gap is in room pixels, so it holds with the camera zoomed in.
+	(player.get_node("Camera2D") as Camera2D).zoom = Vector2(2, 2)
+	await stand_at(room.teller_desk)
+	assert_prompt_clear_of_labels(room.teller_desk)
 
 func test_prompt_key_matches_the_input_map() -> void:
 	assert_bool(InputMap.has_action(InputPrompts.INTERACT)).is_true()
