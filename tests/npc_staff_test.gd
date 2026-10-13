@@ -30,7 +30,7 @@ func test_staff_never_change_player_line_balances() -> void:
 		players.append(spawn(ShiftTransaction.Type.WITHDRAWAL, 20.0))
 	var balances := {}
 	for customer in players:
-		balances[customer.account] = customer.account.balance
+		balances[customer.account] = customer.account.balance_cents
 
 	var served := [0]
 	for line: NpcCustomerLine in [window_1, window_2]:
@@ -55,7 +55,7 @@ func test_staff_never_change_player_line_balances() -> void:
 
 	assert_int(served[0]).is_greater_equal(6)
 	for customer in players:
-		assert_float(customer.account.balance).is_equal(balances[customer.account])
+		assert_int(customer.account.balance_cents).is_equal(balances[customer.account])
 
 func test_account_resets_once_the_customer_has_left() -> void:
 	clock_in()
@@ -68,9 +68,9 @@ func test_account_resets_once_the_customer_has_left() -> void:
 	assert_object(ts.account).is_same(served.account)
 	complete()
 	assert_object(ts.account).is_same(demo)
-	var served_balance := served.account.balance
+	var served_balance := served.account.balance_cents
 	deposit(40)
-	assert_float(served.account.balance).is_equal(served_balance)
+	assert_int(served.account.balance_cents).is_equal(served_balance)
 	close_desk()
 
 	# An open transaction keeps the account until it's graded on close.
@@ -91,9 +91,9 @@ func test_account_resets_once_the_customer_has_left() -> void:
 	close_desk()
 	open_desk()
 	assert_object(ts.account).is_same(demo)
-	var upset_balance := upset.account.balance
+	var upset_balance := upset.account.balance_cents
 	deposit(25)
-	assert_float(upset.account.balance).is_equal(upset_balance)
+	assert_int(upset.account.balance_cents).is_equal(upset_balance)
 	close_desk()
 
 	# Abandoned while the desk was closed.

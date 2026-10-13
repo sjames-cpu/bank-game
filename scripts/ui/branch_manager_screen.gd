@@ -84,7 +84,7 @@ var _awaiting_vault_reconciliation_result: bool = false
 ## Separate from the one-shot guard above — that one stops a rapid-click
 ## spam within a single visit, but nothing stopped closing and reopening
 ## VaultReconciliationScreen repeatedly across the same shift, resubmitting
-## the same always-correct EXPECTED_VAULT_BALANCE answer for another full
+## the same always-correct EXPECTED_VAULT_CENTS answer for another full
 ## Score/Reputation/XP grant each time (a real bank only reconciles its
 ## vault once per shift, not on demand). This is that per-shift cap: set
 ## true the moment a vault count is actually graded, reset false at the
@@ -240,15 +240,14 @@ func _on_activity_completed(score_delta: int, reputation_delta: int, xp_delta: i
 ## teller_screen.gd's _categorize_discrepancy() for DrawerCountScreen)
 ## rather than trusting VaultReconciliationScreen's own — that screen's
 ## copy exists only to decide its own status_label text.
-func _on_vault_count_submitted(total: float) -> void:
+func _on_vault_count_submitted(total_cents: int) -> void:
 	if not _awaiting_vault_reconciliation_result:
 		return
 	_awaiting_vault_reconciliation_result = false
 	_vault_reconciled_this_shift = true
 	_update_shift_controls()
 
-	var discrepancy_cents := MoneyMath.to_cents(total) - MoneyMath.to_cents(VaultReconciliationScreen.EXPECTED_VAULT_BALANCE)
-	var discrepancy := discrepancy_cents / 100.0
+	var discrepancy_cents := total_cents - VaultReconciliationScreen.EXPECTED_VAULT_CENTS
 	var excess_bills := vault_reconciliation_screen.get_excess_bill_count()
 	var discrepancy_result := _categorize_vault_discrepancy(discrepancy_cents, excess_bills)
 	var result_label := _vault_discrepancy_result_label(discrepancy_result)
@@ -261,7 +260,7 @@ func _on_vault_count_submitted(total: float) -> void:
 	ReputationManager.add_reputation(reputation_delta)
 	XPManager.add_shift_xp(score)
 
-	HistoryManager.add_record(DecisionRecord.Role.BRANCH_MANAGER, "Vault reconciliation: %s (discrepancy $%.2f)" % [result_label, discrepancy], result_label)
+	HistoryManager.add_record(DecisionRecord.Role.BRANCH_MANAGER, "Vault reconciliation: %s (discrepancy %s)" % [result_label, MoneyMath.format(discrepancy_cents)], result_label)
 
 	_on_activity_completed(score, reputation_delta, xp)
 
@@ -272,7 +271,7 @@ func _on_vault_count_submitted(total: float) -> void:
 func _categorize_vault_discrepancy(discrepancy_cents: int, excess_bills: int) -> VaultReconciliationScreen.DiscrepancyResult:
 	if discrepancy_cents == 0 and excess_bills <= VaultReconciliationScreen.PERFECT_BILL_COUNT_TOLERANCE:
 		return VaultReconciliationScreen.DiscrepancyResult.PERFECT
-	elif absi(discrepancy_cents) <= MoneyMath.to_cents(VaultReconciliationScreen.MINOR_DISCREPANCY_THRESHOLD) and excess_bills <= VaultReconciliationScreen.MINOR_BILL_COUNT_TOLERANCE:
+	elif absi(discrepancy_cents) <= VaultReconciliationScreen.MINOR_DISCREPANCY_THRESHOLD_CENTS and excess_bills <= VaultReconciliationScreen.MINOR_BILL_COUNT_TOLERANCE:
 		return VaultReconciliationScreen.DiscrepancyResult.MINOR
 	else:
 		return VaultReconciliationScreen.DiscrepancyResult.MAJOR
@@ -289,7 +288,7 @@ func _vault_discrepancy_result_label(discrepancy_result: VaultReconciliationScre
 ## Reuses TellerScreen's exact Perfect/Minor/Major point values, same as
 ## VaultReconciliationScreen used to before it stopped grading itself —
 ## the vault's higher stakes are already expressed through
-## VaultReconciliationScreen.MINOR_DISCREPANCY_THRESHOLD (a "Major" vault
+## VaultReconciliationScreen.MINOR_DISCREPANCY_THRESHOLD_CENTS (a "Major" vault
 ## discrepancy takes a much bigger dollar miss to earn than a "Major"
 ## drawer one), so inflating the point values on top of that would tune
 ## the same thing twice.

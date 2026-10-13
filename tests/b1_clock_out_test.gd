@@ -28,7 +28,7 @@ func test_clock_out_with_customer_mid_visit_clears_them() -> void:
 	# The last customer is served while the screen stays open, so clock-out
 	# happens in the same visit.
 	open_desk()
-	deposit(last.intent_amount)
+	deposit(last.intent_amount_cents / 100.0)
 	complete()
 	assert_bool(clock_out()).is_true()
 	assert_object(ts._serving_customer).is_null()

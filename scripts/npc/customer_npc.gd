@@ -34,7 +34,7 @@ signal patience_expired
 ## other at spawn (see CustomerQueue.COMPLAINT_CHANCE), never both. For a
 ## regular (non-complaint) customer this now holds their stated Deposit/
 ## Withdraw request rather than a pure flavor line — see intent_type/
-## intent_amount below and CustomerQueue._assign_transaction_intent().
+## intent_amount_cents below and CustomerQueue._assign_transaction_intent().
 var dialogue_line: CustomerDialogueLine = null
 
 ## Phase 6c: assigned instead of dialogue_line for "complaint" customers
@@ -54,7 +54,7 @@ var account: Account = null
 ## second, identical enum, the same reasoning payment_method below already
 ## gives for reusing ShiftTransaction.PaymentMethod.
 var intent_type: ShiftTransaction.Type = ShiftTransaction.Type.DEPOSIT
-var intent_amount: float = 0.0
+var intent_amount_cents: int = 0
 
 ## Set once the player has picked a response to complaint above, so
 ## reopening the Teller screen for the same still-queued customer shows

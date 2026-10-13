@@ -37,15 +37,18 @@ const CARD_CHANCE: float = 0.5
 
 ## Phase 6h: starting balance range for a customer's own Account, created
 ## (or reused, see _get_or_create_customer_account()) the moment they spawn.
-const CUSTOMER_ACCOUNT_MIN_BALANCE: float = 200.0
-const CUSTOMER_ACCOUNT_MAX_BALANCE: float = 2000.0
+## Int cents (B3), like every amount here.
+const CUSTOMER_ACCOUNT_MIN_BALANCE_CENTS: int = 20000
+const CUSTOMER_ACCOUNT_MAX_BALANCE_CENTS: int = 200000
 
 ## Phase 6h: range a non-complaint customer's stated Deposit/Withdraw
 ## request is drawn from (see _assign_transaction_intent()). A withdrawal
 ## is additionally capped at the customer's own account balance, so the
 ## upper bound here is just "reasonable," not a guarantee.
-const INTENT_MIN_AMOUNT: float = 20.0
-const INTENT_MAX_AMOUNT: float = 500.0
+const INTENT_MIN_CENTS: int = 2000
+const INTENT_MAX_CENTS: int = 50000
+## Requests are a round $10, so they read like something a person would say.
+const INTENT_STEP_CENTS: int = 1000
 
 ## Caps how many customers can spawn in a single shift, independent of
 ## queue_positions.size() (which caps how many can be in line at once).
@@ -237,9 +240,11 @@ func _get_or_create_customer_account(customer_name: String) -> Account:
 	var existing := AccountManager.find_account_by_name(customer_name, staff_line)
 	if existing != null:
 		return existing
-	# Whole dollars (B3): a raw randf_range() balance carries fractions of a
-	# cent into the balance label and can_withdraw().
-	var new_account := AccountManager.create_account(customer_name, roundf(randf_range(CUSTOMER_ACCOUNT_MIN_BALANCE, CUSTOMER_ACCOUNT_MAX_BALANCE)))
+	# A random whole-dollar balance. Drawn in dollars (the same randf_range()
+	# call as before cents, so a seeded run spawns the same balances), then
+	# stored as cents.
+	var dollars := roundf(randf_range(CUSTOMER_ACCOUNT_MIN_BALANCE_CENTS / 100.0, CUSTOMER_ACCOUNT_MAX_BALANCE_CENTS / 100.0))
+	var new_account := AccountManager.create_account(customer_name, MoneyMath.to_cents(dollars))
 	new_account.is_customer_account = true
 	new_account.is_staff_line_account = staff_line
 	return new_account
@@ -251,31 +256,35 @@ func _uses_staff_line_accounts() -> bool:
 ## Regular (non-complaint) customers state a specific Deposit/Withdraw
 ## request instead of a pure flavor line. A withdrawal request never
 ## exceeds the customer's own account balance — falling back to a deposit
-## request if their balance is below INTENT_MIN_AMOUNT — so the stated
+## request if their balance is below INTENT_MIN_CENTS — so the stated
 ## request is always one the account could actually satisfy.
 func _assign_transaction_intent(customer: CustomerNPC) -> void:
 	var intent_type := ShiftTransaction.Type.WITHDRAWAL if randf() < 0.5 else ShiftTransaction.Type.DEPOSIT
-	if intent_type == ShiftTransaction.Type.WITHDRAWAL and customer.account.balance < INTENT_MIN_AMOUNT:
+	var balance_cents := customer.account.balance_cents
+	if intent_type == ShiftTransaction.Type.WITHDRAWAL and balance_cents < INTENT_MIN_CENTS:
 		intent_type = ShiftTransaction.Type.DEPOSIT
 
-	var max_amount := INTENT_MAX_AMOUNT
+	var max_cents := INTENT_MAX_CENTS
 	if intent_type == ShiftTransaction.Type.WITHDRAWAL:
 		## Floored to a $10 multiple — customer balances aren't round tens
 		## (and a reused account's balance can be anything), so clamping to
 		## the raw balance below could otherwise yield an odd amount (e.g.
-		## $147.32). Still >= INTENT_MIN_AMOUNT, since that's a
+		## $147.32). Still >= INTENT_MIN_CENTS, since that's a
 		## $10 multiple and the balance was already checked against it above.
-		max_amount = minf(INTENT_MAX_AMOUNT, floorf(customer.account.balance / 10.0) * 10.0)
+		max_cents = mini(INTENT_MAX_CENTS, balance_cents - balance_cents % INTENT_STEP_CENTS)
 
-	## Rounded to the nearest $10 so the stated amount reads like something
-	## a person would actually say ("$150", not "$147.32"), then clamped
-	## back inside range in case rounding nudged it past max_amount.
-	var amount := roundf(randf_range(INTENT_MIN_AMOUNT, max_amount) / 10.0) * 10.0
-	amount = clampf(amount, INTENT_MIN_AMOUNT, max_amount)
+	## Drawn in dollars (the same randf_range() call as before cents, so a
+	## seeded run asks for the same amounts), rounded to the nearest $10 so it
+	## reads like something a person would actually say ("$150", not
+	## "$147.32"), then clamped back inside range in case rounding nudged it
+	## past max_cents.
+	var drawn := randf_range(INTENT_MIN_CENTS / 100.0, max_cents / 100.0)
+	var amount_cents := roundi(drawn / (INTENT_STEP_CENTS / 100.0)) * INTENT_STEP_CENTS
+	amount_cents = clampi(amount_cents, INTENT_MIN_CENTS, max_cents)
 
 	customer.intent_type = intent_type
-	customer.intent_amount = amount
-	customer.dialogue_line = _build_intent_dialogue_line(intent_type, amount)
+	customer.intent_amount_cents = amount_cents
+	customer.dialogue_line = _build_intent_dialogue_line(intent_type, amount_cents)
 
 ## Builds the stated-request sentence as a CustomerDialogueLine (the same
 ## resource teller_screen.gd already knows how to display) so no separate
@@ -283,12 +292,12 @@ func _assign_transaction_intent(customer: CustomerNPC) -> void:
 ## instead of picking a static one from _dialogue_pool. A short personality
 ## line is still appended when there's room, per Requirement 2, pulled from
 ## the same flavor pool the old generic-only dialogue used.
-func _build_intent_dialogue_line(intent_type: ShiftTransaction.Type, amount: float) -> CustomerDialogueLine:
+func _build_intent_dialogue_line(intent_type: ShiftTransaction.Type, amount_cents: int) -> CustomerDialogueLine:
 	var line := CustomerDialogueLine.new()
 	if intent_type == ShiftTransaction.Type.DEPOSIT:
-		line.text = "I'd like to deposit $%.0f." % amount
+		line.text = "I'd like to deposit %s." % MoneyMath.format(amount_cents, true)
 	else:
-		line.text = "I need to withdraw $%.0f." % amount
+		line.text = "I need to withdraw %s." % MoneyMath.format(amount_cents, true)
 
 	var flavor: CustomerDialogueLine = _dialogue_pool.pick_random()
 	line.text += " " + flavor.text

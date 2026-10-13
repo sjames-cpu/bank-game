@@ -37,7 +37,7 @@ func teller_item(mistake: Mistake, staff_name: String = "Derek Voss") -> StaffRe
 	var customer: CustomerNPC = auto_free(CustomerNPC.new())
 	customer.display_name = "Sam Chen"
 	customer.intent_type = ShiftTransaction.Type.DEPOSIT
-	customer.intent_amount = 200.0
+	customer.intent_amount_cents = 20000
 	return StaffReviewManager.add_teller_mistake(staff(staff_name), ScheduleManager.SLOT_TELLER_WINDOW_1, customer, mistake, "test detail")
 
 func loan_item(grade: LoanApplication.Grade, staff_name: String = "Priya Anand") -> StaffReviewItem:
@@ -217,9 +217,9 @@ func _bm_clock_in() -> void:
 func _bm_clock_out() -> void:
 	bm.vault_reconciliation_button.pressed.emit()
 	var vault: VaultReconciliationScreen = bm.vault_reconciliation_screen
-	var remaining := int(VaultReconciliationScreen.EXPECTED_VAULT_BALANCE)
-	for i in VaultReconciliationScreen.DENOMINATIONS.size():
-		var denom := VaultReconciliationScreen.DENOMINATIONS[i]
+	var remaining := VaultReconciliationScreen.EXPECTED_VAULT_CENTS
+	for i in VaultReconciliationScreen.DENOMINATION_CENTS.size():
+		var denom := VaultReconciliationScreen.DENOMINATION_CENTS[i]
 		vault.quantity_inputs[i].value = floori(float(remaining) / denom)
 		remaining -= floori(float(remaining) / denom) * denom
 	vault.submit_button.pressed.emit()

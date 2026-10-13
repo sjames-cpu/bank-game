@@ -30,7 +30,8 @@ enum TellerMistake { AMOUNT_SHORT, AMOUNT_OVER, WRONG_TYPE, WRONG_ACCOUNT }
 ## --- Teller items ---
 @export var customer_name: String = ""
 @export var request_type: ShiftTransaction.Type = ShiftTransaction.Type.DEPOSIT
-@export var request_amount: float = 0.0
+## The customer's requested amount, int cents (B3).
+@export var request_amount_cents: int = 0
 @export var teller_mistake: TellerMistake = TellerMistake.AMOUNT_SHORT
 ## What the staff member actually did wrong, e.g. "came up $30 short".
 @export var mistake_detail: String = ""

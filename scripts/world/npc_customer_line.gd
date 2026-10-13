@@ -139,7 +139,7 @@ func _start_service(customer: CustomerNPC) -> void:
 	_mistake_pending = randf() < staff.mistake_chance()
 	customer.stop_waiting()
 	staff_npc.say("Hi! How can I help?")
-	customer.say("%s $%.0f, please." % ["Deposit" if customer.intent_type == ShiftTransaction.Type.DEPOSIT else "Withdraw", customer.intent_amount])
+	customer.say("%s %s, please." % ["Deposit" if customer.intent_type == ShiftTransaction.Type.DEPOSIT else "Withdraw", MoneyMath.format(customer.intent_amount_cents, true)])
 
 func _reveal_mistake() -> void:
 	_mistake_pending = false
@@ -150,7 +150,7 @@ func _reveal_mistake() -> void:
 	# Same order as StaffReviewItem.TellerMistake.
 	_mistake_kind = kind_index as StaffReviewItem.TellerMistake
 	var kind: Array = kinds[kind_index]
-	var amount := "$%d" % (randi_range(1, 5) * 10)
+	var amount := MoneyMath.format(randi_range(1, 5) * 1000, true) # $10-$50
 	var line: String = kind[0]
 	var detail: String = kind[1]
 	_serving.say(line % amount if line.contains("%s") else line, 2.5)
@@ -164,13 +164,13 @@ func _complete_service() -> void:
 	var deposit := customer.intent_type == ShiftTransaction.Type.DEPOSIT
 	var applied := true
 	if deposit:
-		AccountManager.deposit(customer.account, customer.intent_amount)
+		AccountManager.deposit(customer.account, customer.intent_amount_cents)
 	else:
-		applied = AccountManager.withdraw(customer.account, customer.intent_amount)
+		applied = AccountManager.withdraw(customer.account, customer.intent_amount_cents)
 
-	var what := "%s $%.0f %s %s's account" % ["deposited" if deposit else "withdrew", customer.intent_amount, "into" if deposit else "from", customer.display_name]
+	var what := "%s %s %s %s's account" % ["deposited" if deposit else "withdrew", MoneyMath.format(customer.intent_amount_cents, true), "into" if deposit else "from", customer.display_name]
 	if not applied:
-		what = "couldn't withdraw $%.0f from %s's account (insufficient funds)" % [customer.intent_amount, customer.display_name]
+		what = "couldn't withdraw %s from %s's account (insufficient funds)" % [MoneyMath.format(customer.intent_amount_cents, true), customer.display_name]
 	var description := "%s (%s) %s" % [staff.staff_name, slot_name, what]
 	if customer.was_mistake:
 		description += " — mistake: %s, then fixed it" % _mistake_detail

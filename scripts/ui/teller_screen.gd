@@ -12,7 +12,7 @@ class_name TellerScreen
 ## class_name added (Phase 5e) purely so vault_reconciliation_screen.gd
 ## can reference PERFECT_COUNT_SCORE/etc. directly — the same
 ## cross-file constant reuse this screen already does with
-## DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD below — rather than
+## DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD_CENTS below — rather than
 ## duplicating the point table a second time.
 
 @onready var main_panel: PanelContainer = $Panel
@@ -158,7 +158,11 @@ enum DrawerCountPurpose { NONE, STARTING, ENDING }
 ## re-checking the discrepancy value against the thresholds itself.
 enum DiscrepancyResult { PERFECT, MINOR, MAJOR }
 
-const STARTING_EXPECTED_BALANCE: float = 50000.0
+## The drawer's assigned starting float, $50,000.00. Like every amount the
+## teller handles here (balances, transactions, requests, drawer totals),
+## int cents (B3, see MoneyMath) — dollars only on entry (the SpinBoxes) and
+## for display (MoneyMath.format()).
+const STARTING_FLOAT_CENTS: int = 5000000
 
 const PERFECT_COUNT_SCORE: int = 10
 const MINOR_DISCREPANCY_SCORE: int = 5
@@ -241,9 +245,9 @@ var _opening_results: Array[DiscrepancyResult] = []
 var awaiting_opening_recount: bool = false
 var _opening_signed_off: bool = false
 
-## Always the assigned float (STARTING_EXPECTED_BALANCE), never the
+## Always the assigned float (STARTING_FLOAT_CENTS), never the
 ## player's opening count — see _begin_shift().
-var shift_start_balance: float = 0.0
+var shift_start_cents: int = 0
 
 ## Per-shift customer-service tallies for the shift summary, kept separate
 ## from the drawer count's points so the summary can show where each came
@@ -438,35 +442,36 @@ func _on_close_button_pressed() -> void:
 	hide_screen()
 
 func _on_deposit_button_pressed() -> void:
-	var amount := amount_input.value
-	if amount <= 0.0:
+	# The SpinBox holds dollars; converted to cents once, here.
+	var amount_cents := MoneyMath.to_cents(amount_input.value)
+	if amount_cents <= 0:
 		_show_error("Enter a valid amount.")
 		return
 	if _current_payment_method() == ShiftTransaction.PaymentMethod.CARD and randf() < CARD_DECLINE_CHANCE:
 		_start_card_decline_cooldown()
 		return
 	error_label.visible = false
-	AccountManager.deposit(account, amount)
-	var shift_transaction := _record_transaction(ShiftTransaction.Type.DEPOSIT, amount)
+	AccountManager.deposit(account, amount_cents)
+	var shift_transaction := _record_transaction(ShiftTransaction.Type.DEPOSIT, amount_cents)
 	_refresh_display()
-	_on_customer_transaction(ShiftTransaction.Type.DEPOSIT, amount, shift_transaction)
+	_on_customer_transaction(ShiftTransaction.Type.DEPOSIT, amount_cents, shift_transaction)
 
 func _on_withdraw_button_pressed() -> void:
-	var amount := amount_input.value
-	if amount <= 0.0:
+	var amount_cents := MoneyMath.to_cents(amount_input.value)
+	if amount_cents <= 0:
 		_show_error("Enter a valid amount.")
 		return
-	if not account.can_withdraw(amount):
+	if not account.can_withdraw(amount_cents):
 		_show_error("Insufficient funds.")
 		return
 	if _current_payment_method() == ShiftTransaction.PaymentMethod.CARD and randf() < CARD_DECLINE_CHANCE:
 		_start_card_decline_cooldown()
 		return
 	error_label.visible = false
-	AccountManager.withdraw(account, amount)
-	var shift_transaction := _record_transaction(ShiftTransaction.Type.WITHDRAWAL, amount)
+	AccountManager.withdraw(account, amount_cents)
+	var shift_transaction := _record_transaction(ShiftTransaction.Type.WITHDRAWAL, amount_cents)
 	_refresh_display()
-	_on_customer_transaction(ShiftTransaction.Type.WITHDRAWAL, amount, shift_transaction)
+	_on_customer_transaction(ShiftTransaction.Type.WITHDRAWAL, amount_cents, shift_transaction)
 
 ## Every deposit/withdrawal made while serving a regular (non-complaint)
 ## customer counts toward their request, but nothing is graded until
@@ -475,7 +480,7 @@ func _on_withdraw_button_pressed() -> void:
 ## result is right. Complaint customers have no request to compare against
 ## and are handled by resolving the complaint (see
 ## _on_complaint_response_selected()).
-func _on_customer_transaction(type: ShiftTransaction.Type, amount: float, shift_transaction: ShiftTransaction) -> void:
+func _on_customer_transaction(type: ShiftTransaction.Type, amount_cents: int, shift_transaction: ShiftTransaction) -> void:
 	if shift_state != ShiftState.CLOCKED_IN:
 		return
 	if not _is_serving_regular_customer():
@@ -483,10 +488,10 @@ func _on_customer_transaction(type: ShiftTransaction.Type, amount: float, shift_
 	_customer_transactions.append({
 		"account": account,
 		"type": type,
-		"amount": amount,
+		"amount_cents": amount_cents,
 		"shift_transaction": shift_transaction,
 	})
-	_show_feedback("%s $%.0f %s %s's account. Press Complete Transaction when done." % [_past_tense_label(type).capitalize(), amount, _account_preposition(type), account.customer_name], FEEDBACK_NEUTRAL_COLOR)
+	_show_feedback("%s %s %s %s's account. Press Complete Transaction when done." % [_past_tense_label(type).capitalize(), MoneyMath.format(amount_cents, true), _account_preposition(type), account.customer_name], FEEDBACK_NEUTRAL_COLOR)
 	_update_customer_buttons()
 
 func _on_complete_transaction_button_pressed() -> void:
@@ -535,21 +540,21 @@ func _on_reverse_transaction_button_pressed() -> void:
 		return
 	var entry: Dictionary = _customer_transactions.pop_back()
 	var entry_account: Account = entry["account"]
-	var entry_amount: float = entry["amount"]
+	var entry_cents: int = entry["amount_cents"]
 	var entry_type: ShiftTransaction.Type = entry["type"]
 	if entry_type == ShiftTransaction.Type.DEPOSIT:
-		if not AccountManager.withdraw(entry_account, entry_amount):
+		if not AccountManager.withdraw(entry_account, entry_cents):
 			_customer_transactions.append(entry)
 			_show_error("Can't reverse — the account no longer holds that deposit.")
 			return
 	else:
-		AccountManager.deposit(entry_account, entry_amount)
+		AccountManager.deposit(entry_account, entry_cents)
 	var entry_shift_transaction: ShiftTransaction = entry["shift_transaction"]
 	if entry_shift_transaction != null:
 		shift_transactions.erase(entry_shift_transaction)
 	error_label.visible = false
 	_refresh_display()
-	_show_feedback("Reversed: %s $%.0f %s %s's account." % [_past_tense_label(entry_type), entry_amount, _account_preposition(entry_type), entry_account.customer_name], FEEDBACK_NEUTRAL_COLOR)
+	_show_feedback("Reversed: %s %s %s %s's account." % [_past_tense_label(entry_type), MoneyMath.format(entry_cents, true), _account_preposition(entry_type), entry_account.customer_name], FEEDBACK_NEUTRAL_COLOR)
 	_update_customer_buttons()
 
 func _complete_customer_request(customer: CustomerNPC) -> void:
@@ -565,12 +570,12 @@ func _net_own_account_cents(customer: CustomerNPC) -> int:
 	for entry in _customer_transactions:
 		if entry["account"] != customer.account:
 			continue
-		var cents := MoneyMath.to_cents(entry["amount"])
+		var cents: int = entry["amount_cents"]
 		net += cents if entry["type"] == ShiftTransaction.Type.DEPOSIT else -cents
 	return net
 
 func _requested_cents(customer: CustomerNPC) -> int:
-	var cents := MoneyMath.to_cents(customer.intent_amount)
+	var cents := customer.intent_amount_cents
 	return cents if customer.intent_type == ShiftTransaction.Type.DEPOSIT else -cents
 
 ## Satisfied only when the customer's own account shows the requested net
@@ -626,7 +631,7 @@ func _describe_stray(customer: CustomerNPC) -> String:
 	var deposited := 0
 	var withdrawn := 0
 	for entry in _stray_transactions(customer):
-		var cents := MoneyMath.to_cents(entry["amount"])
+		var cents: int = entry["amount_cents"]
 		if entry["type"] == ShiftTransaction.Type.DEPOSIT:
 			deposited += cents
 		else:
@@ -637,10 +642,9 @@ func _describe_stray(customer: CustomerNPC) -> String:
 		return "Thanks — but that %s came out of someone else's account, and it's still missing from theirs." % _money(withdrawn)
 	return "Thanks — but you still need to undo what you did to someone else's account."
 
+## What customers say about amounts: "$500", or "$12.34" with cents.
 func _money(cents: int) -> String:
-	if cents % 100 == 0:
-		return "$%d" % (cents / 100)
-	return "$%.2f" % (cents / 100.0)
+	return MoneyMath.format(cents, true)
 
 ## The B6 grade for a customer's first Complete Transaction: a correct
 ## request earns the reward; a wrong one takes the mistake penalty — once per
@@ -661,7 +665,7 @@ func _grade_request(customer: CustomerNPC, correct: bool) -> void:
 	_customer_reputation += reputation_delta
 	_customer_xp += xp_delta
 
-	var asked := "%s $%.0f" % [_verb_label(customer.intent_type), customer.intent_amount]
+	var asked := "%s %s" % [_verb_label(customer.intent_type), _money(customer.intent_amount_cents)]
 	var did := _describe_visit_transactions(customer)
 	var points := "%+d Score" % score_delta
 	if reputation_delta != 0:
@@ -687,7 +691,7 @@ func _describe_visit_transactions(customer: CustomerNPC) -> String:
 	for entry in _customer_transactions:
 		var entry_type: ShiftTransaction.Type = entry["type"]
 		var entry_account: Account = entry["account"]
-		var part := "%s $%.0f" % [_past_tense_label(entry_type), entry["amount"]]
+		var part := "%s %s" % [_past_tense_label(entry_type), _money(entry["amount_cents"])]
 		if entry_account != customer.account:
 			part += " %s %s's account" % [_account_preposition(entry_type), entry_account.customer_name]
 		parts.append(part)
@@ -746,7 +750,7 @@ func _current_payment_method() -> ShiftTransaction.PaymentMethod:
 
 func _refresh_display() -> void:
 	account_label.text = account.customer_name
-	balance_label.text = "Balance: $%.2f" % account.balance
+	balance_label.text = "Balance: %s" % MoneyMath.format(account.balance_cents)
 
 func _show_main_panel() -> void:
 	complaint_panel.visible = false
@@ -848,7 +852,7 @@ func _on_create_account_button_pressed() -> void:
 		new_account_error_label.visible = true
 		return
 
-	account = AccountManager.create_account(new_name, new_balance_input.value)
+	account = AccountManager.create_account(new_name, MoneyMath.to_cents(new_balance_input.value))
 
 	error_label.visible = false
 	_show_main_panel()
@@ -891,12 +895,12 @@ func _update_shift_controls() -> void:
 
 ## Returns the recorded transaction (so Reverse Transaction can remove it
 ## again), or null when clocked out and nothing was recorded.
-func _record_transaction(type: ShiftTransaction.Type, amount: float) -> ShiftTransaction:
+func _record_transaction(type: ShiftTransaction.Type, amount_cents: int) -> ShiftTransaction:
 	if shift_state != ShiftState.CLOCKED_IN:
 		return null
 	var transaction := ShiftTransaction.new()
 	transaction.type = type
-	transaction.amount = amount
+	transaction.amount_cents = amount_cents
 	transaction.account_name = account.customer_name
 	transaction.timestamp = Time.get_datetime_string_from_system()
 	transaction.payment_method = _current_payment_method()
@@ -909,17 +913,17 @@ func _record_transaction(type: ShiftTransaction.Type, amount: float) -> ShiftTra
 ## shift_total_transactions_label's total below and still applied to the
 ## account balance in _on_deposit_button_pressed()/
 ## _on_withdraw_button_pressed() — only this drawer math skips them.
-func _calculate_expected_ending_balance() -> float:
-	var total_deposits := 0.0
-	var total_withdrawals := 0.0
+func _calculate_expected_ending_cents() -> int:
+	var total_deposits := 0
+	var total_withdrawals := 0
 	for transaction in shift_transactions:
 		if transaction.payment_method != ShiftTransaction.PaymentMethod.CASH:
 			continue
 		if transaction.type == ShiftTransaction.Type.DEPOSIT:
-			total_deposits += transaction.amount
+			total_deposits += transaction.amount_cents
 		else:
-			total_withdrawals += transaction.amount
-	return shift_start_balance + total_deposits - total_withdrawals
+			total_withdrawals += transaction.amount_cents
+	return shift_start_cents + total_deposits - total_withdrawals
 
 ## Also the Recount button: while awaiting_opening_recount, the same button
 ## (relabelled) reopens the count for the same opening.
@@ -932,7 +936,7 @@ func _on_clock_in_button_pressed() -> void:
 		_opening_signed_off = false
 	pending_drawer_count_purpose = DrawerCountPurpose.STARTING
 	main_panel.visible = false
-	drawer_count_screen.show_screen(STARTING_EXPECTED_BALANCE, title)
+	drawer_count_screen.show_screen(STARTING_FLOAT_CENTS, title)
 
 ## Gated on work, not time: a shift can only end once every customer it
 ## brings has been handled (see remaining_shift_work). The old 45-second
@@ -946,7 +950,7 @@ func _on_clock_out_button_pressed() -> void:
 	error_label.visible = false
 	pending_drawer_count_purpose = DrawerCountPurpose.ENDING
 	main_panel.visible = false
-	drawer_count_screen.show_screen(_calculate_expected_ending_balance(), "Ending Drawer Count")
+	drawer_count_screen.show_screen(_calculate_expected_ending_cents(), "Ending Drawer Count")
 	ending_count_started.emit()
 
 ## Fires as soon as "Submit Count" is pressed on the drawer count screen
@@ -964,14 +968,14 @@ func _on_clock_out_button_pressed() -> void:
 ## is what keeps a repeat click from re-running _begin_shift()/
 ## _prepare_shift_summary() (and reapplying Score/Reputation/XP) a second
 ## time for the same count.
-func _on_drawer_count_submitted(total: float) -> void:
+func _on_drawer_count_submitted(total_cents: int) -> void:
 	if pending_drawer_count_purpose == DrawerCountPurpose.NONE:
 		return
 	match pending_drawer_count_purpose:
 		DrawerCountPurpose.STARTING:
-			_on_opening_count_submitted(total)
+			_on_opening_count_submitted(total_cents)
 		DrawerCountPurpose.ENDING:
-			_prepare_shift_summary(total)
+			_prepare_shift_summary(total_cents)
 	pending_drawer_count_purpose = DrawerCountPurpose.NONE
 
 ## Fires when the player actually closes the drawer count screen —
@@ -990,18 +994,19 @@ func _on_drawer_count_screen_closed() -> void:
 ## and after MAX_OPENING_RECOUNTS still-Major recounts a supervisor signs off
 ## (Reputation penalty, logged) and the shift starts. The drawer's true
 ## starting cash is the assigned float in every case — see _begin_shift().
-func _on_opening_count_submitted(total: float) -> void:
-	var cents := MoneyMath.to_cents(total) - MoneyMath.to_cents(STARTING_EXPECTED_BALANCE)
+func _on_opening_count_submitted(total_cents: int) -> void:
+	var cents := total_cents - STARTING_FLOAT_CENTS
 	var result := _categorize_discrepancy(cents, drawer_count_screen.get_excess_bill_count())
 	_opening_results.append(result)
-	var variance := "$%.2f" % (cents / 100.0)
+	var variance := MoneyMath.format(cents)
+	var float_text := MoneyMath.format(STARTING_FLOAT_CENTS)
 	match result:
 		DiscrepancyResult.PERFECT:
-			_show_feedback("Opening count: Perfect — not scored. Drawer starts at its assigned $%.2f float." % STARTING_EXPECTED_BALANCE, FEEDBACK_GOOD_COLOR)
+			_show_feedback("Opening count: Perfect — not scored. Drawer starts at its assigned %s float." % float_text, FEEDBACK_GOOD_COLOR)
 			_begin_shift()
 		DiscrepancyResult.MINOR:
-			_log_opening_variance("Minor", "Opening count: Minor variance (%s) against the $%.2f float" % [variance, STARTING_EXPECTED_BALANCE])
-			_show_feedback("Opening count: Minor (discrepancy %s) — logged, not scored. Drawer starts at its assigned $%.2f float." % [variance, STARTING_EXPECTED_BALANCE], FEEDBACK_BAD_COLOR)
+			_log_opening_variance("Minor", "Opening count: Minor variance (%s) against the %s float" % [variance, float_text])
+			_show_feedback("Opening count: Minor (discrepancy %s) — logged, not scored. Drawer starts at its assigned %s float." % [variance, float_text], FEEDBACK_BAD_COLOR)
 			_begin_shift()
 		_:
 			var recounts_used := _opening_results.size() - 1
@@ -1019,8 +1024,9 @@ func _on_opening_count_submitted(total: float) -> void:
 func _sign_off_opening(variance: String) -> void:
 	_opening_signed_off = true
 	ReputationManager.add_reputation(OPENING_SIGN_OFF_REPUTATION)
-	_log_opening_variance("Signed off", "Opening count: Major variance (%s) after %d recounts; supervisor verified the drawer at $%.2f and signed off" % [variance, MAX_OPENING_RECOUNTS, STARTING_EXPECTED_BALANCE])
-	var notice := "Your supervisor verified the drawer at $%.2f and signed off. The variance has been recorded." % STARTING_EXPECTED_BALANCE
+	var float_text := MoneyMath.format(STARTING_FLOAT_CENTS)
+	_log_opening_variance("Signed off", "Opening count: Major variance (%s) after %d recounts; supervisor verified the drawer at %s and signed off" % [variance, MAX_OPENING_RECOUNTS, float_text])
+	var notice := "Your supervisor verified the drawer at %s and signed off. The variance has been recorded." % float_text
 	drawer_count_screen.append_status_note(notice)
 	_show_feedback("%s (%+d Reputation)" % [notice, OPENING_SIGN_OFF_REPUTATION], FEEDBACK_BAD_COLOR)
 	_begin_shift()
@@ -1046,14 +1052,14 @@ func opening_count_summary() -> String:
 
 ## The drawer's true starting cash is always the assigned float — the
 ## player's opening count is graded against it (see
-## _on_opening_count_submitted()), but never adopted as shift_start_balance,
+## _on_opening_count_submitted()), but never adopted as shift_start_cents,
 ## so a wrong opening entry can't shift what the closing count is expected to
 ## hold. No points are awarded for the opening count: the closing count
 ## already grades the drawer, and scoring both would double-count it.
 func _begin_shift() -> void:
 	awaiting_opening_recount = false
 	shift_state = ShiftState.CLOCKED_IN
-	shift_start_balance = STARTING_EXPECTED_BALANCE
+	shift_start_cents = STARTING_FLOAT_CENTS
 	shift_start_time = Time.get_datetime_string_from_system()
 	shift_transactions.clear()
 	_customers_correct = 0
@@ -1071,20 +1077,17 @@ func _begin_shift() -> void:
 
 ## Same "Perfect Count!"/"Minor Discrepancy"/"Major Discrepancy" buckets
 ## DrawerCountScreen's status label shows, so this reuses its
-## MINOR_DISCREPANCY_THRESHOLD constant rather than redefining the ±500
+## MINOR_DISCREPANCY_THRESHOLD_CENTS constant rather than redefining the ±500
 ## cutoff a second time. Score and Reputation both derive from this one
 ## categorization instead of each re-checking the discrepancy value.
 ## excess_bills is how many more bills the player entered in the ending
 ## count than the minimum possible for that total (see DrawerCountScreen.
 ## get_excess_bill_count()) — a correct total no longer grades Perfect on
 ## its own if the bill breakdown behind it is implausible.
-##
-## discrepancy_cents is integer cents rather than float dollars — see
-## MoneyMath for why.
 func _categorize_discrepancy(discrepancy_cents: int, excess_bills: int) -> DiscrepancyResult:
 	if discrepancy_cents == 0 and excess_bills <= DrawerCountScreen.PERFECT_BILL_COUNT_TOLERANCE:
 		return DiscrepancyResult.PERFECT
-	elif absi(discrepancy_cents) <= MoneyMath.to_cents(DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD) and excess_bills <= DrawerCountScreen.MINOR_BILL_COUNT_TOLERANCE:
+	elif absi(discrepancy_cents) <= DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD_CENTS and excess_bills <= DrawerCountScreen.MINOR_BILL_COUNT_TOLERANCE:
 		return DiscrepancyResult.MINOR
 	else:
 		return DiscrepancyResult.MAJOR
@@ -1139,10 +1142,8 @@ func _discrepancy_result_label(discrepancy_result: DiscrepancyResult) -> String:
 		_:
 			return "Major"
 
-func _prepare_shift_summary(ending_total: float) -> void:
-	var expected := _calculate_expected_ending_balance()
-	var discrepancy_cents := MoneyMath.to_cents(ending_total) - MoneyMath.to_cents(expected)
-	var discrepancy := discrepancy_cents / 100.0
+func _prepare_shift_summary(ending_total_cents: int) -> void:
+	var discrepancy_cents := ending_total_cents - _calculate_expected_ending_cents()
 	var shift_end_time := Time.get_datetime_string_from_system()
 	var discrepancy_result := _categorize_discrepancy(discrepancy_cents, drawer_count_screen.get_excess_bill_count())
 	var served := _customers_served()
@@ -1153,7 +1154,7 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	shift_start_time_label.text = "Start Time: %s" % shift_start_time
 	shift_end_time_label.text = "End Time: %s" % shift_end_time
 	shift_total_transactions_label.text = "Total Transactions: %d" % shift_transactions.size()
-	shift_final_discrepancy_label.text = "Final Discrepancy: $%.2f" % discrepancy
+	shift_final_discrepancy_label.text = "Final Discrepancy: %s" % MoneyMath.format(discrepancy_cents)
 	shift_opening_count_label.text = opening_count_summary()
 	shift_score_label.text = "Score: %+d" % shift_score
 	if discrepancy_result != DiscrepancyResult.MAJOR:
@@ -1180,7 +1181,7 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	shift_net_label.text = "This shift: Score %+d · Reputation %+d · XP %+d" % [shift_score + _customer_score, reputation_delta + _customer_reputation, shift_xp + _customer_xp]
 
 	var discrepancy_label := _discrepancy_result_label(discrepancy_result)
-	HistoryManager.add_record(DecisionRecord.Role.TELLER, "Drawer count: %s (discrepancy $%.2f)" % [discrepancy_label, discrepancy], discrepancy_label)
+	HistoryManager.add_record(DecisionRecord.Role.TELLER, "Drawer count: %s (discrepancy %s)" % [discrepancy_label, MoneyMath.format(discrepancy_cents)], discrepancy_label)
 
 	shift_state = ShiftState.CLOCKED_OUT
 	awaiting_summary_reveal = true

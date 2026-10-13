@@ -125,8 +125,8 @@ func _on_terminate_pressed(staff_name: String) -> void:
 static func details_text(item: StaffReviewItem) -> String:
 	if item.kind == StaffReviewItem.Kind.TELLER:
 		var verb := "deposit" if item.request_type == ShiftTransaction.Type.DEPOSIT else "withdraw"
-		return "Customer %s asked to %s $%.0f.\nThe staff member %s; the customer pointed it out and it was fixed on the spot." % [
-			item.customer_name, verb, item.request_amount, item.mistake_detail,
+		return "Customer %s asked to %s %s.\nThe staff member %s; the customer pointed it out and it was fixed on the spot." % [
+			item.customer_name, verb, MoneyMath.format(item.request_amount_cents, true), item.mistake_detail,
 		]
 	var decision := LoanApplication.decision_type_label(item.decision)
 	if item.decision != LoanApplication.DecisionType.REJECT:

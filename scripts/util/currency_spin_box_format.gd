@@ -5,7 +5,7 @@ class_name CurrencySpinBoxFormat
 ## `step` — a $0.01-stepped box showing 0 renders "$ 0.0", not "$ 0.00",
 ## and 5 renders "$ 5.0", not "$ 5.00" (SpinBox's own display logic, not
 ## something `step` controls). Every other currency figure in the game is
-## formatted "%.2f" (see Account/ShiftTransaction display code), so a
+## shown with 2 decimals (MoneyMath.format()), so a
 ## currency SpinBox showing fewer decimals reads as an inconsistency/bug
 ## next to them. apply() forces a fixed 2 decimals by overwriting the
 ## SpinBox's internal LineEdit text after every value change — connected

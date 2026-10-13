@@ -6,9 +6,11 @@ class_name Account
 ## balance directly. Being a Resource means this could later be saved
 ## to a .tres file to persist accounts between sessions — for now the
 ## teller screen just creates one in memory.
+##
+## Money is int cents (B3, see MoneyMath).
 
 @export var customer_name: String = ""
-@export var balance: float = 0.0
+@export var balance_cents: int = 0
 
 ## Phase 6j: true for an account auto-created for a spawned Teller queue
 ## customer (see CustomerQueue._get_or_create_customer_account()), false
@@ -27,16 +29,16 @@ class_name Account
 ## the two share a name. See AccountManager.find_account_by_name().
 @export var is_staff_line_account: bool = false
 
-func deposit(amount: float) -> void:
-	if amount <= 0.0:
+func deposit(amount_cents: int) -> void:
+	if amount_cents <= 0:
 		return
-	balance += amount
+	balance_cents += amount_cents
 
-func can_withdraw(amount: float) -> bool:
-	return amount > 0.0 and amount <= balance
+func can_withdraw(amount_cents: int) -> bool:
+	return amount_cents > 0 and amount_cents <= balance_cents
 
-func withdraw(amount: float) -> bool:
-	if not can_withdraw(amount):
+func withdraw(amount_cents: int) -> bool:
+	if not can_withdraw(amount_cents):
 		return false
-	balance -= amount
+	balance_cents -= amount_cents
 	return true

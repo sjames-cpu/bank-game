@@ -10,6 +10,15 @@ class_name LoanApplication
 ## below) only ever reads risk_assessment, never risk_tier — risk_tier is
 ## sample-data authoring context for those borderline cases, not an input
 ## to any grading logic.
+##
+## The money figures here (requested_amount, annual_income, existing_debt,
+## monthly_debt_payments, decision_amount) stay whole-dollar floats, not the
+## int cents the teller/ATM/drawer use (B3, see MoneyMath). They're figures
+## the player judges, never cash that moves through an account or drawer, so
+## nothing sums them and they can't drift; they're whole dollars by
+## construction (decision_amount rounds a counter-offer to $100). Leaving
+## them alone keeps DTI and loan-to-income — float ratios compared against
+## band thresholds — bit-for-bit what they were.
 ## Built in code (see loan_applications_data.gd) rather than loaded from
 ## .tres files, matching Account/InterviewQuestion.
 

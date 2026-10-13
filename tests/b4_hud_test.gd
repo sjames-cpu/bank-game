@@ -102,7 +102,7 @@ func test_hud_stays_visible_and_live_while_the_teller_screen_is_open() -> void:
 
 	var customer := spawn()
 	open_desk()
-	deposit(customer.intent_amount)
+	deposit(customer.intent_amount_cents / 100.0)
 	complete()
 	await settle()
 	# Still open (paused), already showing the graded request.

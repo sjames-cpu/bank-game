@@ -25,7 +25,9 @@ Global singletons registered in `project.godot`'s `[autoload]` section, each a p
 
 ### Data resources (`scripts/data/`)
 
-Small `Resource`-based structs, built in code rather than loaded from `.tres` files (no save/load need yet): `Account` (customer name + balance, mutated only via `deposit()`/`withdraw()`), `ShiftTransaction` (one deposit/withdrawal record), `InterviewQuestion`/`InterviewAnswer` (interview question text plus 2-4 scored answer choices, an answer can be `is_instant_reject`). `interview_questions_data.gd` is a static provider (`InterviewQuestionsData.get_questions()`) holding the actual 9-question interview script, kept separate from the data shape so content can grow independently.
+Small `Resource`-based structs, built in code rather than loaded from `.tres` files (no save/load need yet): `Account` (customer name + `balance_cents`, mutated only via `deposit()`/`withdraw()`), `ShiftTransaction` (one deposit/withdrawal record, `amount_cents`), `InterviewQuestion`/`InterviewAnswer` (interview question text plus 2-4 scored answer choices, an answer can be `is_instant_reject`). `interview_questions_data.gd` is a static provider (`InterviewQuestionsData.get_questions()`) holding the actual 9-question interview script, kept separate from the data shape so content can grow independently.
+
+**Money (B3):** every amount the player handles is int cents end to end: account balances, transactions, customer requests (`CustomerNPC.intent_amount_cents`), drawer/vault expected and counted totals (denominations are `DENOMINATION_CENTS`), ATM amounts, `TellerScreen.STARTING_FLOAT_CENTS`. Dollars appear only at the edges: `MoneyMath.to_cents()` once when a SpinBox value is entered, and `MoneyMath.format(cents)` ("$1234.50") / `MoneyMath.format(cents, true)` ("$500" for whole dollars, for what people say) for every display. Loan application figures stay whole-dollar floats on purpose (they're judged, never moved as cash; see `loan_application.gd`).
 
 ### World & UI scripts (`scripts/world/`, `scripts/player/`, `scripts/ui/`)
 

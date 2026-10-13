@@ -8,6 +8,9 @@ class_name DrawerCountScreen
 ## balance + deposits - withdrawals at clock-out). This screen doesn't
 ## know or care which; it just compares and reports.
 ##
+## Every amount is int cents (B3, see MoneyMath), denominations included, so
+## coins can be added as more DENOMINATION_CENTS entries.
+##
 ## Manages its own pause state so it works whether or not a caller has
 ## already paused the tree (TellerScreen currently pauses for its own,
 ## broader reasons — the whole teller interaction, not just this screen —
@@ -15,11 +18,12 @@ class_name DrawerCountScreen
 ## tracks whether *this* screen was the one that did it, so closing this
 ## screen never unpauses a tree that TellerScreen still needs paused).
 
-signal count_submitted(total: float)
+signal count_submitted(total_cents: int)
 signal closed
 
-const DENOMINATIONS: Array[int] = [1000, 500, 100, 50, 10, 1]
-const MINOR_DISCREPANCY_THRESHOLD: float = 500.0
+## Face value of each row of quantity_inputs: $1000, $500, $100, $50, $10, $1.
+const DENOMINATION_CENTS: Array[int] = [100000, 50000, 10000, 5000, 1000, 100]
+const MINOR_DISCREPANCY_THRESHOLD_CENTS: int = 50000
 
 ## A correct TOTAL alone used to be enough for a Perfect count, even if the
 ## denomination breakdown made no sense (e.g. the whole total stuffed into
@@ -47,7 +51,7 @@ const MINOR_DISCREPANCY_THRESHOLD: float = 500.0
 const PERFECT_BILL_COUNT_TOLERANCE: int = 4
 const MINOR_BILL_COUNT_TOLERANCE: int = 15
 
-var expected_balance: float = 0.0
+var expected_cents: int = 0
 var _paused_by_self: bool = false
 
 @onready var title_label: Label = $Panel/VBox/TitleLabel
@@ -83,8 +87,8 @@ func _ready() -> void:
 
 	_reset_form()
 
-func show_screen(new_expected_balance: float, title: String = "Drawer Count") -> void:
-	expected_balance = new_expected_balance
+func show_screen(new_expected_cents: int, title: String = "Drawer Count") -> void:
+	expected_cents = new_expected_cents
 	title_label.text = title
 	_reset_form()
 	visible = true
@@ -115,54 +119,54 @@ func _on_close_button_pressed() -> void:
 func _on_quantity_changed(_new_value: float) -> void:
 	_update_live_total()
 
-func _calculate_total() -> float:
-	var total := 0.0
-	for i in DENOMINATIONS.size():
-		total += DENOMINATIONS[i] * quantity_inputs[i].value
+func _calculate_total_cents() -> int:
+	var total := 0
+	for i in DENOMINATION_CENTS.size():
+		total += DENOMINATION_CENTS[i] * int(quantity_inputs[i].value)
 	return total
 
-## The fewest bills mathematically able to make up `target`, largest
+## The fewest bills mathematically able to make up `target_cents`, largest
 ## denomination first — greedy is optimal here since each denomination
 ## divides evenly into the next size up (1000/500/100/50/10/1). Used as
 ## the "plausible" baseline: real bill counts can vary a little from this
 ## (a few mid-size bills instead of one big one), but shouldn't need wildly
 ## more bills than this to reach the same total.
-func _minimum_bill_count(target: float) -> int:
-	var remaining := int(round(target))
+func _minimum_bill_count(target_cents: int) -> int:
+	var remaining := target_cents
 	var count := 0
-	for denom in DENOMINATIONS:
+	for denom in DENOMINATION_CENTS:
+		@warning_ignore("integer_division")
 		var quantity := remaining / denom
 		count += quantity
 		remaining -= quantity * denom
 	return count
 
 ## How many more bills the player entered than the minimum possible for
-## expected_balance — see PERFECT_BILL_COUNT_TOLERANCE's doc comment.
+## expected_cents — see PERFECT_BILL_COUNT_TOLERANCE's doc comment.
 ## Public so teller_screen.gd can factor this into its own Score/
 ## Reputation/XP grading of the ending count, the same way it already
-## reads MINOR_DISCREPANCY_THRESHOLD directly.
+## reads MINOR_DISCREPANCY_THRESHOLD_CENTS directly.
 func get_excess_bill_count() -> int:
 	var player_bill_count := 0
 	for quantity_input in quantity_inputs:
 		player_bill_count += int(quantity_input.value)
-	return maxi(0, player_bill_count - _minimum_bill_count(expected_balance))
+	return maxi(0, player_bill_count - _minimum_bill_count(expected_cents))
 
 func _update_live_total() -> void:
-	your_total_label.text = "Your Total: $%.2f" % _calculate_total()
+	your_total_label.text = "Your Total: %s" % MoneyMath.format(_calculate_total_cents())
 
 func _on_submit_button_pressed() -> void:
-	var total := _calculate_total()
-	## Integer cents, not float dollars — see MoneyMath.
-	var discrepancy_cents := MoneyMath.to_cents(total) - MoneyMath.to_cents(expected_balance)
+	var total_cents := _calculate_total_cents()
+	var discrepancy_cents := total_cents - expected_cents
 	var excess_bills := get_excess_bill_count()
 
-	result_expected_label.text = "Expected Balance: $%.2f" % expected_balance
-	result_total_label.text = "Your Total: $%.2f" % total
-	discrepancy_label.text = "Discrepancy: $%.2f" % (discrepancy_cents / 100.0)
+	result_expected_label.text = "Expected Balance: %s" % MoneyMath.format(expected_cents)
+	result_total_label.text = "Your Total: %s" % MoneyMath.format(total_cents)
+	discrepancy_label.text = "Discrepancy: %s" % MoneyMath.format(discrepancy_cents)
 
 	if discrepancy_cents == 0 and excess_bills <= PERFECT_BILL_COUNT_TOLERANCE:
 		status_label.text = "Perfect Count!"
-	elif absi(discrepancy_cents) <= MoneyMath.to_cents(MINOR_DISCREPANCY_THRESHOLD) and excess_bills <= MINOR_BILL_COUNT_TOLERANCE:
+	elif absi(discrepancy_cents) <= MINOR_DISCREPANCY_THRESHOLD_CENTS and excess_bills <= MINOR_BILL_COUNT_TOLERANCE:
 		status_label.text = "Minor Discrepancy"
 		if discrepancy_cents == 0:
 			status_label.text += " (correct total, but an unusual bill mix)"
@@ -172,7 +176,7 @@ func _on_submit_button_pressed() -> void:
 			status_label.text += " (correct total, but an implausible bill mix)"
 
 	results_container.visible = true
-	count_submitted.emit(total)
+	count_submitted.emit(total_cents)
 
 ## Adds a line under the result's status (e.g. TellerScreen's "Recount
 ## required" for a Major opening count). Call after count_submitted.

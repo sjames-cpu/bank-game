@@ -76,7 +76,7 @@ func add_teller_mistake(staff: StaffMember, slot_name: String, customer: Custome
 	item.timestamp = Time.get_datetime_string_from_system()
 	item.customer_name = customer.display_name
 	item.request_type = customer.intent_type
-	item.request_amount = customer.intent_amount
+	item.request_amount_cents = customer.intent_amount_cents
 	item.teller_mistake = mistake
 	item.mistake_detail = detail
 	item.severity = StaffReviewItem.Severity.SERIOUS if mistake == StaffReviewItem.TellerMistake.WRONG_ACCOUNT else StaffReviewItem.Severity.MINOR
@@ -296,7 +296,7 @@ static func severity_label(severity: StaffReviewItem.Severity) -> String:
 ## One line naming the work, e.g. "wrong account on Sam Chen's $200 deposit".
 static func short_description(item: StaffReviewItem) -> String:
 	if item.kind == StaffReviewItem.Kind.TELLER:
-		return "%s on %s's $%.0f %s" % [item.mistake_detail, item.customer_name, item.request_amount, "deposit" if item.request_type == ShiftTransaction.Type.DEPOSIT else "withdrawal"]
+		return "%s on %s's %s %s" % [item.mistake_detail, item.customer_name, MoneyMath.format(item.request_amount_cents, true), "deposit" if item.request_type == ShiftTransaction.Type.DEPOSIT else "withdrawal"]
 	return "%s decision on %s's $%.0f loan" % [LoanApplication.decision_type_label(item.decision), item.applicant_name, item.requested_amount]
 
 func _verdict(severity: StaffReviewItem.Severity, action: Action, fair: bool) -> String:

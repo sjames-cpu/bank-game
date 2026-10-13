@@ -6,15 +6,15 @@ extends "res://tests/support/teller_room_suite.gd"
 ## and logs the variance. The drawer always starts at the assigned float and
 ## the opening count never earns Score or XP.
 
-const FLOAT := TellerScreen.STARTING_EXPECTED_BALANCE
-## $1,000 short — well past DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD.
-const MAJOR_TOTAL := FLOAT - 1000.0
+const FLOAT := TellerScreen.STARTING_FLOAT_CENTS
+## $1,000 short — well past DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD_CENTS.
+const MAJOR_TOTAL := FLOAT - 100000
 
 # --- helpers -------------------------------------------------------------------
 
 ## Presses Clock In (or Recount Drawer) and submits `total` as the opening
 ## count; `minor` adds one $10 bill for a Minor count.
-func opening_count(total: float, minor: bool = false) -> void:
+func opening_count(total: int, minor: bool = false) -> void:
 	open_desk()
 	ts.clock_in_button.pressed.emit()
 	count_drawer(total, minor)
@@ -49,7 +49,7 @@ func test_perfect_opening_count_starts_the_shift_immediately() -> void:
 	assert_bool(cq.spawn_timer.is_stopped()).is_false() # the line opened
 	assert_array(variance_records()).is_empty()
 	assert_object(totals()).is_equal(before)
-	assert_float(ts.shift_start_balance).is_equal(FLOAT)
+	assert_int(ts.shift_start_cents).is_equal(FLOAT)
 	cq.spawn_timer.stop()
 	assert_str(finish_shift_summary()).is_equal("Opening count: Perfect")
 
@@ -58,7 +58,7 @@ func test_minor_opening_count_starts_the_shift_and_logs_the_variance() -> void:
 	opening_count(FLOAT, true)
 	assert_bool(is_clocked_in()).is_true()
 	assert_object(totals()).is_equal(before) # not scored
-	assert_float(ts.shift_start_balance).is_equal(FLOAT)
+	assert_int(ts.shift_start_cents).is_equal(FLOAT)
 
 	var records := variance_records()
 	assert_int(records.size()).is_equal(1)
@@ -150,8 +150,8 @@ func test_three_major_counts_trigger_the_supervisor_sign_off() -> void:
 	assert_str(records[0].description).contains("supervisor verified the drawer")
 
 	# The drawer still starts at the float; closing expectations unchanged.
-	assert_float(ts.shift_start_balance).is_equal(FLOAT)
-	assert_float(ts._calculate_expected_ending_balance()).is_equal(FLOAT)
+	assert_int(ts.shift_start_cents).is_equal(FLOAT)
+	assert_int(ts._calculate_expected_ending_cents()).is_equal(FLOAT)
 
 	cq.spawn_timer.stop()
 	assert_str(finish_shift_summary()).is_equal("Opening count: Major, recounted twice, signed off")

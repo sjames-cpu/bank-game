@@ -51,26 +51,26 @@ func open_desk() -> void:
 func close_desk() -> void:
 	ts.close_button.pressed.emit()
 
-## Enters `target` into the drawer count with the fewest bills (a plausible
-## count), plus one extra $10 bill for a Minor discrepancy, then submits and
-## closes the count screen.
-func count_drawer(target: float, minor: bool = false) -> void:
+## Enters `target_cents` into the drawer count with the fewest bills (a
+## plausible count), plus one extra $10 bill for a Minor discrepancy, then
+## submits and closes the count screen.
+func count_drawer(target_cents: int, minor: bool = false) -> void:
 	var dcs := ts.drawer_count_screen
-	var remaining := int(round(target))
-	for i in DrawerCountScreen.DENOMINATIONS.size():
-		var denom := DrawerCountScreen.DENOMINATIONS[i]
+	var remaining := target_cents
+	for i in DrawerCountScreen.DENOMINATION_CENTS.size():
+		var denom := DrawerCountScreen.DENOMINATION_CENTS[i]
 		var quantity := floori(float(remaining) / denom)
 		dcs.quantity_inputs[i].value = quantity
 		remaining -= quantity * denom
 	if minor:
-		dcs.quantity_inputs[DrawerCountScreen.DENOMINATIONS.find(10)].value += 1
+		dcs.quantity_inputs[DrawerCountScreen.DENOMINATION_CENTS.find(1000)].value += 1
 	dcs.submit_button.pressed.emit()
 	dcs.close_button.pressed.emit()
 
 func clock_in() -> void:
 	open_desk()
 	ts.clock_in_button.pressed.emit()
-	count_drawer(TellerScreen.STARTING_EXPECTED_BALANCE)
+	count_drawer(TellerScreen.STARTING_FLOAT_CENTS)
 	close_desk()
 	cq.spawn_timer.stop()
 
@@ -81,19 +81,21 @@ func clock_out(minor: bool = false) -> bool:
 	ts.clock_out_button.pressed.emit()
 	if not ts.drawer_count_screen.visible:
 		return false
-	count_drawer(ts._calculate_expected_ending_balance(), minor)
+	count_drawer(ts._calculate_expected_ending_cents(), minor)
 	return true
 
 # --- customers --------------------------------------------------------------
 
 ## Spawns one customer at the back of the player's line with a fixed cash
 ## request (no complaint), so grading never depends on random rolls.
+## `amount` is in dollars, like the amounts tests type into the teller's
+## SpinBox (deposit()/withdraw()).
 func spawn(intent_type: ShiftTransaction.Type = ShiftTransaction.Type.DEPOSIT, amount: float = 500.0) -> CustomerNPC:
 	cq._spawn_customer()
 	var customer: CustomerNPC = cq.queue[-1]
 	customer.complaint = null
 	customer.intent_type = intent_type
-	customer.intent_amount = amount
+	customer.intent_amount_cents = MoneyMath.to_cents(amount)
 	customer.payment_method = ShiftTransaction.PaymentMethod.CASH
 	var line := CustomerDialogueLine.new()
 	line.text = "I'd like to %s $%.0f." % ["deposit" if intent_type == ShiftTransaction.Type.DEPOSIT else "withdraw", amount]
@@ -125,9 +127,9 @@ func select_account(target: Account) -> void:
 func serve_correctly(customer: CustomerNPC) -> void:
 	open_desk()
 	if customer.intent_type == ShiftTransaction.Type.DEPOSIT:
-		deposit(customer.intent_amount)
+		deposit(customer.intent_amount_cents / 100.0)
 	else:
-		withdraw(customer.intent_amount)
+		withdraw(customer.intent_amount_cents / 100.0)
 	complete()
 	close_desk()
 

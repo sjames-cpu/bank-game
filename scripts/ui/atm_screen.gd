@@ -33,7 +33,7 @@ class_name ATMScreen
 ## in-person teller who can hand over any amount the drawer holds. Deposits
 ## aren't capped — envelope/check deposits don't have the same physical
 ## cash-dispensing constraint.
-const ATM_WITHDRAWAL_LIMIT: float = 500.0
+const ATM_WITHDRAWAL_LIMIT_CENTS: int = 50000
 
 @onready var account_option_button: OptionButton = $Panel/VBox/AccountSection/AccountVBox/AccountOptionButton
 @onready var account_label: Label = $Panel/VBox/AccountSection/AccountVBox/AccountLabel
@@ -82,38 +82,39 @@ func hide_screen() -> void:
 func _on_close_button_pressed() -> void:
 	hide_screen()
 
-## No amount ceiling here, unlike withdraw below — see ATM_WITHDRAWAL_LIMIT's
+## No amount ceiling here, unlike withdraw below — see ATM_WITHDRAWAL_LIMIT_CENTS'
 ## doc comment for why deposits aren't capped.
 func _on_deposit_button_pressed() -> void:
 	if account == null:
 		return
-	var amount := amount_input.value
-	if amount <= 0.0:
+	# The SpinBox holds dollars; converted to cents once, here (B3).
+	var amount_cents := MoneyMath.to_cents(amount_input.value)
+	if amount_cents <= 0:
 		error_label.text = "Enter a valid amount."
 		error_label.visible = true
 		return
 	error_label.visible = false
-	AccountManager.deposit(account, amount)
+	AccountManager.deposit(account, amount_cents)
 	_refresh_display()
 
 func _on_withdraw_button_pressed() -> void:
 	if account == null:
 		return
-	var amount := amount_input.value
-	if amount <= 0.0:
+	var amount_cents := MoneyMath.to_cents(amount_input.value)
+	if amount_cents <= 0:
 		error_label.text = "Enter a valid amount."
 		error_label.visible = true
 		return
-	if amount > ATM_WITHDRAWAL_LIMIT:
-		error_label.text = "ATM withdrawal limit is $%.2f." % ATM_WITHDRAWAL_LIMIT
+	if amount_cents > ATM_WITHDRAWAL_LIMIT_CENTS:
+		error_label.text = "ATM withdrawal limit is %s." % MoneyMath.format(ATM_WITHDRAWAL_LIMIT_CENTS)
 		error_label.visible = true
 		return
-	if not account.can_withdraw(amount):
+	if not account.can_withdraw(amount_cents):
 		error_label.text = "Insufficient funds."
 		error_label.visible = true
 		return
 	error_label.visible = false
-	AccountManager.withdraw(account, amount)
+	AccountManager.withdraw(account, amount_cents)
 	_refresh_display()
 
 ## Balance is just always on display next to whichever account is
@@ -132,7 +133,7 @@ func _refresh_display() -> void:
 	deposit_button.disabled = false
 	withdraw_button.disabled = false
 	account_label.text = account.customer_name
-	balance_label.text = "Balance: $%.2f" % account.balance
+	balance_label.text = "Balance: %s" % MoneyMath.format(account.balance_cents)
 
 ## No account-opening path here (see class doc comment) — this only ever
 ## selects among AccountManager's existing accounts, never creates one.

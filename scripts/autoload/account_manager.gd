@@ -17,16 +17,21 @@ extends Node
 ## responsible for their own pre-checks (amount validity, withdrawal
 ## limits, card decline, insufficient funds) exactly as before; this
 ## just gives the mutation a single place to emit accounts_changed from.
+##
+## Amounts are int cents (B3, see MoneyMath).
 
 signal accounts_changed
 
 var accounts: Array[Account] = []
 
+## The seeded demo account's starting balance ($1,000.00).
+const DEMO_ACCOUNT_START_CENTS: int = 100000
+
 func _ready() -> void:
 	_create_default_accounts()
 
 func _create_default_accounts() -> void:
-	create_account("Johnathan Jamestar", 1000.0)
+	create_account("Johnathan Jamestar", DEMO_ACCOUNT_START_CENTS)
 
 ## New career after termination — see CareerReset. Drops every customer and
 ## player-opened account and restores the demo account to its starting
@@ -56,10 +61,10 @@ func get_browsable_accounts() -> Array[Account]:
 			browsable.append(existing_account)
 	return browsable
 
-func create_account(customer_name: String, starting_balance: float = 0.0) -> Account:
+func create_account(customer_name: String, starting_balance_cents: int = 0) -> Account:
 	var new_account := Account.new()
 	new_account.customer_name = customer_name
-	new_account.balance = starting_balance
+	new_account.balance_cents = starting_balance_cents
 	accounts.append(new_account)
 	accounts_changed.emit()
 	return new_account
@@ -79,12 +84,12 @@ func find_account_by_name(customer_name: String, staff_line: bool = false) -> Ac
 			return existing_account
 	return null
 
-func deposit(account: Account, amount: float) -> void:
-	account.deposit(amount)
+func deposit(account: Account, amount_cents: int) -> void:
+	account.deposit(amount_cents)
 	accounts_changed.emit()
 
-func withdraw(account: Account, amount: float) -> bool:
-	var success := account.withdraw(amount)
+func withdraw(account: Account, amount_cents: int) -> bool:
+	var success := account.withdraw(amount_cents)
 	if success:
 		accounts_changed.emit()
 	return success

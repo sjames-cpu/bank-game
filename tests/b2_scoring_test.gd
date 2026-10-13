@@ -16,7 +16,7 @@ func test_clock_out_blocked_until_all_customers_handled() -> void:
 	assert_str(ts.error_label.text).contains("1 customer still waiting")
 
 	# Transactions made but not completed still block clock-out.
-	deposit(first.intent_amount)
+	deposit(first.intent_amount_cents / 100.0)
 	assert_bool(clock_out()).is_false()
 	assert_str(ts.error_label.text).contains("transaction isn't completed yet")
 	complete()

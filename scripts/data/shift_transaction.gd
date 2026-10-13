@@ -12,12 +12,13 @@ enum Type { DEPOSIT, WITHDRAWAL }
 ## Phase 6e: whether this transaction moved physical drawer cash or not.
 ## Card transactions still apply to the account balance the same way a
 ## cash one does (see teller_screen.gd's deposit/withdraw handlers) but
-## are excluded from _calculate_expected_ending_balance()'s drawer math,
+## are excluded from _calculate_expected_ending_cents()'s drawer math,
 ## since no physical cash changed hands.
 enum PaymentMethod { CASH, CARD }
 
 @export var type: Type
-@export var amount: float = 0.0
+## Int cents (B3, see MoneyMath).
+@export var amount_cents: int = 0
 @export var account_name: String = ""
 @export var timestamp: String = ""
 @export var payment_method: PaymentMethod = PaymentMethod.CASH

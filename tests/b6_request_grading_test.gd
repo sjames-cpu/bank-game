@@ -10,7 +10,7 @@ func before_test() -> void:
 
 func test_correct_request_is_rewarded_and_served() -> void:
 	var customer := spawn(ShiftTransaction.Type.WITHDRAWAL, 120.0)
-	var start := customer.account.balance
+	var start := customer.account.balance_cents
 	var before := totals()
 	open_desk()
 	assert_bool(ts.complete_transaction_button.visible).is_true()
@@ -20,7 +20,7 @@ func test_correct_request_is_rewarded_and_served() -> void:
 	complete()
 	assert_bool(cq.queue.has(customer)).is_false()
 	assert_bool(customer.was_mistake).is_false()
-	assert_float(customer.account.balance).is_equal(start - 120.0)
+	assert_int(customer.account.balance_cents).is_equal(start - 12000)
 	assert_int((totals() - before).x).is_equal(TellerScreen.CUSTOMER_REQUEST_CORRECT_SCORE)
 
 func test_wrong_amount_is_flagged_once_and_can_be_fixed() -> void:
@@ -69,7 +69,7 @@ func test_split_deposit_is_graded_correct_on_complete() -> void:
 func test_wrong_account_must_be_reversed_not_compensated() -> void:
 	var customer := spawn(ShiftTransaction.Type.DEPOSIT, 300.0)
 	var demo := AccountManager.get_browsable_accounts()[0]
-	var demo_start := demo.balance
+	var demo_start := demo.balance_cents
 	open_desk()
 	select_account(demo)
 	deposit(300)
@@ -88,7 +88,7 @@ func test_wrong_account_must_be_reversed_not_compensated() -> void:
 	# Reverse undoes newest first: the own-account deposit, then the stray.
 	reverse()
 	reverse()
-	assert_float(demo.balance).is_equal(demo_start)
+	assert_int(demo.balance_cents).is_equal(demo_start)
 	select_account(customer.account)
 	deposit(300)
 	complete()

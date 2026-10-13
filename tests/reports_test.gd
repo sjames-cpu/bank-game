@@ -8,7 +8,7 @@ extends "res://tests/support/teller_room_suite.gd"
 ## customer leaves upset.
 func _botch(customer: CustomerNPC) -> void:
 	open_desk()
-	deposit(customer.intent_amount / 2.0)
+	deposit(customer.intent_amount_cents / 200.0)
 	complete()
 	close_desk()
 
