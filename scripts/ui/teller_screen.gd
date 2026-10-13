@@ -57,18 +57,8 @@ class_name TellerScreen
 
 @onready var drawer_count_screen: DrawerCountScreen = $DrawerCountScreen
 
-@onready var corner_total_score_label: Label = $ScoreHudPanel/VBox/TotalScoreLabel
-@onready var corner_reputation_label: Label = $ScoreHudPanel/VBox/ReputationLabel
-@onready var corner_xp_label: Label = $ScoreHudPanel/VBox/XPLabel
-@onready var corner_reports_label: Label = $ScoreHudPanel/VBox/ReportsLabel
-## Warning/unlock labels live in a top-left VBox stack rather than being
-## pinned top-center: the main Panel is centered and already fills the full
-## viewport height, so anything anchored above it lands on its title. The
-## stack sits in the empty margin left of the panel (mirroring ScoreHudPanel
-## on the right) and the VBox keeps multiple visible labels from colliding.
-@onready var low_reputation_warning_label: Label = $NotificationStack/LowReputationWarningLabel
-@onready var loan_officer_unlocked_label: Label = $NotificationStack/LoanOfficerUnlockedLabel
-@onready var branch_manager_unlocked_label: Label = $NotificationStack/BranchManagerUnlockedLabel
+## Score/Reputation/XP/Reports and the low-reputation/role-unlocked
+## notifications are on the room's always-on HUD (hud.gd).
 
 @onready var shift_summary_panel: PanelContainer = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
@@ -90,6 +80,10 @@ class_name TellerScreen
 
 signal shift_clocked_in
 signal shift_clocked_out
+
+## Clock-out passed its gate and the ending drawer count is opening —
+## teller_room.gd shows the first clock-out hint off this.
+signal ending_count_started
 
 ## Emitted when Complete Transaction (or closing the screen, which completes
 ## any open transactions) finds the net effect of this visit's transactions
@@ -272,25 +266,11 @@ func _ready() -> void:
 	drawer_count_screen.closed.connect(_on_drawer_count_screen_closed)
 	CurrencySpinBoxFormat.apply(amount_input)
 	CurrencySpinBoxFormat.apply(new_balance_input)
-	ScoreManager.score_changed.connect(_on_total_score_changed)
-	ReputationManager.reputation_changed.connect(_on_reputation_changed)
-	XPManager.xp_changed.connect(_on_total_xp_changed)
-	ReportManager.reports_changed.connect(_on_reports_changed)
-	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
-	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 
 	account = AccountManager.get_accounts()[0]
 	_refresh_account_list()
 	_refresh_display()
 	_update_shift_controls()
-	_on_total_score_changed(ScoreManager.total_score)
-	_on_reputation_changed(ReputationManager.reputation)
-	_on_total_xp_changed(XPManager.total_xp)
-	_on_reports_changed(ReportManager.get_report_count())
-	if XPManager.is_loan_officer_unlocked:
-		_on_loan_officer_unlocked()
-	if XPManager.is_branch_manager_unlocked:
-		_on_branch_manager_unlocked()
 
 ## serving_customer is whoever teller_room.gd found at the front of the
 ## queue at interaction time (null if nobody's waiting) — purely for the
@@ -937,6 +917,7 @@ func _on_clock_out_button_pressed() -> void:
 	pending_drawer_count_purpose = DrawerCountPurpose.ENDING
 	main_panel.visible = false
 	drawer_count_screen.show_screen(_calculate_expected_ending_balance(), "Ending Drawer Count")
+	ending_count_started.emit()
 
 ## Fires as soon as "Submit Count" is pressed on the drawer count screen
 ## — that screen is still open at this point, showing its own count
@@ -1138,26 +1119,3 @@ func _reset_account_selection() -> void:
 
 func _on_shift_summary_done_pressed() -> void:
 	_show_main_panel()
-
-func _on_total_score_changed(new_total: int) -> void:
-	corner_total_score_label.text = "Total Score: %d" % new_total
-
-func _on_reputation_changed(new_reputation: int) -> void:
-	corner_reputation_label.text = "Reputation: %d" % new_reputation
-	low_reputation_warning_label.visible = new_reputation <= ReputationManager.LOW_REPUTATION_THRESHOLD
-
-func _on_total_xp_changed(new_total: int) -> void:
-	corner_xp_label.text = "XP: %d" % new_total
-
-func _on_reports_changed(_count: int) -> void:
-	corner_reports_label.text = ReportManager.status_text()
-
-## Fires once, the first time XPManager's unlock condition is met — see
-## XPManager.is_loan_officer_unlocked for why this never gets hidden
-## again afterward.
-func _on_loan_officer_unlocked() -> void:
-	loan_officer_unlocked_label.visible = true
-
-## Same reasoning as _on_loan_officer_unlocked() above, one tier up.
-func _on_branch_manager_unlocked() -> void:
-	branch_manager_unlocked_label.visible = true

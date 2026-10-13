@@ -25,10 +25,6 @@ extends Control
 
 @onready var loan_review_screen: LoanReviewScreen = $LoanReviewScreen
 
-@onready var corner_total_score_label: Label = $ScoreHudPanel/VBox/TotalScoreLabel
-@onready var corner_reputation_label: Label = $ScoreHudPanel/VBox/ReputationLabel
-@onready var corner_xp_label: Label = $ScoreHudPanel/VBox/XPLabel
-
 @onready var shift_summary_panel: PanelContainer = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
 @onready var shift_end_time_label: Label = $ShiftSummaryPanel/VBox/EndTimeLabel
@@ -70,14 +66,8 @@ func _ready() -> void:
 	shift_summary_done_button.pressed.connect(_on_shift_summary_done_pressed)
 	loan_review_screen.decision_graded.connect(_on_application_graded)
 	loan_review_screen.closed.connect(_on_loan_review_screen_closed)
-	ScoreManager.score_changed.connect(_on_total_score_changed)
-	ReputationManager.reputation_changed.connect(_on_reputation_changed)
-	XPManager.xp_changed.connect(_on_total_xp_changed)
 
 	_update_shift_controls()
-	_on_total_score_changed(ScoreManager.total_score)
-	_on_reputation_changed(ReputationManager.reputation)
-	_on_total_xp_changed(XPManager.total_xp)
 
 func show_screen() -> void:
 	visible = true
@@ -172,11 +162,9 @@ func _update_shift_controls() -> void:
 	progress_label.visible = clocked_in
 	progress_label.text = "Applications Reviewed: %d / %d" % [applications_reviewed, APPLICATIONS_PER_SHIFT]
 
-func _on_total_score_changed(new_total: int) -> void:
-	corner_total_score_label.text = "Total Score: %d" % new_total
+## For the room's HUD and interaction prompt (teller_room.gd).
+func is_clocked_in() -> bool:
+	return shift_state == ShiftState.CLOCKED_IN
 
-func _on_reputation_changed(new_reputation: int) -> void:
-	corner_reputation_label.text = "Reputation: %d" % new_reputation
-
-func _on_total_xp_changed(new_total: int) -> void:
-	corner_xp_label.text = "XP: %d" % new_total
+func applications_left() -> int:
+	return maxi(0, APPLICATIONS_PER_SHIFT - applications_reviewed)

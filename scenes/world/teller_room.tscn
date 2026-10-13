@@ -34,6 +34,7 @@
 [ext_resource type="Script" path="res://scripts/world/npc_customer_line.gd" id="npc_customer_line_script"]
 [ext_resource type="Script" path="res://scripts/world/npc_loan_desk_worker.gd" id="npc_loan_desk_worker_script"]
 [ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="hud_scene"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_room"]
 texture = ExtResource("tiles_tex")
@@ -129,7 +130,6 @@ position = Vector2(0, -22)
 position = Vector2(208, 336)
 collision_layer = 0
 collision_mask = 2
-monitoring = false
 script = ExtResource("loan_officer_desk_script")
 
 [node name="Sprite2D" type="Sprite2D" parent="LoanOfficerDesk" unique_id=1972356128]
@@ -397,3 +397,5 @@ autowrap_mode = 2
 
 [node name="DisciplineLetterScreen" parent="UI" instance=ExtResource("discipline_letter_screen_scene")]
 layout_mode = 3
+
+[node name="HUD" parent="." instance=ExtResource("hud_scene")]

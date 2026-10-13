@@ -1,0 +1,129 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="hud_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
+
+[node name="HUD" type="CanvasLayer"]
+process_mode = 3
+layer = 2
+script = ExtResource("hud_script")
+
+[node name="RightColumn" type="VBoxContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -200.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = 8.0
+grow_horizontal = 0
+mouse_filter = 2
+theme = ExtResource("banking_theme")
+theme_override_constants/separation = 8
+
+[node name="StatsPanel" type="PanelContainer" parent="RightColumn"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"HudPanel"
+
+[node name="VBox" type="VBoxContainer" parent="RightColumn/StatsPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="RoleLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Role: Teller"
+autowrap_mode = 2
+
+[node name="ScoreLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
+layout_mode = 2
+text = "Score: 0"
+
+[node name="ReputationLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
+layout_mode = 2
+text = "Reputation: 50"
+
+[node name="XPLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
+layout_mode = 2
+text = "XP: 0"
+
+[node name="ReportsLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
+layout_mode = 2
+text = "Reports: 0 / 3"
+
+[node name="Separator" type="HSeparator" parent="RightColumn/StatsPanel/VBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ShiftLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
+layout_mode = 2
+text = "Off shift"
+autowrap_mode = 2
+
+[node name="NotificationPanel" type="PanelContainer" parent="RightColumn"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"HudPanel"
+
+[node name="NotificationStack" type="VBoxContainer" parent="RightColumn/NotificationPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="LowReputationWarningLabel" type="Label" parent="RightColumn/NotificationPanel/NotificationStack"]
+visible = false
+layout_mode = 2
+modulate = Color(1, 0.3, 0.3, 1)
+text = "Reputation critically low!"
+autowrap_mode = 2
+
+[node name="LoanOfficerUnlockedLabel" type="Label" parent="RightColumn/NotificationPanel/NotificationStack"]
+visible = false
+layout_mode = 2
+modulate = Color(0.3, 1, 0.3, 1)
+text = "Loan Officer role unlocked!"
+autowrap_mode = 2
+
+[node name="BranchManagerUnlockedLabel" type="Label" parent="RightColumn/NotificationPanel/NotificationStack"]
+visible = false
+layout_mode = 2
+modulate = Color(0.3, 1, 0.3, 1)
+text = "Branch Manager role unlocked!"
+autowrap_mode = 2
+
+[node name="HintPanel" type="PanelContainer" parent="RightColumn"]
+visible = false
+layout_mode = 2
+theme_type_variation = &"HudPanel"
+
+[node name="VBox" type="VBoxContainer" parent="RightColumn/HintPanel"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="RightColumn/HintPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Tip"
+
+[node name="HintLabel" type="Label" parent="RightColumn/HintPanel/VBox"]
+layout_mode = 2
+autowrap_mode = 2
+
+[node name="DismissButton" type="Button" parent="RightColumn/HintPanel/VBox"]
+layout_mode = 2
+focus_mode = 0
+text = "Got it"
+
+[node name="PromptPanel" type="PanelContainer" parent="."]
+visible = false
+offset_right = 40.0
+offset_bottom = 40.0
+mouse_filter = 2
+theme = ExtResource("banking_theme")
+theme_type_variation = &"HudPanel"
+
+[node name="PromptLabel" type="Label" parent="PromptPanel"]
+layout_mode = 2
+horizontal_alignment = 1

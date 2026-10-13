@@ -101,6 +101,11 @@ func show_branch_orientation_once() -> void:
 	XPManager.has_seen_branch_orientation = true
 	_enqueue(Mode.NOTICE, "Welcome to Branch Management", ORIENTATION_BODY, PROMOTION_SENDER)
 
+## The termination letter covers the whole window (opaque backdrop); the
+## room's HUD hides while it's up.
+func is_full_screen_letter_shown() -> bool:
+	return visible and _mode == Mode.TERMINATION
+
 func _enqueue(mode: Mode, title: String, body: String, sender: String = BRANCH_MANAGER_SENDER) -> void:
 	if _mode == Mode.TERMINATION:
 		return

@@ -23,14 +23,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not player_in_range:
 		return
 
-	if event.is_action_pressed("ui_accept"):
-		interacted.emit()
-		return
-
-	# Safe cast: null if `event` isn't a key event, an InputEventKey otherwise.
-	# Casting first (instead of checking `event is InputEventKey` and reading
-	# .pressed/.echo/.keycode off the base InputEvent type) is what lets GDScript
-	# know the exact type of those members.
-	var key_event := event as InputEventKey
-	if key_event != null and key_event.pressed and not key_event.echo and key_event.keycode == KEY_E:
+	# The interact key (E) is an InputMap action so on-screen prompts can name
+	# the key that actually works (InputPrompts).
+	if event.is_action_pressed("ui_accept") or event.is_action_pressed(InputPrompts.INTERACT):
 		interacted.emit()

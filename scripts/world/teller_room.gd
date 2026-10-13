@@ -9,12 +9,13 @@ extends Node2D
 ## yet to justify a second area. It's additive alongside the existing
 ## Teller desk/screen wiring below, not a change to it.
 ##
-## LoanOfficerDesk starts non-monitoring (see teller_room.tscn) since the
-## role isn't available to the player until XPManager.is_loan_officer_unlocked
-## — reacting to that unlock here (rather than polling it, or having the
-## desk script know about XPManager itself) makes the desk usable the
-## moment it's earned. The desk itself is always visible: it's the branch's
-## Loan Desk, worked by a staff member until the player can work it.
+## The role isn't available to the player until
+## XPManager.is_loan_officer_unlocked; _on_loan_officer_desk_interacted()
+## checks that itself (rather than the desk script knowing about XPManager),
+## so the desk is usable the moment it's earned. The desk is always visible
+## and always detects the player — it's the branch's Loan Desk, worked by a
+## staff member until the player can work it, and its interaction prompt
+## says what unlocks it (B4).
 ##
 ## The branch has three teller windows: the player's own Player Teller
 ## Window (the TellerDesk node — interaction + the player's CustomerQueue
@@ -61,6 +62,11 @@ extends Node2D
 ## availability gating at all — see _on_atm_interacted() — since it's a
 ## customer-facing feature available regardless of shift/clock-in state,
 ## not a job role.
+##
+## B4 adds the always-on HUD (hud.gd): this room feeds it the shift-status
+## line (describe_shift_status()), the "E — ..." prompt for whichever
+## interactable the player stands at (interaction_prompt_text(), refreshed in
+## _process()), and the moments each first-run hint (HintManager) fires.
 
 const DEBUG_UNLOCK_KEY := KEY_F1
 
@@ -86,6 +92,7 @@ const ABANDONMENT_REPUTATION_PENALTY: int = -2
 const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 
 @onready var teller_screen: TellerScreen = $UI/TellerScreen
+@onready var teller_desk: Area2D = $TellerDesk
 @onready var loan_officer_desk: Area2D = $LoanOfficerDesk
 @onready var loan_officer_screen: Control = $UI/LoanOfficerScreen
 @onready var branch_manager_desk: Area2D = $BranchManagerDesk
@@ -101,10 +108,19 @@ const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 @onready var loan_desk_worker: NpcLoanDeskWorker = $LoanDeskWorker
 @onready var desk_notice: Control = $UI/DeskNotice
 @onready var desk_notice_label: Label = $UI/DeskNotice/Label
+@onready var letter_screen: DisciplineLetterScreen = $UI/DisciplineLetterScreen
+@onready var hud: Hud = $HUD
 
 ## How long the "X is working this window" notice stays up.
 const DESK_NOTICE_SECONDS: float = 3.5
 var _desk_notice_token: int = 0
+
+## What a staffed desk says after promotion (%s = the staff member), as the
+## interaction prompt and, with MANAGER_DESK_REMINDER added, the desk notice.
+const WINDOW_STAFFED_TEXT: String = "%s is working this window."
+const LOAN_DESK_STAFFED_TEXT: String = "%s is working the Loan Desk."
+const UNASSIGNED_DESK_TEXT: String = "No one is assigned here right now."
+const MANAGER_DESK_REMINDER: String = " As Branch Manager, your desk is in the office."
 
 const STAFF_NPC_SCENE: PackedScene = preload("res://scenes/characters/staff_npc.tscn")
 
@@ -134,7 +150,10 @@ var _customer_being_served: CustomerNPC = null
 var _customers_awaiting_farewell: Array[CustomerNPC] = []
 
 func _ready() -> void:
-	$TellerDesk.interacted.connect(_on_teller_desk_interacted)
+	hud.shift_status = describe_shift_status
+	hud.letter_screen = letter_screen
+	teller_screen.ending_count_started.connect(hud.show_hint_once.bind(HintManager.Hint.FIRST_CLOCK_OUT))
+	teller_desk.interacted.connect(_on_teller_desk_interacted)
 	teller_screen.customer_request_satisfied.connect(_on_teller_customer_request_satisfied)
 	teller_screen.customer_left_unfixed.connect(_on_teller_customer_left_unfixed)
 	teller_screen.screen_closed.connect(_on_teller_screen_closed)
@@ -149,7 +168,6 @@ func _ready() -> void:
 	customer_queue.customer_abandoned.connect(_on_customer_abandoned)
 	loan_officer_desk.interacted.connect(_on_loan_officer_desk_interacted)
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
-	_update_loan_officer_desk_availability()
 
 	branch_manager_desk.interacted.connect(_on_branch_manager_desk_interacted)
 	branch_manager_screen.shift_clocked_in.connect($UI/DisciplineLetterScreen.show_branch_orientation_once)
@@ -170,6 +188,84 @@ func _ready() -> void:
 	loan_desk_worker.active = true
 	if XPManager.is_branch_manager_unlocked:
 		_apply_branch_manager_desks()
+
+	hud.show_hint_once(HintManager.Hint.ARRIVAL)
+
+func _process(_delta: float) -> void:
+	_update_interaction_prompt()
+
+# --- HUD (B4) -----------------------------------------------------------------
+
+## The interactables the prompt covers, in the order ties are broken.
+func _interactables() -> Array[Area2D]:
+	return [teller_desk, loan_officer_desk, branch_manager_desk, atm]
+
+## The interactable the player is standing at (the nearest, if several), or
+## null. A hidden desk (the Branch Manager desk before promotion) doesn't count.
+func interactable_in_range() -> Area2D:
+	var player_position: Vector2 = $Player.global_position
+	var nearest: Area2D = null
+	for desk in _interactables():
+		if not (desk.monitoring and desk.visible and desk.player_in_range):
+			continue
+		if nearest == null or desk.global_position.distance_to(player_position) < nearest.global_position.distance_to(player_position):
+			nearest = desk
+	return nearest
+
+func _update_interaction_prompt() -> void:
+	var desk := interactable_in_range()
+	if desk == null:
+		hud.hide_prompt()
+	else:
+		hud.show_prompt(interaction_prompt_text(desk), desk.global_position)
+
+## "E — what pressing the interact key does here", or, for a desk the player
+## can't use, why not. The key comes from the InputMap (InputPrompts).
+func interaction_prompt_text(desk: Area2D) -> String:
+	var key := InputPrompts.key_for(InputPrompts.INTERACT)
+	if desk == teller_desk:
+		if XPManager.is_branch_manager_unlocked:
+			return _staffed_desk_text(ScheduleManager.SLOT_TELLER_WINDOW_3, WINDOW_STAFFED_TEXT)
+		var teller_action := "Clock in"
+		if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
+			teller_action = "Clock out" if _describe_remaining_shift_work() == "" else "Serve customers"
+		return "%s — %s (%s)" % [key, teller_action, PLAYER_TELLER_WINDOW]
+	if desk == loan_officer_desk:
+		if XPManager.is_branch_manager_unlocked:
+			return _staffed_desk_text(ScheduleManager.SLOT_LOAN_DESK, LOAN_DESK_STAFFED_TEXT)
+		if not XPManager.is_loan_officer_unlocked:
+			return "%s — unlocks at %d XP and %d Reputation" % [ScheduleManager.SLOT_LOAN_DESK, XPManager.XP_UNLOCK_THRESHOLD, XPManager.REPUTATION_UNLOCK_FLOOR]
+		var loan_action := "Clock in"
+		if loan_officer_screen.is_clocked_in():
+			loan_action = "Clock out" if loan_officer_screen.applications_left() == 0 else "Review applications"
+		return "%s — %s (%s)" % [key, loan_action, ScheduleManager.SLOT_LOAN_DESK]
+	if desk == branch_manager_desk:
+		return "%s — Branch Manager desk" % key
+	if desk == atm:
+		return "%s — Use ATM" % key
+	return ""
+
+## The HUD's shift line: "Off shift", or "On shift — " and where, with
+## what's left of that shift's work.
+func describe_shift_status() -> String:
+	var parts: PackedStringArray = []
+	if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
+		var customers_left := customer_queue.queue.size() + customer_queue.get_customers_left_to_spawn()
+		parts.append("%s · %d customer%s left" % [PLAYER_TELLER_WINDOW, customers_left, "" if customers_left == 1 else "s"])
+	if loan_officer_screen.is_clocked_in():
+		var applications_left: int = loan_officer_screen.applications_left()
+		parts.append("%s · %d application%s left" % [ScheduleManager.SLOT_LOAN_DESK, applications_left, "" if applications_left == 1 else "s"])
+	if branch_manager_screen.is_clocked_in():
+		parts.append("Branch Manager office · vault %s" % ("reconciled" if branch_manager_screen.is_vault_reconciled() else "not reconciled yet"))
+	if parts.is_empty():
+		return "Off shift"
+	return "On shift — %s" % "; ".join(parts)
+
+## First-customer hint: only for a regular customer at the desk (a complaint
+## customer has no request to complete).
+func _hint_first_customer(customer: CustomerNPC) -> void:
+	if is_instance_valid(customer) and customer.complaint == null:
+		hud.show_hint_once(HintManager.Hint.FIRST_CUSTOMER)
 
 ## (Re)creates one StaffNPC per assigned desk from ScheduleManager. A desk
 ## the player is clocked in at gets its staff member placed straight in the
@@ -309,10 +405,11 @@ func _on_teller_desk_interacted() -> void:
 	if teller_screen.visible:
 		return
 	if XPManager.is_branch_manager_unlocked:
-		_show_desk_notice(ScheduleManager.SLOT_TELLER_WINDOW_3, "%s is working this window. As Branch Manager, your desk is in the office.")
+		_show_desk_notice(ScheduleManager.SLOT_TELLER_WINDOW_3, WINDOW_STAFFED_TEXT)
 		return
 	_customer_being_served = customer_queue.get_front_customer()
 	teller_screen.show_screen(_customer_being_served)
+	_hint_first_customer(_customer_being_served)
 
 ## Fires once a regular customer's request is done (first try, or after a
 ## mistake was fixed) — serve them and move on to whoever's next. Complaint
@@ -355,6 +452,7 @@ func _serve_current_customer() -> void:
 		_customers_awaiting_farewell.append(served)
 	_customer_being_served = customer_queue.get_front_customer()
 	teller_screen.advance_to_customer(_customer_being_served)
+	_hint_first_customer(_customer_being_served)
 
 ## Phase 6i: fires whenever the player closes the Teller screen. Everyone
 ## this visit served has been waiting here (already out of the queue
@@ -420,32 +518,34 @@ func _on_customer_abandoned(customer: CustomerNPC) -> void:
 	)
 
 ## Guarded against re-entry the same way _on_teller_desk_interacted() is —
-## see that function's doc comment.
+## see that function's doc comment. Before the Loan Officer unlock the desk
+## does nothing (its prompt already says what unlocks it); a Branch Manager
+## can't work it either, but gets the staffed-desk notice.
 func _on_loan_officer_desk_interacted() -> void:
 	if loan_officer_screen.visible:
 		return
 	if XPManager.is_branch_manager_unlocked:
-		_show_desk_notice(ScheduleManager.SLOT_LOAN_DESK, "%s is working the Loan Desk. As Branch Manager, your desk is in the office.")
+		_show_desk_notice(ScheduleManager.SLOT_LOAN_DESK, LOAN_DESK_STAFFED_TEXT)
+		return
+	if not XPManager.is_loan_officer_unlocked:
 		return
 	loan_officer_screen.show_screen()
 
 func _on_loan_officer_unlocked() -> void:
-	_update_loan_officer_desk_availability()
+	hud.show_hint_once(HintManager.Hint.LOAN_OFFICER_UNLOCKED)
 
-func _update_loan_officer_desk_availability() -> void:
-	# Always visible (it's the staffed Loan Desk); only the player's ability
-	# to use it waits for the unlock. A Branch Manager can't work it, but it
-	# still responds (with the locked-desk notice).
-	loan_officer_desk.monitoring = XPManager.is_loan_officer_unlocked or XPManager.is_branch_manager_unlocked
+## `template` (one %s) filled with whoever is assigned to `slot_name`, or
+## UNASSIGNED_DESK_TEXT.
+func _staffed_desk_text(slot_name: String, template: String) -> String:
+	var member := ScheduleManager.get_assigned(slot_name)
+	if member == null:
+		return UNASSIGNED_DESK_TEXT
+	return template % member.staff_name
 
 ## Short notice naming whoever is assigned to `slot_name` (template has one
 ## %s for the name). Shown over the room for DESK_NOTICE_SECONDS.
 func _show_desk_notice(slot_name: String, template: String) -> void:
-	var member := ScheduleManager.get_assigned(slot_name)
-	if member != null:
-		desk_notice_label.text = template % member.staff_name
-	else:
-		desk_notice_label.text = "No one is assigned here right now. As Branch Manager, your desk is in the office."
+	desk_notice_label.text = _staffed_desk_text(slot_name, template) + MANAGER_DESK_REMINDER
 	desk_notice.visible = true
 	_desk_notice_token += 1
 	get_tree().create_timer(DESK_NOTICE_SECONDS, false).timeout.connect(_hide_desk_notice.bind(_desk_notice_token))
@@ -464,6 +564,7 @@ func _on_branch_manager_desk_interacted() -> void:
 func _on_branch_manager_unlocked() -> void:
 	_update_branch_manager_desk_availability()
 	_apply_branch_manager_desks()
+	hud.show_hint_once(HintManager.Hint.BRANCH_MANAGER_UNLOCKED)
 
 ## After promotion (never mid-shift — XPManager holds it until clock-out):
 ## the Player Teller Window becomes Teller Window 3, staffed (ScheduleManager
@@ -477,7 +578,6 @@ func _apply_branch_manager_desks() -> void:
 		_place_slot_staff(ScheduleManager.SLOT_TELLER_WINDOW_3)
 	_assign_staff_to_work() # opens Window3Line when the desk is staffed
 	loan_desk_worker.active = true
-	_update_loan_officer_desk_availability()
 
 func _update_branch_manager_desk_availability() -> void:
 	var unlocked := XPManager.is_branch_manager_unlocked

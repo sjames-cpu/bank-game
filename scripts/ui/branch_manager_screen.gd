@@ -52,10 +52,6 @@ signal shift_clocked_in
 @onready var vault_reconciliation_screen: VaultReconciliationScreen = $VaultReconciliationScreen
 @onready var staff_review_screen: StaffReviewScreen = $StaffReviewScreen
 
-@onready var corner_total_score_label: Label = $ScoreHudPanel/VBox/TotalScoreLabel
-@onready var corner_reputation_label: Label = $ScoreHudPanel/VBox/ReputationLabel
-@onready var corner_xp_label: Label = $ScoreHudPanel/VBox/XPLabel
-
 @onready var shift_summary_panel: PanelContainer = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
 @onready var shift_end_time_label: Label = $ShiftSummaryPanel/VBox/EndTimeLabel
@@ -139,14 +135,8 @@ func _ready() -> void:
 	_reset_review_stats()
 	vault_reconciliation_screen.count_submitted.connect(_on_vault_count_submitted)
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
-	ScoreManager.score_changed.connect(_on_total_score_changed)
-	ReputationManager.reputation_changed.connect(_on_reputation_changed)
-	XPManager.xp_changed.connect(_on_total_xp_changed)
 
 	_update_shift_controls()
-	_on_total_score_changed(ScoreManager.total_score)
-	_on_reputation_changed(ReputationManager.reputation)
-	_on_total_xp_changed(XPManager.total_xp)
 
 func show_screen() -> void:
 	visible = true
@@ -443,11 +433,9 @@ func _update_shift_controls() -> void:
 	vault_reconciliation_button.disabled = not clocked_in or _vault_reconciled_this_shift
 	vault_reconciliation_button.text = "Vault Reconciliation (Done This Shift)" if _vault_reconciled_this_shift else "Vault Reconciliation"
 
-func _on_total_score_changed(new_total: int) -> void:
-	corner_total_score_label.text = "Total Score: %d" % new_total
+## For the room's HUD (teller_room.gd).
+func is_clocked_in() -> bool:
+	return shift_state == ShiftState.CLOCKED_IN
 
-func _on_reputation_changed(new_reputation: int) -> void:
-	corner_reputation_label.text = "Reputation: %d" % new_reputation
-
-func _on_total_xp_changed(new_total: int) -> void:
-	corner_xp_label.text = "XP: %d" % new_total
+func is_vault_reconciled() -> bool:
+	return _vault_reconciled_this_shift
