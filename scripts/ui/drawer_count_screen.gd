@@ -173,3 +173,8 @@ func _on_submit_button_pressed() -> void:
 
 	results_container.visible = true
 	count_submitted.emit(total)
+
+## Adds a line under the result's status (e.g. TellerScreen's "Recount
+## required" for a Major opening count). Call after count_submitted.
+func append_status_note(note: String) -> void:
+	status_label.text += "\n" + note

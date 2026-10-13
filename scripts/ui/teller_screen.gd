@@ -63,8 +63,11 @@ class_name TellerScreen
 @onready var shift_summary_panel: PanelContainer = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
 @onready var shift_end_time_label: Label = $ShiftSummaryPanel/VBox/EndTimeLabel
-@onready var shift_total_transactions_label: Label = $ShiftSummaryPanel/VBox/TotalTransactionsLabel
-@onready var shift_final_discrepancy_label: Label = $ShiftSummaryPanel/VBox/FinalDiscrepancyLabel
+## Side by side so the summary keeps room for the opening-count line within
+## the 648px window.
+@onready var shift_total_transactions_label: Label = $ShiftSummaryPanel/VBox/DrawerTotalsHBox/TotalTransactionsLabel
+@onready var shift_final_discrepancy_label: Label = $ShiftSummaryPanel/VBox/DrawerTotalsHBox/FinalDiscrepancyLabel
+@onready var shift_opening_count_label: Label = $ShiftSummaryPanel/VBox/OpeningCountLabel
 @onready var shift_score_label: Label = $ShiftSummaryPanel/VBox/ShiftScoreLabel
 @onready var shift_total_score_label: Label = $ShiftSummaryPanel/VBox/TotalScoreLabel
 @onready var shift_xp_label: Label = $ShiftSummaryPanel/VBox/ShiftXPLabel
@@ -193,6 +196,16 @@ const FEEDBACK_GOOD_COLOR: Color = Color(0.3, 1, 0.3, 1)
 const FEEDBACK_BAD_COLOR: Color = Color(1, 0.3, 0.3, 1)
 const FEEDBACK_NEUTRAL_COLOR: Color = Color(1, 1, 1, 1)
 
+## Opening count (B2): a Major opening count doesn't start the shift — the
+## teller recounts, up to MAX_OPENING_RECOUNTS times. Still Major after that,
+## a supervisor verifies the drawer at the assigned float and signs off,
+## at OPENING_SIGN_OFF_REPUTATION: the same as an abandoned customer or a
+## wrong request, below a Major closing count (-5), since the supervisor
+## found the float intact — no money was actually missing. No Score or XP
+## either way (the closing count grades the drawer).
+const MAX_OPENING_RECOUNTS: int = 2
+const OPENING_SIGN_OFF_REPUTATION: int = -2
+
 ## Phase 6e: small chance a card transaction is declined, checked at
 ## deposit/withdraw time — same Score/Reputation/XP either way, this just
 ## blocks the transaction from applying (see _on_deposit_button_pressed()/
@@ -219,6 +232,14 @@ var awaiting_summary_reveal: bool = false
 var _card_decline_on_cooldown: bool = false
 
 var shift_start_time: String = ""
+
+## Every opening count submitted for the shift being opened, in order (the
+## first count, then any recounts) — cleared when a fresh clock-in starts.
+var _opening_results: Array[DiscrepancyResult] = []
+## True while a Major opening count is waiting for a recount (Clock In reads
+## "Recount Drawer" meanwhile).
+var awaiting_opening_recount: bool = false
+var _opening_signed_off: bool = false
 
 ## Always the assigned float (STARTING_EXPECTED_BALANCE), never the
 ## player's opening count — see _begin_shift().
@@ -862,6 +883,7 @@ func _on_account_option_selected(index: int) -> void:
 func _update_shift_controls() -> void:
 	var clocked_in := shift_state == ShiftState.CLOCKED_IN
 	clock_in_button.visible = not clocked_in
+	clock_in_button.text = "Recount Drawer" if awaiting_opening_recount else "Clock In"
 	clock_out_button.visible = clocked_in
 	deposit_button.disabled = not clocked_in or _card_decline_on_cooldown
 	withdraw_button.disabled = not clocked_in or _card_decline_on_cooldown
@@ -899,10 +921,18 @@ func _calculate_expected_ending_balance() -> float:
 			total_withdrawals += transaction.amount
 	return shift_start_balance + total_deposits - total_withdrawals
 
+## Also the Recount button: while awaiting_opening_recount, the same button
+## (relabelled) reopens the count for the same opening.
 func _on_clock_in_button_pressed() -> void:
+	var title := "Starting Drawer Count"
+	if awaiting_opening_recount:
+		title = "Recount Drawer (%d of %d)" % [_opening_results.size(), MAX_OPENING_RECOUNTS]
+	else:
+		_opening_results.clear()
+		_opening_signed_off = false
 	pending_drawer_count_purpose = DrawerCountPurpose.STARTING
 	main_panel.visible = false
-	drawer_count_screen.show_screen(STARTING_EXPECTED_BALANCE, "Starting Drawer Count")
+	drawer_count_screen.show_screen(STARTING_EXPECTED_BALANCE, title)
 
 ## Gated on work, not time: a shift can only end once every customer it
 ## brings has been handled (see remaining_shift_work). The old 45-second
@@ -939,7 +969,7 @@ func _on_drawer_count_submitted(total: float) -> void:
 		return
 	match pending_drawer_count_purpose:
 		DrawerCountPurpose.STARTING:
-			_begin_shift(total)
+			_on_opening_count_submitted(total)
 		DrawerCountPurpose.ENDING:
 			_prepare_shift_summary(total)
 	pending_drawer_count_purpose = DrawerCountPurpose.NONE
@@ -955,13 +985,73 @@ func _on_drawer_count_screen_closed() -> void:
 	else:
 		_show_main_panel()
 
+## Grades an opening count (first count or recount). Perfect starts the
+## shift; Minor starts it and logs the variance; Major asks for a recount,
+## and after MAX_OPENING_RECOUNTS still-Major recounts a supervisor signs off
+## (Reputation penalty, logged) and the shift starts. The drawer's true
+## starting cash is the assigned float in every case — see _begin_shift().
+func _on_opening_count_submitted(total: float) -> void:
+	var cents := MoneyMath.to_cents(total) - MoneyMath.to_cents(STARTING_EXPECTED_BALANCE)
+	var result := _categorize_discrepancy(cents, drawer_count_screen.get_excess_bill_count())
+	_opening_results.append(result)
+	var variance := "$%.2f" % (cents / 100.0)
+	match result:
+		DiscrepancyResult.PERFECT:
+			_show_feedback("Opening count: Perfect — not scored. Drawer starts at its assigned $%.2f float." % STARTING_EXPECTED_BALANCE, FEEDBACK_GOOD_COLOR)
+			_begin_shift()
+		DiscrepancyResult.MINOR:
+			_log_opening_variance("Minor", "Opening count: Minor variance (%s) against the $%.2f float" % [variance, STARTING_EXPECTED_BALANCE])
+			_show_feedback("Opening count: Minor (discrepancy %s) — logged, not scored. Drawer starts at its assigned $%.2f float." % [variance, STARTING_EXPECTED_BALANCE], FEEDBACK_BAD_COLOR)
+			_begin_shift()
+		_:
+			var recounts_used := _opening_results.size() - 1
+			if recounts_used < MAX_OPENING_RECOUNTS:
+				awaiting_opening_recount = true
+				var note := "Recount required before your shift can start (recount %d of %d)." % [recounts_used + 1, MAX_OPENING_RECOUNTS]
+				drawer_count_screen.append_status_note(note)
+				_show_error("Opening count: Major discrepancy (%s). %s" % [variance, note])
+				_update_shift_controls()
+				return
+			_sign_off_opening(variance)
+
+## Still Major after every recount: the supervisor verifies the drawer at
+## the assigned float and signs off; the variance is recorded.
+func _sign_off_opening(variance: String) -> void:
+	_opening_signed_off = true
+	ReputationManager.add_reputation(OPENING_SIGN_OFF_REPUTATION)
+	_log_opening_variance("Signed off", "Opening count: Major variance (%s) after %d recounts; supervisor verified the drawer at $%.2f and signed off" % [variance, MAX_OPENING_RECOUNTS, STARTING_EXPECTED_BALANCE])
+	var notice := "Your supervisor verified the drawer at $%.2f and signed off. The variance has been recorded." % STARTING_EXPECTED_BALANCE
+	drawer_count_screen.append_status_note(notice)
+	_show_feedback("%s (%+d Reputation)" % [notice, OPENING_SIGN_OFF_REPUTATION], FEEDBACK_BAD_COLOR)
+	_begin_shift()
+
+## Logged for the record only — DRAWER_VARIANCE is never actionable in
+## approvals.
+func _log_opening_variance(grade_label: String, description: String) -> void:
+	HistoryManager.add_record(DecisionRecord.Role.DRAWER_VARIANCE, description, grade_label)
+
+## The shift summary's opening line, e.g. "Opening count: Major, recounted
+## once, then Perfect". Kept to one line of the summary.
+func opening_count_summary() -> String:
+	if _opening_results.is_empty():
+		return "Opening count: —"
+	var text := "Opening count: %s" % _discrepancy_result_label(_opening_results[0])
+	var recounts := _opening_results.size() - 1
+	if recounts == 0:
+		return text
+	text += ", recounted %s, " % ("once" if recounts == 1 else "twice")
+	if _opening_signed_off:
+		return text + "signed off"
+	return text + "then %s" % _discrepancy_result_label(_opening_results[-1])
+
 ## The drawer's true starting cash is always the assigned float — the
-## player's opening count is graded against it (and the result shown), but
-## never adopted as shift_start_balance, so a wrong opening entry can't
-## shift what the closing count is expected to hold. No points are awarded
-## for the opening count: the closing count already grades the drawer, and
-## scoring both would double-count it.
-func _begin_shift(starting_total: float) -> void:
+## player's opening count is graded against it (see
+## _on_opening_count_submitted()), but never adopted as shift_start_balance,
+## so a wrong opening entry can't shift what the closing count is expected to
+## hold. No points are awarded for the opening count: the closing count
+## already grades the drawer, and scoring both would double-count it.
+func _begin_shift() -> void:
+	awaiting_opening_recount = false
 	shift_state = ShiftState.CLOCKED_IN
 	shift_start_balance = STARTING_EXPECTED_BALANCE
 	shift_start_time = Time.get_datetime_string_from_system()
@@ -974,13 +1064,6 @@ func _begin_shift(starting_total: float) -> void:
 	_customer_score = 0
 	_customer_reputation = 0
 	_customer_xp = 0
-
-	var opening_cents := MoneyMath.to_cents(starting_total) - MoneyMath.to_cents(STARTING_EXPECTED_BALANCE)
-	var opening_result := _categorize_discrepancy(opening_cents, drawer_count_screen.get_excess_bill_count())
-	_show_feedback(
-		"Opening count: %s (discrepancy $%.2f) — not scored. Drawer starts at its assigned $%.2f float." % [_discrepancy_result_label(opening_result), opening_cents / 100.0, STARTING_EXPECTED_BALANCE],
-		FEEDBACK_GOOD_COLOR if opening_result == DiscrepancyResult.PERFECT else FEEDBACK_BAD_COLOR
-	)
 
 	_card_decline_on_cooldown = false
 	_update_shift_controls()
@@ -1071,6 +1154,7 @@ func _prepare_shift_summary(ending_total: float) -> void:
 	shift_end_time_label.text = "End Time: %s" % shift_end_time
 	shift_total_transactions_label.text = "Total Transactions: %d" % shift_transactions.size()
 	shift_final_discrepancy_label.text = "Final Discrepancy: $%.2f" % discrepancy
+	shift_opening_count_label.text = opening_count_summary()
 	shift_score_label.text = "Score: %+d" % shift_score
 	if discrepancy_result != DiscrepancyResult.MAJOR:
 		shift_score_label.text += " (%s, %d of %d customers served)" % [_discrepancy_result_label(discrepancy_result), served, shift_customers]

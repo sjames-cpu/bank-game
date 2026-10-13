@@ -35,7 +35,13 @@ class_name DecisionRecord
 ## 200-record staff cap here can't drop anything unreviewed). Review
 ## decisions and terminations are logged as BRANCH_MANAGER records, which
 ## approvals also never acts on.
-enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY, STAFF }
+##
+## DRAWER_VARIANCE records are opening drawer counts that came in off the
+## assigned float (Minor, or Major signed off by a supervisor — see
+## teller_screen.gd's opening count). For the record only: approvals never
+## acts on them, the same as DISCIPLINARY. Appended last so the existing
+## values don't shift.
+enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY, STAFF, DRAWER_VARIANCE }
 
 @export var role: Role
 @export var description: String = ""
@@ -70,5 +76,7 @@ static func role_label(role_value: Role) -> String:
 			return "Disciplinary"
 		Role.STAFF:
 			return "Staff"
+		Role.DRAWER_VARIANCE:
+			return "Drawer Variance"
 		_:
 			return "Branch Manager"
