@@ -25,6 +25,7 @@
 [ext_resource type="Script" uid="uid://i7kwe8a1lg55" path="res://scripts/world/room_builder.gd" id="room_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/teller_screen.tscn" id="teller_screen_scene"]
 [ext_resource type="Texture2D" uid="uid://0o5utj6sgegj" path="res://assets/tilesets/placeholder_tiles.png" id="tiles_tex"]
+[ext_resource type="Texture2D" path="res://assets/tilesets/outdoor_tiles.png" id="outdoor_tiles_tex"]
 [ext_resource type="Script" path="res://scripts/world/customer_queue.gd" id="customer_queue_script"]
 [ext_resource type="PackedScene" path="res://scenes/characters/customer_npc.tscn" id="customer_npc_scene"]
 [ext_resource type="Script" path="res://scripts/world/day_night_cycle.gd" id="day_night_cycle_script"]
@@ -48,10 +49,18 @@ texture_region_size = Vector2i(32, 32)
 4:0/0 = 0
 5:0/0 = 0
 
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_outdoor"]
+texture = ExtResource("outdoor_tiles_tex")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+1:0/0 = 0
+1:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
+
 [sub_resource type="TileSet" id="TileSet_room"]
 tile_size = Vector2i(32, 32)
 physics_layer_0/collision_layer = 1
 sources/0 = SubResource("TileSetAtlasSource_room")
+sources/1 = SubResource("TileSetAtlasSource_outdoor")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(24, 24)
@@ -68,7 +77,41 @@ size = Vector2(64, 48)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_atm"]
 size = Vector2(48, 48)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_10x8"]
+size = Vector2(10, 8)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_14x8"]
+size = Vector2(14, 8)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_22x10"]
+size = Vector2(22, 10)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_28x12"]
+size = Vector2(28, 12)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_36x8"]
+size = Vector2(36, 8)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_36x12"]
+size = Vector2(36, 12)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_36x14"]
+size = Vector2(36, 14)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_44x16"]
+size = Vector2(44, 16)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_52x16"]
+size = Vector2(52, 16)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_60x14"]
+size = Vector2(60, 14)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_92x14"]
+size = Vector2(92, 14)
+
 [node name="TellerRoom" type="Node2D" unique_id=375316389]
+y_sort_enabled = true
 script = ExtResource("room_controller_script")
 
 [node name="Room" type="TileMapLayer" parent="." unique_id=804278291]
@@ -81,6 +124,7 @@ y_sort_enabled = true
 [node name="Player" type="CharacterBody2D" parent="." unique_id=33001983]
 position = Vector2(384, 624)
 collision_layer = 2
+collision_mask = 17
 script = ExtResource("player_script")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Player" unique_id=1699278332]
@@ -94,13 +138,24 @@ shape = SubResource("RectangleShape2D_player")
 zoom = Vector2(1, 1)
 
 [node name="TellerDesk" type="Area2D" parent="." unique_id=1888430049]
+y_sort_enabled = true
 position = Vector2(464, 336)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("desk_script")
 
 [node name="Sprite2D" type="Sprite2D" parent="TellerDesk" unique_id=1591985643]
+position = Vector2(0, 16)
+offset = Vector2(0, -16)
 texture = ExtResource("tex_teller_counter")
+
+[node name="Footprint" type="StaticBody2D" parent="TellerDesk"]
+position = Vector2(0, 8)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TellerDesk/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_44x16")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TellerDesk" unique_id=1229555149]
 shape = SubResource("RectangleShape2D_desk")
@@ -109,31 +164,64 @@ shape = SubResource("RectangleShape2D_desk")
 position = Vector2(0, -22)
 
 [node name="TellerWindow1" type="Node2D" parent="."]
+y_sort_enabled = true
 position = Vector2(560, 336)
 
 [node name="Sprite2D" type="Sprite2D" parent="TellerWindow1"]
+position = Vector2(0, 16)
+offset = Vector2(0, -16)
 texture = ExtResource("tex_teller_counter")
+
+[node name="Footprint" type="StaticBody2D" parent="TellerWindow1"]
+position = Vector2(0, 8)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TellerWindow1/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_44x16")
 
 [node name="StaffSpot" type="Marker2D" parent="TellerWindow1"]
 position = Vector2(0, -22)
 
 [node name="TellerWindow2" type="Node2D" parent="."]
+y_sort_enabled = true
 position = Vector2(656, 336)
 
 [node name="Sprite2D" type="Sprite2D" parent="TellerWindow2"]
+position = Vector2(0, 16)
+offset = Vector2(0, -16)
 texture = ExtResource("tex_teller_counter")
+
+[node name="Footprint" type="StaticBody2D" parent="TellerWindow2"]
+position = Vector2(0, 8)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TellerWindow2/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_44x16")
 
 [node name="StaffSpot" type="Marker2D" parent="TellerWindow2"]
 position = Vector2(0, -22)
 
 [node name="LoanOfficerDesk" type="Area2D" parent="." unique_id=1802316915]
+y_sort_enabled = true
 position = Vector2(208, 336)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("loan_officer_desk_script")
 
 [node name="Sprite2D" type="Sprite2D" parent="LoanOfficerDesk" unique_id=1972356128]
+position = Vector2(0, 16)
+offset = Vector2(0, -16)
 texture = ExtResource("tex_officer_desk")
+
+[node name="Footprint" type="StaticBody2D" parent="LoanOfficerDesk"]
+position = Vector2(0, 9)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LoanOfficerDesk/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_36x14")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LoanOfficerDesk" unique_id=545710025]
 shape = SubResource("RectangleShape2D_loan_officer_desk")
@@ -142,6 +230,7 @@ shape = SubResource("RectangleShape2D_loan_officer_desk")
 position = Vector2(0, -22)
 
 [node name="BranchManagerDesk" type="Area2D" parent="." unique_id=1847143413]
+y_sort_enabled = true
 visible = false
 position = Vector2(304, 112)
 collision_layer = 0
@@ -150,24 +239,46 @@ monitoring = false
 script = ExtResource("branch_manager_desk_script")
 
 [node name="Sprite2D" type="Sprite2D" parent="BranchManagerDesk" unique_id=1817316968]
+position = Vector2(0, 18)
+offset = Vector2(0, -18)
 texture = ExtResource("tex_manager_desk")
+
+[node name="Footprint" type="StaticBody2D" parent="BranchManagerDesk"]
+position = Vector2(0, 10)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BranchManagerDesk/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_52x16")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="BranchManagerDesk" unique_id=193677990]
 shape = SubResource("RectangleShape2D_branch_manager_desk")
 
 [node name="ATM" type="Area2D" parent="."]
+y_sort_enabled = true
 position = Vector2(656, 560)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("atm_script")
 
 [node name="Sprite2D" type="Sprite2D" parent="ATM"]
+position = Vector2(0, 22)
+offset = Vector2(0, -22)
 texture = ExtResource("tex_atm_kiosk")
+
+[node name="Footprint" type="StaticBody2D" parent="ATM"]
+position = Vector2(0, 16)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ATM/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_28x12")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ATM"]
 shape = SubResource("RectangleShape2D_atm")
 
 [node name="CustomerQueue" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("customer_queue_script")
 customer_scene = ExtResource("customer_npc_scene")
 
@@ -189,6 +300,7 @@ position = Vector2(464, 464)
 wait_time = 20.0
 
 [node name="Window1NpcLine" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("npc_customer_line_script")
 customer_scene = ExtResource("customer_npc_scene")
 slot_name = "Teller Window 1"
@@ -211,6 +323,7 @@ position = Vector2(560, 464)
 wait_time = 15.0
 
 [node name="Window2Line" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("npc_customer_line_script")
 customer_scene = ExtResource("customer_npc_scene")
 slot_name = "Teller Window 2"
@@ -234,6 +347,7 @@ position = Vector2(656, 464)
 wait_time = 15.0
 
 [node name="Window3Line" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("npc_customer_line_script")
 customer_scene = ExtResource("customer_npc_scene")
 slot_name = "Teller Window 3"
@@ -259,83 +373,238 @@ wait_time = 15.0
 script = ExtResource("npc_loan_desk_worker_script")
 
 [node name="Decor" type="Node2D" parent="."]
+y_sort_enabled = true
 
 [node name="VaultDoor" type="Sprite2D" parent="Decor"]
-position = Vector2(112, 112)
+position = Vector2(112, 132)
+offset = Vector2(0, -20)
 texture = ExtResource("tex_vault_door")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/VaultDoor"]
+position = Vector2(0, -6)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/VaultDoor/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_36x12")
+
 [node name="ConferenceTable" type="Sprite2D" parent="Decor"]
-position = Vector2(528, 112)
+position = Vector2(528, 126)
+offset = Vector2(0, -14)
 texture = ExtResource("tex_conference_table")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/ConferenceTable"]
+position = Vector2(0, -7)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/ConferenceTable/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_92x14")
+
 [node name="AccountingCabinet1" type="Sprite2D" parent="Decor"]
-position = Vector2(688, 80)
+position = Vector2(688, 96)
+offset = Vector2(0, -16)
 texture = ExtResource("tex_cabinet")
+
+[node name="Footprint" type="StaticBody2D" parent="Decor/AccountingCabinet1"]
+position = Vector2(0, -5)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/AccountingCabinet1/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_22x10")
 
 [node name="AccountingCabinet2" type="Sprite2D" parent="Decor"]
-position = Vector2(688, 144)
+position = Vector2(688, 160)
+offset = Vector2(0, -16)
 texture = ExtResource("tex_cabinet")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/AccountingCabinet2"]
+position = Vector2(0, -5)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/AccountingCabinet2/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_22x10")
+
 [node name="MarketingDeskA" type="Sprite2D" parent="Decor"]
-position = Vector2(112, 336)
+position = Vector2(112, 352)
+offset = Vector2(0, -16)
 texture = ExtResource("tex_officer_desk")
+
+[node name="Footprint" type="StaticBody2D" parent="Decor/MarketingDeskA"]
+position = Vector2(0, -7)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/MarketingDeskA/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_36x14")
 
 [node name="MarketingDeskB" type="Sprite2D" parent="Decor"]
-position = Vector2(304, 336)
+position = Vector2(304, 352)
+offset = Vector2(0, -16)
 texture = ExtResource("tex_officer_desk")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/MarketingDeskB"]
+position = Vector2(0, -7)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/MarketingDeskB/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_36x14")
 
 [node name="Couch1" type="Sprite2D" parent="Decor"]
-position = Vector2(160, 528)
+position = Vector2(160, 542)
+offset = Vector2(0, -14)
 texture = ExtResource("tex_couch")
+
+[node name="Footprint" type="StaticBody2D" parent="Decor/Couch1"]
+position = Vector2(0, -7)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/Couch1/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_60x14")
 
 [node name="Couch2" type="Sprite2D" parent="Decor"]
-position = Vector2(280, 528)
+position = Vector2(280, 542)
+offset = Vector2(0, -14)
 texture = ExtResource("tex_couch")
+
+[node name="Footprint" type="StaticBody2D" parent="Decor/Couch2"]
+position = Vector2(0, -7)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/Couch2/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_60x14")
 
 [node name="Couch3" type="Sprite2D" parent="Decor"]
-position = Vector2(160, 592)
+position = Vector2(160, 606)
+offset = Vector2(0, -14)
 texture = ExtResource("tex_couch")
+
+[node name="Footprint" type="StaticBody2D" parent="Decor/Couch3"]
+position = Vector2(0, -7)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/Couch3/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_60x14")
 
 [node name="Couch4" type="Sprite2D" parent="Decor"]
-position = Vector2(280, 592)
+position = Vector2(280, 606)
+offset = Vector2(0, -14)
 texture = ExtResource("tex_couch")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/Couch4"]
+position = Vector2(0, -7)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/Couch4/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_60x14")
+
 [node name="ArchiveBookshelf" type="Sprite2D" parent="Decor"]
-position = Vector2(152, 170)
+position = Vector2(152, 186)
+offset = Vector2(0, -16)
 texture = ExtResource("tex_bookshelf")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/ArchiveBookshelf"]
+position = Vector2(0, -5)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/ArchiveBookshelf/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_22x10")
+
 [node name="ManagerPlant" type="Sprite2D" parent="Decor"]
-position = Vector2(244, 180)
+position = Vector2(244, 192)
+offset = Vector2(0, -12)
 texture = ExtResource("tex_plant")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/ManagerPlant"]
+position = Vector2(0, -4)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/ManagerPlant/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_10x8")
+
 [node name="ConferenceClock" type="Sprite2D" parent="Decor"]
-position = Vector2(566, 48)
+position = Vector2(566, 56)
+offset = Vector2(0, -8)
 texture = ExtResource("tex_wall_clock")
 
 [node name="ConferenceWhiteboard" type="Sprite2D" parent="Decor"]
-position = Vector2(490, 48)
+position = Vector2(490, 62)
+offset = Vector2(0, -14)
 texture = ExtResource("tex_whiteboard")
 
 [node name="BullpenWhiteboard" type="Sprite2D" parent="Decor"]
-position = Vector2(52, 290)
+position = Vector2(52, 304)
+offset = Vector2(0, -14)
 texture = ExtResource("tex_whiteboard")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/BullpenWhiteboard"]
+position = Vector2(0, -4)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/BullpenWhiteboard/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_36x8")
+
 [node name="WaitingLoungeWaterCooler" type="Sprite2D" parent="Decor"]
-position = Vector2(220, 560)
+position = Vector2(220, 575)
+offset = Vector2(0, -15)
 texture = ExtResource("tex_water_cooler")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/WaitingLoungeWaterCooler"]
+position = Vector2(0, -4)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/WaitingLoungeWaterCooler/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_14x8")
+
 [node name="AccountingPrinter" type="Sprite2D" parent="Decor"]
-position = Vector2(688, 195)
+position = Vector2(688, 205)
+offset = Vector2(0, -10)
 texture = ExtResource("tex_printer")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/AccountingPrinter"]
+position = Vector2(0, -5)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/AccountingPrinter/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_22x10")
+
 [node name="LoungePlantLeft" type="Sprite2D" parent="Decor"]
-position = Vector2(100, 560)
+position = Vector2(100, 572)
+offset = Vector2(0, -12)
 texture = ExtResource("tex_plant")
 
+[node name="Footprint" type="StaticBody2D" parent="Decor/LoungePlantLeft"]
+position = Vector2(0, -4)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/LoungePlantLeft/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_10x8")
+
 [node name="LoungePlantRight" type="Sprite2D" parent="Decor"]
-position = Vector2(340, 560)
+position = Vector2(340, 572)
+offset = Vector2(0, -12)
 texture = ExtResource("tex_plant")
+
+[node name="Footprint" type="StaticBody2D" parent="Decor/LoungePlantRight"]
+position = Vector2(0, -4)
+collision_layer = 16
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/LoungePlantRight/Footprint"]
+shape = SubResource("RectangleShape2D_footprint_10x8")
 
 [node name="StaffBreakArea" type="Node2D" parent="."]
 

@@ -19,6 +19,12 @@ extends TileMapLayer
 ## floor and gold-trimmed "lobby" wall) plus two small accent overlays on
 ## top of the open floor: a rug under the Waiting Lounge couches, and a
 ## carpet runner down the Teller queue lane.
+##
+## Outside the room (B5): the entrance gap gets a doormat and a sidewalk
+## strip runs along the outside of the bottom wall, both from a second atlas
+## (OUTDOOR_SOURCE_ID), so the gap reads as the way out rather than a hole
+## into the void. The sidewalk is solid (see teller_room.tscn's TileSet):
+## the player can step onto the doormat but not leave the building.
 
 const ROOM_WIDTH := 24
 const ROOM_HEIGHT := 22
@@ -31,6 +37,12 @@ const WALL_OFFICE := Vector2i(3, 0)
 const FLOOR_RUG := Vector2i(4, 0)
 const FLOOR_RUNNER := Vector2i(5, 0)
 const SOURCE_ID := 0
+
+const OUTDOOR_SOURCE_ID := 1
+const DOORMAT := Vector2i(0, 0)
+const SIDEWALK := Vector2i(1, 0)
+## Sidewalk rows drawn below the bottom wall.
+const OUTSIDE_ROWS := 2
 
 ## Column dividers splitting the back-office row into 4 rooms:
 ## Vault (1-5) | Manager's Office (7-12) | Conference Room (14-18) | Accounting (20-22)
@@ -53,16 +65,23 @@ const RUG_ROWS := [15, 16, 17, 18, 19]
 func _ready() -> void:
 	for x in ROOM_WIDTH:
 		for y in ROOM_HEIGHT:
-			set_cell(Vector2i(x, y), SOURCE_ID, _tile_for(x, y))
+			if _is_entrance(x, y):
+				set_cell(Vector2i(x, y), OUTDOOR_SOURCE_ID, DOORMAT)
+			else:
+				set_cell(Vector2i(x, y), SOURCE_ID, _tile_for(x, y))
+		for y in range(ROOM_HEIGHT, ROOM_HEIGHT + OUTSIDE_ROWS):
+			set_cell(Vector2i(x, y), OUTDOOR_SOURCE_ID, SIDEWALK)
+
+func _is_entrance(x: int, y: int) -> bool:
+	return y == ROOM_HEIGHT - 1 and x in ENTRANCE_DOOR_COLUMNS
 
 func _tile_for(x: int, y: int) -> Vector2i:
 	var in_back_office := y <= BACK_OFFICE_ROWS
 
 	var is_outer_edge := x == 0 or x == ROOM_WIDTH - 1 or y == 0 or y == ROOM_HEIGHT - 1
 	if is_outer_edge:
-		var is_entrance := y == ROOM_HEIGHT - 1 and x in ENTRANCE_DOOR_COLUMNS
-		if is_entrance:
-			return FLOOR_MARBLE
+		if _is_entrance(x, y):
+			return FLOOR_MARBLE # drawn as DOORMAT by _ready()
 		return WALL_OFFICE if in_back_office else WALL_LOBBY
 
 	if y < BACK_OFFICE_ROWS:

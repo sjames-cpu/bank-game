@@ -30,9 +30,19 @@ extends Node2D
 ## to it, standing at the desk's StaffSpot marker; the two teller windows
 ## serve their own NpcCustomerLines continuously. While the player is
 ## clocked in at the Loan Desk, its staff member walks to the break room
-## (StaffBreakArea) and walks back on clock-out. The Staff layer sits under
-## the desks in draw order (staff always stand behind a counter, so the
-## counter correctly overlaps them) and is y-sorted among themselves.
+## (StaffBreakArea) and walks back on clock-out.
+##
+## B5: the whole room is y-sorted. The root, the Staff layer, the customer
+## lines, Decor and each desk have y_sort_enabled, so the player, customers,
+## staff and every furniture sprite sort together by their y. Each furniture
+## sprite's origin is at its base (texture offset up), so a character switches
+## from behind to in front where its feet pass the furniture's bottom edge;
+## staff stand above their counter's base, so the counter covers their lower
+## body. Solid furniture has a Footprint StaticBody2D on physics layer 16 that
+## only the player's mask includes: customers and staff walk scripted paths,
+## colliding with walls only (unchanged), so furniture can't alter them, and
+## the player and NPCs never block each other: a customer walks through a
+## player standing in their lane.
 ##
 ## BranchManagerDesk (Phase 5f) follows the exact same pattern one tier up
 ## — hidden/non-monitoring until XPManager.is_branch_manager_unlocked,
@@ -583,6 +593,8 @@ func _update_branch_manager_desk_availability() -> void:
 	var unlocked := XPManager.is_branch_manager_unlocked
 	branch_manager_desk.visible = unlocked
 	branch_manager_desk.monitoring = unlocked
+	# A hidden desk mustn't be solid either.
+	branch_manager_desk.get_node("Footprint/CollisionShape2D").set_deferred("disabled", not unlocked)
 
 ## No availability check, unlike the job desks above — the ATM (Phase 6f)
 ## is a customer-facing feature available regardless of shift/clock-in
