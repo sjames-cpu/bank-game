@@ -9,7 +9,8 @@ class_name DisciplineLetterScreen
 ## record so the player gets one letter, not two, and the one-time
 ## "Welcome to Branch Management" orientation on the first Branch Manager
 ## clock-in (show_branch_orientation_once()), and the termination letter
-## the Branch Manager sends a staff member (StaffReviewManager). Lives in
+## the Branch Manager sends a staff member (StaffReviewManager), and the
+## "Probation Complete" letter (InterviewManager.probation_completed). Lives in
 ## teller_room's UI layer (last, so it draws on top); process_mode ALWAYS so
 ## it works whether or not a desk screen has the tree paused.
 ##
@@ -51,6 +52,7 @@ func _ready() -> void:
 	ReportManager.termination_issued.connect(_on_termination_issued)
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 	StaffReviewManager.staff_terminated.connect(_on_staff_terminated)
+	InterviewManager.probation_completed.connect(_on_probation_completed)
 
 ## The Branch Manager (the player) terminating a staff member — a short
 ## letter to them, signed by the Branch Manager.
@@ -62,17 +64,30 @@ func _on_staff_terminated(staff_name: String, report_reasons: PackedStringArray)
 	_enqueue(Mode.NOTICE, "Notice of Termination — %s" % staff_name, body, BRANCH_MANAGER_SENDER)
 
 func _on_report_issued(report: DisciplinaryReport) -> void:
+	var limit := ReportManager.report_limit()
 	var body := "This is a formal written warning, issued for %s.\n\nCustomers affected:\n%s\n\nThis is report %d of %d. Reaching %d reports will result in termination." % [
 		report.reason.to_lower(), _bullets(report.items),
-		report.number, ReportManager.REPORTS_FOR_TERMINATION, ReportManager.REPORTS_FOR_TERMINATION,
+		report.number, limit, limit,
 	]
-	_enqueue(Mode.WARNING, "Written Warning — Report %d of %d" % [report.number, ReportManager.REPORTS_FOR_TERMINATION], body)
+	if InterviewManager.is_on_probation:
+		body += "\n\nYou are on probation, so %d reports end your employment instead of the usual %d. Your probation's clean-shift count starts over: %d teller shifts without a report will complete it." % [
+			limit, ReportManager.REPORTS_FOR_TERMINATION, InterviewManager.PROBATION_CLEAN_SHIFTS,
+		]
+	_enqueue(Mode.WARNING, "Written Warning — Report %d of %d" % [report.number, limit], body)
+
+## Probation ended after enough clean teller shifts.
+func _on_probation_completed() -> void:
+	var body := "You've completed your probation period: %d teller shifts in a row without a disciplinary report. Well done.\n\nYou're now a permanent member of staff, and the usual limit of %d reports applies." % [
+		InterviewManager.PROBATION_CLEAN_SHIFTS, ReportManager.REPORTS_FOR_TERMINATION,
+	]
+	_enqueue(Mode.NOTICE, "Probation Complete", body)
 
 func _on_termination_issued(reports: Array[DisciplinaryReport]) -> void:
 	var lines: PackedStringArray = []
 	for report in reports:
 		lines.append("Report %d — %s: %s" % [report.number, report.reason, ", ".join(report.items)])
-	var body := "Following %d disciplinary reports, your employment with the branch is terminated, effective immediately.\n\n%s" % [reports.size(), "\n".join(lines)]
+	var during := " during your probation period" if InterviewManager.is_on_probation else ""
+	var body := "Following %d disciplinary reports%s, your employment with the branch is terminated, effective immediately.\n\n%s" % [reports.size(), during, "\n".join(lines)]
 	# Termination supersedes anything still waiting to be shown.
 	_queue.clear()
 	_show(Mode.TERMINATION, "Notice of Termination", body)

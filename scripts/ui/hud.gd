@@ -25,6 +25,8 @@ class_name Hud
 @onready var reputation_label: Label = $RightColumn/StatsPanel/VBox/ReputationLabel
 @onready var xp_label: Label = $RightColumn/StatsPanel/VBox/XPLabel
 @onready var reports_label: Label = $RightColumn/StatsPanel/VBox/ReportsLabel
+## "Probation — 1 of 3 clean shifts", only while on probation.
+@onready var probation_label: Label = $RightColumn/StatsPanel/VBox/ProbationLabel
 @onready var shift_label: Label = $RightColumn/StatsPanel/VBox/ShiftLabel
 @onready var stats_panel: PanelContainer = $RightColumn/StatsPanel
 
@@ -79,6 +81,8 @@ func refresh() -> void:
 	reputation_label.text = "Reputation: %d" % ReputationManager.reputation
 	xp_label.text = "XP: %d" % XPManager.total_xp
 	reports_label.text = ReportManager.status_text()
+	probation_label.text = InterviewManager.probation_status_text()
+	probation_label.visible = probation_label.text != ""
 	shift_label.text = shift_status.call() if shift_status.is_valid() else "Off shift"
 	low_reputation_warning_label.visible = ReputationManager.reputation <= ReputationManager.LOW_REPUTATION_THRESHOLD
 	loan_officer_unlocked_label.visible = XPManager.is_loan_officer_unlocked

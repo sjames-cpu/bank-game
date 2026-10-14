@@ -1,13 +1,13 @@
 extends Control
 class_name InterviewScreen
 
-## First-shift interview mini-game (2h). No longer the main_scene (the
-## game currently boots straight into teller_room); it's reached after a
-## termination, via the "Apply for a new job" button on
-## discipline_letter_screen.gd, which resets all career progress first.
-## teller_room (and its Player/first shift) loads once the interview ends
-## in Hired or Hired-on-Probation. A Rejected outcome loops back to the
-## first question right here instead of needing any "quit game" flow.
+## The hiring interview mini-game (2h): the game's main scene, so every new
+## game starts here, and also where "Apply for a new job" lands after a
+## termination (discipline_letter_screen.gd resets all career progress
+## first). teller_room (and its Player/first shift) loads once the
+## interview ends in Hired or Hired-on-Probation; the latter starts a
+## probation (InterviewManager). A Rejected outcome loops back to the first
+## question right here instead of needing any "quit game" flow.
 
 const TELLER_ROOM_SCENE: String = "res://scenes/world/teller_room.tscn"
 
@@ -77,7 +77,7 @@ func _show_outcome(outcome: InterviewManager.Outcome) -> void:
 			continue_button.text = "Start Shift"
 		InterviewManager.Outcome.HIRED_ON_PROBATION:
 			outcome_title_label.text = "You're Hired — On Probation"
-			outcome_message_label.text = "Your answers raised some concerns, but we'll give you a shot on a probationary basis."
+			outcome_message_label.text = "Your answers raised some concerns, but we'll give you a shot on a probationary basis. Complete %d teller shifts without a disciplinary report to pass probation; until then, %d reports end your employment." % [InterviewManager.PROBATION_CLEAN_SHIFTS, InterviewManager.PROBATION_REPORTS_FOR_TERMINATION]
 			continue_button.text = "Start Shift"
 		InterviewManager.Outcome.REJECTED:
 			outcome_title_label.text = "Not This Time"

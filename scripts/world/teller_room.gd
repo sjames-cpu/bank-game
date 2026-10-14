@@ -176,6 +176,9 @@ func _ready() -> void:
 	# A Branch Manager promotion earned mid-shift waits for clock-out.
 	teller_screen.shift_clocked_in.connect(XPManager.begin_player_shift.bind(PLAYER_TELLER_WINDOW))
 	teller_screen.shift_clocked_out.connect(XPManager.end_player_shift.bind(PLAYER_TELLER_WINDOW))
+	# Probation counts completed teller shifts without a new report.
+	teller_screen.shift_clocked_in.connect(InterviewManager.begin_teller_shift)
+	teller_screen.shift_clocked_out.connect(InterviewManager.end_teller_shift)
 	customer_queue.customer_abandoned.connect(_on_customer_abandoned)
 	loan_officer_desk.interacted.connect(_on_loan_officer_desk_interacted)
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)

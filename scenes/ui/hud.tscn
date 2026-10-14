@@ -53,6 +53,13 @@ text = "XP: 0"
 layout_mode = 2
 text = "Reports: 0 / 3"
 
+[node name="ProbationLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
+visible = false
+layout_mode = 2
+modulate = Color(1, 0.8, 0.3, 1)
+text = "Probation — 0 of 3 clean shifts"
+autowrap_mode = 2
+
 [node name="Separator" type="HSeparator" parent="RightColumn/StatsPanel/VBox"]
 layout_mode = 2
 mouse_filter = 2

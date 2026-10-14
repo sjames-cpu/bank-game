@@ -4,7 +4,9 @@ extends Node
 ## (see ScoreManager for why an autoload is the right fit). Owns the
 ## player's disciplinary record: every MISTAKES_PER_REPORT mistakes from a
 ## role become one DisciplinaryReport (a Branch Manager written warning),
-## and REPORTS_FOR_TERMINATION reports end the career (see
+## and REPORTS_FOR_TERMINATION reports end the career (only
+## InterviewManager.PROBATION_REPORTS_FOR_TERMINATION while on probation;
+## report_limit() gives the current one) (see
 ## discipline_letter_screen.gd for the letters, CareerReset for the reset).
 ##
 ## Reports carry across shifts and roles — a Teller who becomes a Loan
@@ -70,11 +72,17 @@ func record_mistake(role: DecisionRecord.Role, description: String) -> void:
 func get_report_count() -> int:
 	return reports.size()
 
-## "Reports: 1 / 3", or a note that managers aren't subject to reports.
+## How many reports end the career right now: REPORTS_FOR_TERMINATION, or
+## fewer while on probation (InterviewManager.report_limit()).
+func report_limit() -> int:
+	return InterviewManager.report_limit()
+
+## "Reports: 1 / 3" ("1 / 2" on probation), or a note that managers aren't
+## subject to reports.
 func status_text() -> String:
 	if is_exempt:
 		return "Reports: n/a (manager)"
-	return "Reports: %d / %d" % [reports.size(), REPORTS_FOR_TERMINATION]
+	return "Reports: %d / %d" % [reports.size(), report_limit()]
 
 func _issue_report(role: DecisionRecord.Role, items: PackedStringArray) -> void:
 	var report := DisciplinaryReport.new()
@@ -84,14 +92,17 @@ func _issue_report(role: DecisionRecord.Role, items: PackedStringArray) -> void:
 	report.items = items
 	report.timestamp = Time.get_datetime_string_from_system()
 	reports.append(report)
+	var limit := report_limit()
 	HistoryManager.add_record(
 		DecisionRecord.Role.DISCIPLINARY,
-		"Written warning %d/%d from the Branch Manager: %s (%s)" % [report.number, REPORTS_FOR_TERMINATION, report.reason, ", ".join(items)],
-		"Report %d/%d" % [report.number, REPORTS_FOR_TERMINATION]
+		"Written warning %d/%d from the Branch Manager: %s (%s)" % [report.number, limit, report.reason, ", ".join(items)],
+		"Report %d/%d" % [report.number, limit]
 	)
+	# A report during probation starts its clean-shift count over.
+	InterviewManager.note_report()
 	reports_changed.emit(reports.size())
 
-	if reports.size() >= REPORTS_FOR_TERMINATION:
+	if reports.size() >= limit:
 		is_terminated = true
 		HistoryManager.add_record(
 			DecisionRecord.Role.DISCIPLINARY,
