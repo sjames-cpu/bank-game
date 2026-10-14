@@ -7,6 +7,9 @@ class_name InputPrompts
 ## The desk/ATM interact action (project.godot [input]). The desks also
 ## accept ui_accept (Enter/Space); prompts only name this one.
 const INTERACT: StringName = &"interact"
+## Switches the camera between the close follow view and the overview
+## (RoomCamera).
+const OVERVIEW: StringName = &"toggle_overview"
 
 ## Display name of the first key bound to `action`, e.g. "E". Empty if the
 ## action has no key.

@@ -127,6 +127,8 @@ const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 @onready var desk_notice_label: Label = $UI/DeskNotice/Label
 @onready var letter_screen: DisciplineLetterScreen = $UI/DisciplineLetterScreen
 @onready var hud: Hud = $HUD
+@onready var camera: RoomCamera = $Player/Camera2D
+@onready var room_layer: TileMapLayer = $Room
 
 ## How long the "X is working this window" notice stays up.
 const DESK_NOTICE_SECONDS: float = 3.5
@@ -167,6 +169,8 @@ var _customer_being_served: CustomerNPC = null
 var _customers_awaiting_farewell: Array[CustomerNPC] = []
 
 func _ready() -> void:
+	# The camera stays inside the room, walls and sidewalk included.
+	camera.set_room_bounds(room_bounds())
 	hud.shift_status = describe_shift_status
 	hud.letter_screen = letter_screen
 	teller_screen.ending_count_started.connect(hud.show_hint_once.bind(HintManager.Hint.FIRST_CLOCK_OUT))
@@ -217,6 +221,13 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_update_interaction_prompt()
+
+## The whole tiled area (the room and the sidewalk outside it), in world
+## pixels: what the camera may show (RoomCamera).
+func room_bounds() -> Rect2:
+	var used := room_layer.get_used_rect()
+	var tile := Vector2(room_layer.tile_set.tile_size)
+	return Rect2(room_layer.position + Vector2(used.position) * tile, Vector2(used.size) * tile)
 
 # --- HUD (B4) -----------------------------------------------------------------
 

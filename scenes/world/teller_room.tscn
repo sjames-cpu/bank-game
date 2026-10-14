@@ -20,6 +20,7 @@
 [ext_resource type="Script" uid="uid://d1ivc784diqb0" path="res://scripts/world/loan_officer_desk.gd" id="loan_officer_desk_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/loan_officer_screen.tscn" id="loan_officer_screen_scene"]
 [ext_resource type="Script" uid="uid://bcl2ffh2wp6w1" path="res://scripts/player/player_movement.gd" id="player_script"]
+[ext_resource type="Script" path="res://scripts/world/room_camera.gd" id="room_camera_script"]
 [ext_resource type="SpriteFrames" path="res://assets/sprites/player_frames.tres" id="player_frames"]
 [ext_resource type="Script" uid="uid://cnnflhmu66djm" path="res://scripts/world/teller_room.gd" id="room_controller_script"]
 [ext_resource type="Script" uid="uid://i7kwe8a1lg55" path="res://scripts/world/room_builder.gd" id="room_script"]
@@ -135,7 +136,8 @@ animation = &"idle_down"
 shape = SubResource("RectangleShape2D_player")
 
 [node name="Camera2D" type="Camera2D" parent="Player" unique_id=2109249787]
-zoom = Vector2(1, 1)
+zoom = Vector2(2, 2)
+script = ExtResource("room_camera_script")
 
 [node name="TellerDesk" type="Area2D" parent="." unique_id=1888430049]
 y_sort_enabled = true

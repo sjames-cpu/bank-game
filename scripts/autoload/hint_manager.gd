@@ -44,7 +44,7 @@ func text_for(hint: Hint) -> String:
 	var key := InputPrompts.key_for(InputPrompts.INTERACT)
 	match hint:
 		Hint.ARRIVAL:
-			return "Walk with WASD or the arrow keys. Go to your teller window and press %s to clock in." % key
+			return "Walk with WASD or the arrow keys. Go to your teller window and press %s to clock in. Press %s to zoom out and see the whole branch." % [key, InputPrompts.key_for(InputPrompts.OVERVIEW)]
 		Hint.FIRST_CUSTOMER:
 			return "Do what the customer asks, then press Complete Transaction."
 		Hint.FIRST_CLOCK_OUT:

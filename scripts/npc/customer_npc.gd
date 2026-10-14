@@ -170,6 +170,8 @@ var _facing_flip: bool = false
 func _ready() -> void:
 	target_position = global_position
 	_sprite.sprite_frames = CUSTOMER_FRAME_SETS.pick_random()
+	# Readable at any camera zoom (WorldText).
+	WorldText.register(_farewell_label)
 
 ## Which queue spot (index into CustomerQueue.queue_positions) this customer
 ## stands at or is stepping into; -1 until their line gives them one.

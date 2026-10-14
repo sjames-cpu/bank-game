@@ -44,6 +44,9 @@ var _facing_flip: bool = false
 var _speech_token: int = 0
 
 func _ready() -> void:
+	# Readable at any camera zoom (WorldText).
+	WorldText.register(_name_label)
+	WorldText.register(_speech_label)
 	if staff != null:
 		_show_member()
 

@@ -19,7 +19,7 @@ Every character uses the same format, so they all share one size and style and t
 - **Sheets:** one 96×24 PNG per direction (`_down`, `_up`, `_side`). Left-facing is the side sheet mirrored in code.
 - **Frames:** six 16×24 frames per sheet. Frames 0–1 are the idle animation (2 fps); frames 2–5 are the walk animation (8 fps).
 - **SpriteFrames:** each character has a `<name>_frames.tres` with the animations `idle_down`, `walk_down`, `idle_up`, `walk_up`, `idle_side` and `walk_side`.
-- **Scale:** sprites are drawn at 1:1 on the room's 32×32 tile grid, with nearest-neighbour filtering.
+- **Scale:** sprites sit on the room's 32×32 tile grid with nearest-neighbour filtering. The camera shows them at 2× by default and 1× in the overview (Z), so every art pixel is a whole number of screen pixels at both zooms.
 
 | Sheets | What they are | Made by |
 |---|---|---|

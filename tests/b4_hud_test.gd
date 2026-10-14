@@ -383,7 +383,7 @@ func test_arrival_hint_shows_once_per_career() -> void:
 	await settle()
 	assert_int(hud.current_hint).is_equal(Hint.ARRIVAL)
 	assert_bool(hud.hint_panel.is_visible_in_tree()).is_true()
-	assert_str(hud.hint_label.text).is_equal("Walk with WASD or the arrow keys. Go to your teller window and press E to clock in.")
+	assert_str(hud.hint_label.text).is_equal("Walk with WASD or the arrow keys. Go to your teller window and press E to clock in. Press Z to zoom out and see the whole branch.")
 	assert_int(hud.hint_dismiss_button.focus_mode).is_equal(Control.FOCUS_NONE)
 	hud.hint_dismiss_button.pressed.emit()
 	assert_bool(hud.hint_panel.visible).is_false()
