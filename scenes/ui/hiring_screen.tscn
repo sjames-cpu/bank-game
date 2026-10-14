@@ -1,0 +1,147 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/hiring_screen.gd" id="screen_script"]
+
+[node name="HiringScreen" type="Control"]
+process_mode = 2
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_right = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Hire Staff"
+horizontal_alignment = 1
+
+[node name="VacancyHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="PrevButton" type="Button" parent="Panel/VBox/VacancyHBox"]
+layout_mode = 2
+text = "<"
+
+[node name="VacancyLabel" type="Label" parent="Panel/VBox/VacancyHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"MutedLabel"
+text = "Teller Window 2 (Teller)"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="NextButton" type="Button" parent="Panel/VBox/VacancyHBox"]
+layout_mode = 2
+text = ">"
+
+[node name="MessageLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+visible = false
+text = "Message"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="CandidatesHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="CandidateSection" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="CandidateVBox" type="VBoxContainer" parent="Panel/VBox/CandidateSection"]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="Panel/VBox/CandidateSection/CandidateVBox"]
+layout_mode = 2
+text = "Candidate"
+horizontal_alignment = 1
+
+[node name="BackgroundLabel" type="Label" parent="Panel/VBox/CandidateSection/CandidateVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Background"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="TranscriptScroll" type="ScrollContainer" parent="Panel/VBox/CandidateSection/CandidateVBox"]
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="TranscriptLabel" type="Label" parent="Panel/VBox/CandidateSection/CandidateVBox/TranscriptScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Not interviewed yet."
+autowrap_mode = 2
+
+[node name="AskButton" type="Button" parent="Panel/VBox/CandidateSection/CandidateVBox"]
+layout_mode = 2
+text = "Ask Question 1 of 3"
+
+[node name="ActionsHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="HireButton" type="Button" parent="Panel/VBox/ActionsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Hire"
+
+[node name="RejectAllButton" type="Button" parent="Panel/VBox/ActionsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Reject All"
+
+[node name="HiredCard" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+visible = false
+theme_type_variation = &"SectionPanel"
+
+[node name="HiredVBox" type="VBoxContainer" parent="Panel/VBox/HiredCard"]
+layout_mode = 2
+
+[node name="HiredLabel" type="Label" parent="Panel/VBox/HiredCard/HiredVBox"]
+layout_mode = 2
+text = "Hired"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="FeedbackLabel" type="Label" parent="Panel/VBox/HiredCard/HiredVBox"]
+layout_mode = 2
+text = "Feedback"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ContinueButton" type="Button" parent="Panel/VBox/HiredCard/HiredVBox"]
+layout_mode = 2
+text = "Continue"
+
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Close"

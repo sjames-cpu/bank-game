@@ -48,9 +48,16 @@ var schedule: Dictionary = {}
 var is_teller_window_3_open: bool = false
 
 ## Names of staff terminated by the Branch Manager (StaffReviewManager) —
-## gone from the roster for the rest of the career. No hiring yet, so their
-## desk stays unassigned.
+## gone from the roster for the rest of the career. Their desk stays
+## unassigned until the manager fills it (scheduling or HiringManager).
 var dismissed_staff: Array[String] = []
+
+## Staff the Branch Manager hired (HiringManager), on the roster after
+## StaffRosterData's starting staff. Cleared with the career.
+var hired_staff: Array[StaffMember] = []
+
+## The most staff the branch employs at once (dismissed staff don't count).
+const MAX_ROSTER_SIZE: int = 8
 
 func _ready() -> void:
 	schedule = _default_schedule()
@@ -87,6 +94,7 @@ func open_teller_window_3() -> void:
 func reset() -> void:
 	is_teller_window_3_open = false
 	dismissed_staff.clear()
+	hired_staff.clear()
 	schedule = _default_schedule()
 
 ## The schedule as slot name -> staff name.
@@ -95,10 +103,14 @@ func save_data() -> Dictionary:
 	for slot_name: String in schedule:
 		var member: StaffMember = schedule[slot_name]
 		assignments[slot_name] = member.staff_name
+	var hired: Array = []
+	for member in hired_staff:
+		hired.append(SaveGame.resource_to_dict(member))
 	return {
 		"schedule": assignments,
 		"is_teller_window_3_open": is_teller_window_3_open,
 		"dismissed_staff": dismissed_staff.duplicate(),
+		"hired_staff": hired,
 	}
 
 ## Staff are looked up by name in the current roster; a slot or name the
@@ -106,13 +118,21 @@ func save_data() -> Dictionary:
 ## another desk is left out (that desk stays unassigned). With no schedule
 ## in `data` at all, the default one is kept (minus dismissed staff). The
 ## room isn't loaded yet, so schedule_confirmed isn't emitted: the room
-## places staff from the schedule when it's ready.
+## places staff from the schedule when it's ready. Hired staff load first,
+## so the schedule can name them; a hired entry without a name, or reusing
+## a roster name, is dropped.
 func load_data(data: Dictionary) -> void:
 	is_teller_window_3_open = SaveGame.bool_of(data, "is_teller_window_3_open", false)
 	dismissed_staff.clear()
 	for staff_name in SaveGame.strings_of(SaveGame.array_of(data, "dismissed_staff")):
 		if not dismissed_staff.has(staff_name):
 			dismissed_staff.append(staff_name)
+	hired_staff.clear()
+	for entry in SaveGame.dicts_of(SaveGame.array_of(data, "hired_staff")):
+		var member := StaffMember.new()
+		SaveGame.fill_resource(member, entry)
+		if member.staff_name != "" and not is_known_staff_name(member.staff_name):
+			hired_staff.append(member)
 	if not data.get("schedule") is Dictionary:
 		for staff_name in dismissed_staff:
 			schedule.erase(slot_of(staff_name))
@@ -131,13 +151,63 @@ func load_data(data: Dictionary) -> void:
 				schedule[slot_name] = member
 				break
 
-## The branch's current staff: StaffRosterData minus anyone dismissed.
+## The branch's current staff: StaffRosterData plus anyone hired, minus
+## anyone dismissed.
 func get_roster() -> Array[StaffMember]:
 	var roster: Array[StaffMember] = []
-	for member in StaffRosterData.get_staff():
+	for member in _all_staff():
 		if not dismissed_staff.has(member.staff_name):
 			roster.append(member)
 	return roster
+
+## Starting staff then hired staff, dismissed or not.
+func _all_staff() -> Array[StaffMember]:
+	var all_staff := StaffRosterData.get_staff()
+	all_staff.append_array(hired_staff)
+	return all_staff
+
+## Whether the branch has room for another hire (MAX_ROSTER_SIZE).
+func has_room_to_hire() -> bool:
+	return get_roster().size() < MAX_ROSTER_SIZE
+
+## Whether `staff_name` is, or ever was, on this career's roster (starting,
+## hired or dismissed), so a new hire never reuses a name.
+func is_known_staff_name(staff_name: String) -> bool:
+	if dismissed_staff.has(staff_name):
+		return true
+	for member in _all_staff():
+		if member.staff_name == staff_name:
+			return true
+	return false
+
+## Every desk that currently takes staff but has nobody assigned, in desk
+## order.
+func vacant_slots() -> Array[String]:
+	var vacant: Array[String] = []
+	for slot in get_desk_slots():
+		var slot_name: String = slot["name"]
+		if get_assigned(slot_name) == null:
+			vacant.append(slot_name)
+	return vacant
+
+## The StaffMember.role that works `slot_name` ("" if it isn't a desk).
+func role_for_slot(slot_name: String) -> String:
+	for slot in get_desk_slots():
+		if slot["name"] == slot_name:
+			return slot["role"]
+	return ""
+
+## A new hire joins the roster at the vacant desk `slot_name`, and the
+## schedule is re-announced so teller_room.gd places them and opens the
+## desk's line. Refused (false) unless the desk is vacant, the branch has
+## room, and the name is new.
+func hire_staff(member: StaffMember, slot_name: String) -> bool:
+	if not vacant_slots().has(slot_name) or not has_room_to_hire() or is_known_staff_name(member.staff_name):
+		return false
+	hired_staff.append(member)
+	schedule[slot_name] = member
+	schedule_confirmed.emit(schedule)
+	return true
 
 func is_dismissed(staff_name: String) -> bool:
 	return dismissed_staff.has(staff_name)

@@ -113,6 +113,14 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Boot check**: `run_tests.sh` and CI also boot `teller_room.tscn` directly, since the main scene no longer leads straight to it.
 - **Save and load** (`SaveGame`, the HANDOFF "no persistence" flaw): the whole career is saved as versioned JSON in `user://career.json` when the player is hired, at every clock-out, after a promotion and after the orientation letter. Mid-shift state is never saved. A new start screen offers Continue (back into the room, off shift) or New Game (after a confirmation, the save is deleted). A damaged or wrong-version save shows a message, is moved aside, and a new game starts. Termination deletes the save as soon as the letter appears. Tests use their own save path.
 
+## Session 12 — Oct 14, 2026: Hiring staff (NPC coworkers, step 5)
+*(the hiring commit)*
+
+- **Hire Staff**: a Branch Manager with an empty desk (after a termination, or left empty on the schedule) gets three candidates for that desk's role. Their names come from a separate pool, each has a one-line background, and their stats are hidden. One is strong, one average, and one weak in the stat that matters at that desk: reliability for a teller, skill for a loan officer.
+- **Interviews**: the manager asks three questions from the player's own interview. Candidates answer from the stats that drive the desk, so the weakness shows in poorer answers. Very low reliability can produce an instant-reject answer (a red flag) for either role. Stats are revealed only on the "hired" card.
+- **Scoring** (`HiringManager`): candidates are ranked by the stats the desk's formulas use. The best hire earns +6 Score/+1 Reputation, the middle one +1/0, the weakest −4/−1, and a red-flag hire −6/−2. Reject All scores nothing, and new candidates arrive at the next clock-in. Hired staff work with the same formulas as everyone else. The roster is capped at 8, and hiring is only possible for a real vacancy.
+- **Save/load**: hired staff, waiting candidates with their interview progress, and rejected vacancies are saved. A new career goes back to the original roster.
+
 ---
 
 ## Notes for next session

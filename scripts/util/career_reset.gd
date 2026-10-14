@@ -21,4 +21,5 @@ static func reset_all() -> void:
 	AccountManager.reset()
 	ScheduleManager.reset()
 	StaffReviewManager.reset()
+	HiringManager.reset()
 	HintManager.reset()

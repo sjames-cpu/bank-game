@@ -29,6 +29,11 @@ class_name BranchManagerScreen
 ##   already-open VaultReconciliationScreen would reapply Score/
 ##   Reputation/XP every single click.
 ##
+## HiringScreen (NPC coworkers, step 5) gets its "Hire Staff" button only
+## while a desk is vacant (HiringManager.vacancies()); clock-in has
+## HiringManager generate candidates (begin_shift()), and its hire_completed
+## points join the shift total like review_completed's.
+##
 ## review_completed/_on_vault_count_submitted plus each screen's closed
 ## signal (needed here for the first time — a caller now exists to react
 ## to it) are how this hub tallies a running shift total and knows when to
@@ -43,6 +48,8 @@ signal shift_clocked_out
 @onready var main_panel: PanelContainer = $Panel
 @onready var schedule_staff_button: Button = $Panel/VBox/ScheduleStaffButton
 @onready var review_staff_button: Button = $Panel/VBox/ReviewStaffButton
+## Only shown while a desk is vacant (HiringManager.vacancies()), naming it.
+@onready var hire_staff_button: Button = $Panel/VBox/HireStaffButton
 @onready var review_approvals_button: Button = $Panel/VBox/ReviewApprovalsButton
 @onready var vault_reconciliation_button: Button = $Panel/VBox/VaultReconciliationButton
 @onready var clock_in_button: Button = $Panel/VBox/ClockInButton
@@ -54,6 +61,7 @@ signal shift_clocked_out
 @onready var approvals_screen: ApprovalsScreen = $ApprovalsScreen
 @onready var vault_reconciliation_screen: VaultReconciliationScreen = $VaultReconciliationScreen
 @onready var staff_review_screen: StaffReviewScreen = $StaffReviewScreen
+@onready var hiring_screen: HiringScreen = $HiringScreen
 
 @onready var shift_summary_panel: PanelContainer = $ShiftSummaryPanel
 @onready var shift_start_time_label: Label = $ShiftSummaryPanel/VBox/StartTimeLabel
@@ -123,17 +131,20 @@ func _ready() -> void:
 	clock_out_button.pressed.connect(_on_clock_out_button_pressed)
 	schedule_staff_button.pressed.connect(_on_schedule_staff_button_pressed)
 	review_staff_button.pressed.connect(_on_review_staff_button_pressed)
+	hire_staff_button.pressed.connect(_on_hire_staff_button_pressed)
 	review_approvals_button.pressed.connect(_on_review_approvals_button_pressed)
 	vault_reconciliation_button.pressed.connect(_on_vault_reconciliation_button_pressed)
 	shift_summary_done_button.pressed.connect(_on_shift_summary_done_pressed)
 
 	staff_scheduling_screen.closed.connect(_on_sub_screen_closed)
 	staff_review_screen.closed.connect(_on_sub_screen_closed)
+	hiring_screen.closed.connect(_on_sub_screen_closed)
 	approvals_screen.closed.connect(_on_sub_screen_closed)
 	vault_reconciliation_screen.closed.connect(_on_sub_screen_closed)
 
 	approvals_screen.review_completed.connect(_on_activity_completed)
 	staff_review_screen.review_completed.connect(_on_activity_completed)
+	hiring_screen.hire_completed.connect(_on_activity_completed)
 	StaffReviewManager.review_decided.connect(_on_staff_review_decided)
 	_reset_review_stats()
 	vault_reconciliation_screen.count_submitted.connect(_on_vault_count_submitted)
@@ -156,6 +167,8 @@ func _on_close_button_pressed() -> void:
 func _show_main_panel() -> void:
 	shift_summary_panel.visible = false
 	main_panel.visible = true
+	# A sub-screen may have opened or filled a vacancy (Hire Staff).
+	_update_shift_controls()
 
 func _on_clock_in_button_pressed() -> void:
 	_begin_shift()
@@ -172,6 +185,8 @@ func _begin_shift() -> void:
 	shift_xp_total = 0
 	shift_staff_records.clear()
 	_reset_review_stats()
+	# Rejected vacancies get new candidates; every vacancy has some waiting.
+	HiringManager.begin_shift()
 	_update_shift_controls()
 	shift_clocked_in.emit()
 
@@ -203,6 +218,10 @@ func _on_schedule_staff_button_pressed() -> void:
 func _on_review_staff_button_pressed() -> void:
 	main_panel.visible = false
 	staff_review_screen.show_screen()
+
+func _on_hire_staff_button_pressed() -> void:
+	main_panel.visible = false
+	hiring_screen.show_screen()
 
 func _on_review_approvals_button_pressed() -> void:
 	main_panel.visible = false
@@ -432,9 +451,17 @@ func _update_shift_controls() -> void:
 	clock_out_button.visible = clocked_in
 	schedule_staff_button.disabled = not clocked_in
 	review_staff_button.disabled = not clocked_in
+	var vacancies := HiringManager.vacancies()
+	hire_staff_button.visible = not vacancies.is_empty()
+	hire_staff_button.disabled = not clocked_in
+	hire_staff_button.text = hire_button_text(vacancies)
 	review_approvals_button.disabled = not clocked_in
 	vault_reconciliation_button.disabled = not clocked_in or _vault_reconciled_this_shift
 	vault_reconciliation_button.text = "Vault Reconciliation (Done This Shift)" if _vault_reconciled_this_shift else "Vault Reconciliation"
+
+## "Hire Staff — Teller Window 2, Loan Desk".
+static func hire_button_text(vacancies: Array[String]) -> String:
+	return "Hire Staff — %s" % ", ".join(vacancies)
 
 ## For the room's HUD (teller_room.gd).
 func is_clocked_in() -> bool:

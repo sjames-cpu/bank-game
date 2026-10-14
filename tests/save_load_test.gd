@@ -130,6 +130,23 @@ func build_full_career() -> void:
 	HintManager.mark_shown(HintManager.Hint.FIRST_CLOCK_OUT)
 	HintManager.mark_shown(HintManager.Hint.LOAN_OFFICER_UNLOCKED)
 
+	# Hiring: a hire, a vacancy's candidates part-way through their
+	# interviews, and a rejected vacancy.
+	var hire := StaffCandidate.new()
+	hire.staff_name = "Harper Quinn"
+	hire.role = "Teller"
+	hire.background = "2 years as a teller at a credit union"
+	hire.skill = 8
+	hire.reliability = 7
+	hire.speed = 9
+	hire.customer_service = 6
+	assert_bool(ScheduleManager.hire_staff(hire.to_staff_member(), ScheduleManager.SLOT_TELLER_WINDOW_2)).is_true()
+	var waiting := HiringManager.generate_candidates("Loan Officer")
+	waiting[0].questions_asked = 3
+	waiting[2].questions_asked = 1
+	HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK] = waiting
+	HiringManager.rejected_slots.append(ScheduleManager.SLOT_TELLER_WINDOW_1)
+
 # --- round trip ------------------------------------------------------------------
 
 func test_save_then_load_restores_every_saved_value() -> void:
@@ -174,7 +191,14 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_bool(ScheduleManager.is_teller_window_3_open).is_true()
 	assert_array(ScheduleManager.dismissed_staff).is_equal(["Walter Higgins"])
 	assert_str(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_1).staff_name).is_equal("Nina Ortiz")
-	assert_object(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_2)).is_null()
+	assert_str(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_2).staff_name).is_equal("Harper Quinn")
+	assert_int(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_2).speed).is_equal(9)
+	assert_int(ScheduleManager.hired_staff.size()).is_equal(1)
+	var waiting: Array[StaffCandidate] = HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK]
+	assert_int(waiting.size()).is_equal(3)
+	assert_int(waiting[0].questions_asked).is_equal(3)
+	assert_int(waiting[2].questions_asked).is_equal(1)
+	assert_array(HiringManager.rejected_slots).is_equal([ScheduleManager.SLOT_TELLER_WINDOW_1])
 	assert_str(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_3).staff_name).is_equal("Derek Voss")
 	assert_int(StaffReviewManager.queue.size()).is_equal(2)
 	assert_float(StaffReviewManager.queue[1].annual_income).is_equal(61234.25)
@@ -186,7 +210,7 @@ func test_save_then_load_restores_every_saved_value() -> void:
 func test_saved_resources_cover_every_exported_field() -> void:
 	# A field added to a saved resource must reach the file without changes
 	# to SaveGame: every exported property is written.
-	for resource: Resource in [Account.new(), DecisionRecord.new(), DisciplinaryReport.new(), StaffReviewItem.new()]:
+	for resource: Resource in [Account.new(), DecisionRecord.new(), DisciplinaryReport.new(), StaffReviewItem.new(), StaffMember.new(), StaffCandidate.new()]:
 		var saved := SaveGame.resource_to_dict(resource)
 		var script: Script = resource.get_script()
 		for property in resource.get_property_list():

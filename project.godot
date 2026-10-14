@@ -25,6 +25,7 @@ InterviewManager="*res://scripts/autoload/interview_manager.gd"
 HistoryManager="*res://scripts/autoload/history_manager.gd"
 ScheduleManager="*res://scripts/autoload/schedule_manager.gd"
 StaffReviewManager="*res://scripts/autoload/staff_review_manager.gd"
+HiringManager="*res://scripts/autoload/hiring_manager.gd"
 HintManager="*res://scripts/autoload/hint_manager.gd"
 ReportManager="*res://scripts/autoload/report_manager.gd"
 

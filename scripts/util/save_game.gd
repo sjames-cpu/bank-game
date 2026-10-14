@@ -54,6 +54,7 @@ static func capture() -> Dictionary:
 		"accounts": AccountManager.save_data(),
 		"schedule": ScheduleManager.save_data(),
 		"staff_review": StaffReviewManager.save_data(),
+		"hiring": HiringManager.save_data(),
 		"hints": HintManager.save_data(),
 	}
 
@@ -74,6 +75,8 @@ static func restore(career: Dictionary) -> void:
 	AccountManager.load_data(dict_of(career, "accounts"))
 	ScheduleManager.load_data(dict_of(career, "schedule"))
 	StaffReviewManager.load_data(dict_of(career, "staff_review"))
+	# After ScheduleManager: candidates are kept per desk slot.
+	HiringManager.load_data(dict_of(career, "hiring"))
 	HintManager.load_data(dict_of(career, "hints"))
 
 ## Writes the current career to `path`. Refused once the player has been
@@ -206,6 +209,14 @@ static func strings_of(values: Array) -> PackedStringArray:
 			strings.append(text)
 	return strings
 
+## The numeric entries of `values` as ints, skipping anything else.
+static func ints_of(values: Array) -> PackedInt32Array:
+	var ints: PackedInt32Array = []
+	for value: Variant in values:
+		if value is int or value is float:
+			ints.append(int_value(value, 0))
+	return ints
+
 ## The Dictionary entries of `values`, skipping anything else (a list of
 ## saved resources).
 static func dicts_of(values: Array) -> Array[Dictionary]:
@@ -217,9 +228,11 @@ static func dicts_of(values: Array) -> Array[Dictionary]:
 	return dicts
 
 # --- data resources --------------------------------------------------------------
-# Account, DecisionRecord, DisciplinaryReport and StaffReviewItem are saved
-# field by field from their exported properties, so a field added to one of
-# them is saved without touching this file (enums are ints).
+# Account, DecisionRecord, DisciplinaryReport, StaffReviewItem, StaffMember
+# (hired staff) and StaffCandidate are saved field by field from their
+# exported properties, so a field added to one of them is saved without
+# touching this file (enums are ints; int, float, bool, String,
+# PackedStringArray and PackedInt32Array fields are supported).
 
 ## The exported properties of `resource` as JSON-ready data.
 static func resource_to_dict(resource: Resource) -> Dictionary:
@@ -230,6 +243,9 @@ static func resource_to_dict(resource: Resource) -> Dictionary:
 		if value is PackedStringArray:
 			var strings: PackedStringArray = value
 			value = Array(strings)
+		elif value is PackedInt32Array:
+			var ints: PackedInt32Array = value
+			value = Array(ints)
 		data[property_name] = value
 	return data
 
@@ -257,6 +273,9 @@ static func fill_resource(resource: Resource, data: Dictionary) -> void:
 			TYPE_PACKED_STRING_ARRAY:
 				if data[property_name] is Array:
 					resource.set(property_name, strings_of(array_of(data, property_name)))
+			TYPE_PACKED_INT32_ARRAY:
+				if data[property_name] is Array:
+					resource.set(property_name, ints_of(array_of(data, property_name)))
 
 static func _saved_properties(resource: Resource) -> Array[Dictionary]:
 	var saved: Array[Dictionary] = []
