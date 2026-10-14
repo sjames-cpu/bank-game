@@ -27,8 +27,33 @@ const FORMAT_VERSION: int = 1
 const DEFAULT_PATH: String = "user://career.json"
 
 ## Where the save lives. Tests point this at their own file
-## (tests/support/teller_room_suite.gd) so they never touch a real save.
+## (tests/support/teller_room_suite.gd) so they never touch a real save, and
+## so do the scratch/ screenshot scripts.
 static var path: String = DEFAULT_PATH
+
+## The player's real save. Only the real game flow may write, move or delete
+## it: the start screen (the main scene) calls allow_real_save(). Anything
+## else that still points at it (a test, a screenshot script, a scene run on
+## its own from the editor) is refused with a warning (_may_write()), so a
+## forgotten `path` can never overwrite someone's career. A variable only so
+## the guard's own test can stand in a file of its own.
+static var real_path: String = DEFAULT_PATH
+
+## Set by allow_real_save(); see real_path.
+static var real_save_allowed: bool = false
+
+## Called by the start screen (start_screen.gd): from here on this is the
+## real game, and it may write the real save.
+static func allow_real_save() -> void:
+	real_save_allowed = true
+
+## Whether `path` may be written, moved or deleted (see real_path). Warns
+## when it may not.
+static func _may_write(action: String) -> bool:
+	if path != real_path or real_save_allowed:
+		return true
+	push_warning("SaveGame: refused to %s the real save (%s) outside the real game flow. Point SaveGame.path at a test or scratch file." % [action, real_path])
+	return false
 
 enum Status { MISSING, OK, CORRUPT, WRONG_VERSION }
 
@@ -80,9 +105,10 @@ static func restore(career: Dictionary) -> void:
 	HintManager.load_data(dict_of(career, "hints"))
 
 ## Writes the current career to `path`. Refused once the player has been
-## terminated: that career is over. Returns whether it was written.
+## terminated (that career is over), and for the real save outside the real
+## game flow (real_path). Returns whether it was written.
 static func save() -> bool:
-	if ReportManager.is_terminated:
+	if ReportManager.is_terminated or not _may_write("write"):
 		return false
 	var root := {
 		"format_version": FORMAT_VERSION,
@@ -138,13 +164,13 @@ static func read() -> ReadResult:
 	return result
 
 static func delete() -> void:
-	if exists():
+	if exists() and _may_write("delete"):
 		DirAccess.remove_absolute(path)
 
 ## Moves an unreadable save to `path` + ".bad" (replacing an older one) so a
 ## new game doesn't overwrite it, in case it's worth looking at.
 static func set_aside() -> void:
-	if not exists():
+	if not exists() or not _may_write("move"):
 		return
 	var bad_path := path + ".bad"
 	if FileAccess.file_exists(bad_path):

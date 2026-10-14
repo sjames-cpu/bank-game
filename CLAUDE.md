@@ -83,6 +83,7 @@ Every 2 mistaken teller customers = 1 written warning (a letter); 3 reports = te
 - **When**: on being hired (Hired or Hired on Probation, `interview_screen.gd`), so quitting before the first clock-out continues the career and probation can't be escaped by re-taking the interview; and (`teller_room.save_career()`) at every clock-out (teller, Loan Desk, Branch Manager's new `shift_clocked_out`), after a promotion, and after the one-time orientation letter. The Probation Complete letter comes at a teller clock-out, so that save covers it. Writes go to a `.tmp` file that is then moved over the save.
 - **Start screen**: Continue runs `SaveGame.restore()` (a `CareerReset` and then each `load_data()`, with Reputation before XP so no unlock fires again) and loads the room. New Game asks for confirmation, then deletes the save and goes to the interview.
 - **Robustness**: `SaveGame.read()` reports MISSING, OK, CORRUPT (not JSON, or the wrong shape) or WRONG_VERSION, and never errors. An unreadable save shows a short message, is moved to `career.json.bad` and a new game starts. Values are read through typed getters (`int_of()`, `dict_of()`, ...), so a mistyped value falls back to its new-game default.
+- **Guard**: only the real game flow may write, move or delete the real save (`SaveGame.real_path`). The start screen enables it with `allow_real_save()`. Anything else that still points `path` at it is refused with a warning (see the rule under Tests and CI).
 - **Termination** deletes the save as soon as the letter appears (so quitting at the letter can't undo it) and again on "Apply for a new job". `SaveGame.save()` refuses while `ReportManager.is_terminated`.
 
 ## Letters (`discipline_letter_screen.gd`)
@@ -138,5 +139,7 @@ GODOT_BIN="/c/Users/USER/Downloads/Godot_v4.7.1-stable_win64.exe/Godot_v4.7.1-st
 It fails on stale generated art, any warning, any failing test, a failed boot, or any `ERROR:`/`SCRIPT ERROR:` line. CI (`.github/workflows/tests.yml`) runs the same script on every push and pull request with a pinned Godot 4.7.1 Linux build and Python 3.12, and uploads the gdUnit4 report. Keep the CI, local and gdUnit4 versions in step.
 
 **Rule: when you verify a fix or feature, add or update permanent tests in `tests/`.** Don't write temporary verification scripts and delete them afterwards. If something can't be reached from a test, make it injectable (e.g. `teller_room.gd`'s `debug_cheats_enabled`) rather than skipping the test.
+
+**Rule: scripts and tests must never write to the real save** (`user://career.json`, `SaveGame.real_path`). Point `SaveGame.path` at a file of their own first: room-driving suites get `user://test_career.json` from `teller_room_suite.gd`, and the `scratch/` screenshot scripts use `user://scratch_shots_career.json`. `SaveGame` also refuses to write, move or delete the real save, with a warning, unless the real game flow has started (the start screen calls `SaveGame.allow_real_save()`). That covers a scene run on its own from the editor too.
 
 **Debug shortcut**: F1 (debug builds only, `debug_cheats_enabled`) maxes Reputation and adds XP, unlocking roles through the normal checks.

@@ -32,6 +32,9 @@ const WRONG_VERSION_MESSAGE: String = "Your saved career is from a different ver
 var saved: SaveGame.ReadResult
 
 func _ready() -> void:
+	# The real game starts here, so from now on it may write the real save
+	# (SaveGame.real_path). Nothing else turns this on.
+	SaveGame.allow_real_save()
 	continue_button.pressed.connect(_on_continue_pressed)
 	new_game_button.pressed.connect(_on_new_game_pressed)
 	confirm_button.pressed.connect(_on_confirm_new_game_pressed)

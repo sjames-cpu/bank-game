@@ -239,6 +239,49 @@ func test_save_file_is_versioned_json() -> void:
 	assert_bool(data["career"] is Dictionary).is_true()
 	assert_bool(FileAccess.file_exists(TEST_SAVE_PATH + ".tmp")).is_false()
 
+# --- the real save is the real game's only -----------------------------------------
+
+func test_only_the_real_game_writes_the_real_save() -> void:
+	# The real save path is a stand-in here, so even a broken guard can't touch
+	# the player's career; the real one is user://career.json.
+	assert_str(SaveGame.real_path).is_equal("user://career.json")
+	var stand_in := "user://test_real_career_guard.json"
+	SaveGame.real_path = stand_in
+	SaveGame.path = stand_in
+	for leftover: String in [stand_in, stand_in + ".tmp", stand_in + ".bad"]:
+		if FileAccess.file_exists(leftover):
+			DirAccess.remove_absolute(leftover)
+
+	# Outside the real game flow, nothing writes, deletes or moves it.
+	assert_bool(SaveGame.real_save_allowed).is_false()
+	assert_bool(SaveGame.save()).is_false()
+	assert_bool(FileAccess.file_exists(stand_in)).is_false()
+	write_save_text("{\"format_version\": 1, \"career\": {}}")
+	SaveGame.delete()
+	assert_bool(FileAccess.file_exists(stand_in)).is_true()
+	SaveGame.set_aside()
+	assert_bool(FileAccess.file_exists(stand_in)).is_true()
+	assert_bool(FileAccess.file_exists(stand_in + ".bad")).is_false()
+	# A clock-out in the room doesn't write it either.
+	clock_in()
+	for i in CustomerQueue.CUSTOMERS_PER_SHIFT_CAP:
+		abandon(spawn())
+	assert_bool(clock_out()).is_true()
+	assert_str(FileAccess.get_file_as_string(stand_in)).is_equal("{\"format_version\": 1, \"career\": {}}")
+
+	# Any other path is fine (the tests' own, a scratch script's).
+	SaveGame.path = TEST_SAVE_PATH
+	assert_bool(SaveGame.save()).is_true()
+
+	# The start screen starts the real game: from then on it may.
+	SaveGame.path = stand_in
+	await open_start_screen()
+	assert_bool(SaveGame.real_save_allowed).is_true()
+	assert_bool(SaveGame.save()).is_true()
+	assert_bool(SaveGame.read().status == SaveGame.Status.OK).is_true()
+	SaveGame.delete()
+	assert_bool(FileAccess.file_exists(stand_in)).is_false()
+
 # --- when the room saves -------------------------------------------------------------
 
 func test_teller_clock_out_saves() -> void:

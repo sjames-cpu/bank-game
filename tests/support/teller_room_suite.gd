@@ -58,6 +58,9 @@ func after_test() -> void:
 ## files SaveGame writes beside it).
 func use_test_save_path() -> void:
 	SaveGame.path = TEST_SAVE_PATH
+	# Opening the start screen allows the real save; tests start without it.
+	SaveGame.real_path = SaveGame.DEFAULT_PATH
+	SaveGame.real_save_allowed = false
 	for leftover: String in [TEST_SAVE_PATH, TEST_SAVE_PATH + ".tmp", TEST_SAVE_PATH + ".bad"]:
 		if FileAccess.file_exists(leftover):
 			DirAccess.remove_absolute(leftover)
