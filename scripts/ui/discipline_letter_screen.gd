@@ -17,6 +17,11 @@ class_name DisciplineLetterScreen
 ## Pauses the tree itself while a letter is up if nothing else already had
 ## it paused — same _paused_by_self pattern as DrawerCountScreen.
 ##
+## Every letter shares one panel, at most MAX_HEIGHT_SHARE of the window
+## tall and centred: a long body scrolls inside it (mouse wheel, scrollbar
+## or dragging) while the title, sender and button stay visible, and a short
+## letter shrinks to its text.
+##
 ## The termination letter's only button, "Apply for a new job", wipes all
 ## career progress (CareerReset) and its save (SaveGame, already deleted when
 ## the letter came up) and loads the interview; passing it starts a new
@@ -37,8 +42,15 @@ const PROMOTION_SENDER: String = "Regional Manager"
 @onready var letter_panel: PanelContainer = $LetterPanel
 @onready var title_label: Label = $LetterPanel/VBox/TitleLabel
 @onready var from_label: Label = $LetterPanel/VBox/FromLabel
-@onready var body_label: Label = $LetterPanel/VBox/BodyLabel
+@onready var body_scroll: ScrollContainer = $LetterPanel/VBox/BodyScroll
+@onready var body_label: Label = $LetterPanel/VBox/BodyScroll/BodyLabel
 @onready var action_button: Button = $LetterPanel/VBox/ActionButton
+
+## The letter panel is never taller than this share of the window, centred
+## with margins above and below. A body that would make it taller scrolls
+## inside the panel (body_scroll); the title, "From:" line and button stay
+## put. A short letter shrinks to fit its text.
+const MAX_HEIGHT_SHARE: float = 0.72
 
 var _mode: Mode = Mode.NONE
 var _paused_by_self: bool = false
@@ -49,6 +61,10 @@ var _queue: Array = []
 func _ready() -> void:
 	visible = false
 	action_button.pressed.connect(_on_action_button_pressed)
+	# The body's wrapped height is only known once it has its width.
+	body_label.resized.connect(_fit_to_body)
+	letter_panel.minimum_size_changed.connect(_recentre)
+	body_scroll.gui_input.connect(_on_body_scroll_input)
 	ReportManager.report_issued.connect(_on_report_issued)
 	ReportManager.termination_issued.connect(_on_termination_issued)
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
@@ -142,6 +158,9 @@ func _show(mode: Mode, title: String, body: String, sender: String = BRANCH_MANA
 	backdrop.color = TERMINATION_BACKDROP if mode == Mode.TERMINATION else WARNING_BACKDROP
 	action_button.text = "Apply for a new job" if mode == Mode.TERMINATION else "Acknowledge"
 	visible = true
+	body_scroll.scroll_vertical = 0
+	_fit_to_body()
+	_recentre()
 	if not get_tree().paused:
 		get_tree().paused = true
 		_paused_by_self = true
@@ -163,6 +182,41 @@ func _on_action_button_pressed() -> void:
 	if _paused_by_self:
 		get_tree().paused = false
 		_paused_by_self = false
+
+## The tallest the letter panel may be: MAX_HEIGHT_SHARE of the window's
+## design height (648), or of the viewport if that's shorter. A window
+## stretched taller ("expand" aspect) doesn't make letters taller.
+func max_panel_height() -> float:
+	var design_height: float = ProjectSettings.get_setting("display/window/size/viewport_height", 648)
+	return minf(get_viewport_rect().size.y, design_height) * MAX_HEIGHT_SHARE
+
+## Sizes the body's scroll area to the body text, but no taller than leaves
+## the whole panel within max_panel_height(). Runs on every new letter and
+## whenever the body label resizes: an autowrapped label only knows its real
+## height once its container has given it a width.
+func _fit_to_body() -> void:
+	var body_height := body_label.get_combined_minimum_size().y
+	var chrome := letter_panel.get_combined_minimum_size().y - body_scroll.custom_minimum_size.y
+	var wanted := minf(body_height, maxf(0.0, max_panel_height() - chrome))
+	if not is_equal_approx(wanted, body_scroll.custom_minimum_size.y):
+		body_scroll.custom_minimum_size.y = wanted
+		_recentre()
+
+## Sizes the panel to its content, centred on the window's centre (the
+## anchor). Runs whenever its minimum size changes; without it a short
+## letter after a long one would keep the long one's height.
+func _recentre() -> void:
+	var height := letter_panel.get_combined_minimum_size().y
+	letter_panel.offset_top = -height / 2.0
+	letter_panel.offset_bottom = height / 2.0
+
+## Dragging the body with the mouse scrolls it (ScrollContainer only does
+## this itself on touchscreens); the mouse wheel and scrollbar work as usual.
+func _on_body_scroll_input(event: InputEvent) -> void:
+	var motion := event as InputEventMouseMotion
+	if motion != null and (motion.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+		body_scroll.scroll_vertical -= roundi(motion.relative.y)
+		body_scroll.accept_event()
 
 func _apply_for_new_job() -> void:
 	get_tree().paused = false

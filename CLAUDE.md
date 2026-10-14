@@ -85,6 +85,10 @@ Every 2 mistaken teller customers = 1 written warning (a letter); 3 reports = te
 - **Robustness**: `SaveGame.read()` reports MISSING, OK, CORRUPT (not JSON, or the wrong shape) or WRONG_VERSION, and never errors. An unreadable save shows a short message, is moved to `career.json.bad` and a new game starts. Values are read through typed getters (`int_of()`, `dict_of()`, ...), so a mistyped value falls back to its new-game default.
 - **Termination** deletes the save as soon as the letter appears (so quitting at the letter can't undo it) and again on "Apply for a new job". `SaveGame.save()` refuses while `ReportManager.is_terminated`.
 
+## Letters (`discipline_letter_screen.gd`)
+
+Every letter (written warnings, termination, promotion, orientation, probation complete, staff termination) uses one shared panel: centred, at most 72% of the 648px window tall (`MAX_HEIGHT_SHARE`). A long body scrolls inside it (mouse wheel, scrollbar or dragging) while the title, sender and button stay visible, and a short letter shrinks to its text.
+
 ## HUD, prompts and hints (`scripts/ui/hud.gd`, `scenes/ui/hud.tscn`, B4)
 
 The `HUD` CanvasLayer (layer 2, above `UI`) shows role, Score, Reputation, XP, Reports (with the probation line, e.g. "Probation — 1 of 3 clean shifts", while on probation) and shift status in a top-right column that stays clear of every centred screen at 1152×648. Below it are the low-reputation and role-unlocked notifications, then first-run hints with a "Got it" button. It's visible with or without a desk screen open, and hidden while the termination letter is up. The "E — …" interaction prompt appears below whichever interactable the player stands at (`teller_room.interaction_prompt_text()`), or says why a desk can't be used (e.g. "Loan Desk — unlocks at 500 XP and 40 Reputation"). It's hidden while a screen is open. Key names come from the InputMap (`InputPrompts.key_for()`).
