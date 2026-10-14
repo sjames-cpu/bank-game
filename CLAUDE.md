@@ -125,12 +125,13 @@ GODOT_BIN="/c/Users/USER/Downloads/Godot_v4.7.1-stable_win64.exe/Godot_v4.7.1-st
 ```
 
 `run_tests.sh`:
-1. Imports the project.
-2. Checks scripts for warnings. Warnings never print when a script loads, so `tools/write_warnings_override.gd` writes `override.cfg` raising every enabled warning to Error for one run, and `tools/check_scripts.gd` compiles every script (addons excluded); the override is deleted afterwards.
-3. Runs every suite in `tests/`.
-4. Does two `--headless --quit-after 300` boots: the main scene (the start screen, which goes on to the interview when there is no save) and `teller_room.tscn` directly, so the gameplay room is boot-checked on its own, not only through tests.
+1. Checks the generated character art is current (`tools/art/generate_characters.py --check`). The Python interpreter comes from `PYTHON_BIN`, or else the first of `python`/`python3` that runs.
+2. Imports the project.
+3. Checks scripts for warnings. Warnings never print when a script loads, so `tools/write_warnings_override.gd` writes `override.cfg` raising every enabled warning to Error for one run, and `tools/check_scripts.gd` compiles every script (addons excluded); the override is deleted afterwards.
+4. Runs every suite in `tests/`.
+5. Does two `--headless --quit-after 300` boots: the main scene (the start screen, which goes on to the interview when there is no save) and `teller_room.tscn` directly, so the gameplay room is boot-checked on its own, not only through tests.
 
-It fails on any warning, any failing test, a failed boot, or any `ERROR:`/`SCRIPT ERROR:` line. CI (`.github/workflows/tests.yml`) runs the same script on every push and pull request with a pinned Godot 4.7.1 Linux build and uploads the gdUnit4 report. Keep the CI, local and gdUnit4 versions in step.
+It fails on stale generated art, any warning, any failing test, a failed boot, or any `ERROR:`/`SCRIPT ERROR:` line. CI (`.github/workflows/tests.yml`) runs the same script on every push and pull request with a pinned Godot 4.7.1 Linux build and Python 3.12, and uploads the gdUnit4 report. Keep the CI, local and gdUnit4 versions in step.
 
 **Rule: when you verify a fix or feature, add or update permanent tests in `tests/`.** Don't write temporary verification scripts and delete them afterwards. If something can't be reached from a test, make it injectable (e.g. `teller_room.gd`'s `debug_cheats_enabled`) rather than skipping the test.
 
