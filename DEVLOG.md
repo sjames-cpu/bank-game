@@ -2,18 +2,17 @@
 
 Living record of what's been built, session by session. Update this alongside `CLAUDE.md` as new work lands; `CLAUDE.md` describes current architecture, this file describes how it got there.
 
-## Where things stand (as of 2026-09-16)
+## Where things stand (as of 2026-10-14)
 
-BankSim has grown from a single teller-desk vertical slice into a multi-role bank simulation with a proper branch floor plan and a real visual identity:
+BankSim is a single-room bank-branch simulation with a career path, NPC coworkers and an automated test suite:
 
-- **Roles/desks**: Teller (deposits/withdrawals, complaints), Loan Officer (credit checks, application grading), Branch Manager (staff scheduling, approvals, vault reconciliation), plus a standalone ATM.
-- **World layout**: a full branch floor plan — a back-office row (Vault, Manager's Office, Conference Room, Accounting) plus one open floor (Marketing/Loan bullpen, Teller Area, Waiting Lounge) — built procedurally in `room_builder.gd`.
-- **Visual identity**: a modern-office palette (grey-blue open floor, brick-and-wood back offices, cream desks with monitors) with ambient props (plants, wall clock, archive bookshelf, printer, whiteboards, water cooler), and a 4-direction idle/walk animation for the player.
-- **World systems**: a customer queue with NPCs that walk in, wait, and can abandon the line; a day/night cycle.
-- **Shared data layer**: `AccountManager` autoload so Teller and ATM operate on the same account records.
-- **Progression**: `ScoreManager`, `ReputationManager`, `XPManager`, `HistoryManager` (decision/event log), `ScheduleManager`.
-- **Content**: a set of realistic customer complaint scenarios. The hiring interview content exists (`InterviewQuestionsData`) but is disabled as the entry point — see Session 4.
-- **Polish**: a shared `banking_theme.tres` across all screens, panel-overflow fixes, and a round of exploit-hardening.
+- **Roles/desks**: Teller (customers with stated requests graded on Complete Transaction, complaints, opening and closing drawer counts), Loan Officer (credit checks, application grading), Branch Manager (staff scheduling, approvals, vault reconciliation, staff review and discipline), plus a standalone ATM.
+- **Career**: XP and Reputation unlock Loan Officer and then Branch Manager (promotion held until clock-out, with letters). Teller mistakes earn written warnings; 3 reports mean termination, a career reset and the hiring interview.
+- **NPC coworkers**: staff work Teller Windows 1-3 and the Loan Desk with their own customer lines, make stat-driven mistakes, and are reviewed and disciplined by the Branch Manager.
+- **World**: a full branch floor plan (`room_builder.gd`) with y-sorted characters and furniture, furniture collision, an outdoor entrance, a customer queue per window, and a day/night tint.
+- **Player guidance**: an always-on HUD (role, Score, Reputation, XP, Reports, shift status, notifications), "E — ..." interaction prompts and first-run hints.
+- **Money**: integer cents end to end, formatted through `MoneyMath`.
+- **Quality**: 84 gdUnit4 tests, strict GDScript warnings that fail CI, and a GitHub Actions run on every push.
 
 ---
 
@@ -61,12 +60,59 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Interview disabled as the entry point** — `run/main_scene` now boots straight into `teller_room` instead of the hiring interview, since the interview is being rebuilt from scratch. `InterviewManager`/`interview_screen` are untouched and still work standalone; `is_on_probation` stays at its default `false` until it's reconnected.
 - **Tooling**: added three Godot-specialist subagents (`godot-specialist`, `godot-gdscript-specialist`, `godot-shader-specialist`) to `.claude/agents/`, cherry-picked from the open-source Claude-Code-Game-Studios framework for architecture/code-quality/shader consults going forward.
 
+## Session 5 — Sep 23, 2026: Customer accounts, intents and looks
+*(commits `6bb2876`, `4e2d2e4`, `e7ad33d`)*
+
+- **Customers became people**: each spawned customer gets their own account (reused by name) and a stated Deposit/Withdraw request; serving them selects their account. Served customers say a farewell and walk out after the Teller screen closes. Auto-created customer accounts stay out of the teller's account dropdown.
+- **Three customer designs** (business-casual, retiree, streetwear) with full idle/walk sprite sheets on the player's frame grid, as `AnimatedSprite2D`s.
+- **Tooling**: the Godot specialist agents' sources and their `production/` scaffold.
+
+## Session 6 — Sep 29 – Oct 9, 2026: Handoff and audit
+*(commits `fdd9b79`, `9643190`)*
+
+- **`HANDOFF.md`**: a bug list (B1-B14), design flaws and a roadmap toward a bank-training simulation.
+- **`AUDIT_REPORT.md`**: an audit of the first round of fixes (below): which were done, which need rework, and the order for the rest.
+
+## Session 7 — Oct 7, 2026: First Phase 0 fixes, reports, NPC coworkers
+*(commits `e4fc55e` through `22995ba`)*
+
+- **Fixes**: B7 (F1 cheat only in debug builds), B8 (unlocks re-checked on Reputation changes), B1 (clock-out clears the served customer), B3 first pass (whole-dollar amounts, cent-exact discrepancy checks), B2/B6 first pass (clock-out gated on finished work instead of a 45 s timer; requests graded), B9 (DTI from monthly payments), B12 (`.godot/` untracked). Notifications moved out of the teller title.
+- **Customer corrections**: a wrong transaction leaves the customer at the desk saying what's wrong; fix it with another transaction or Reverse Transaction, or they leave upset. Wrong-account transactions must be reversed.
+- **Disciplinary reports and termination** (`ReportManager`, `CareerReset`, letters), reconnecting the interview after a firing.
+- **NPC coworkers**: staffed Teller Windows 1-2 and Loan Desk (`StaffNPC`, `ScheduleManager` desk slots), staff serving their own customer lines with stat-driven speed and mistakes, the player's own teller window, and queue pacing so customers never overlap.
+
+## Session 8 — Oct 8, 2026: Branch Manager promotion
+*(commit `b78dc20`)*
+
+- Promotion is held until clock-out, with a Letter of Promotion that clears the record. After promotion the Player Teller Window becomes staffed Teller Window 3, the Loan Desk's staff stays put, a one-time orientation letter appears, and the shift summary gains a Branch section.
+
+## Session 9 — Oct 12, 2026: Audit rework, tests, CI, staff review
+*(commits `bce4dd0` through `8f9a933`)*
+
+- **B6**: requests are graded on Complete Transaction, so a split deposit is no longer a mistake; the account resets once nobody is served.
+- **B2**: customers, not the drawer, are the main teller score (+5 per correct request, abandonment costs Score, the drawer bonus scales with customers served).
+- **Staff-line accounts** in their own namespace, so staff can't drain a player-line customer's balance. Customer balances start on whole dollars.
+- **Tests and CI**: gdUnit4 v6.2.1, permanent tests for B1-B9, reports and NPC staff, and a GitHub Actions workflow running `run_tests.sh`.
+- **Staff review**: the Branch Manager reviews staff mistakes and loan calls (report, feedback, excuse; hidden severity), with points for fair calls and termination at 3 staff reports.
+
+## Session 10 — Oct 14, 2026: Remaining handoff items
+*(commits `f71b351` through the B13 docs commit)*
+
+- **B4**: an always-on HUD (role, Score, Reputation, XP, Reports, shift status; notifications moved off TellerScreen), "E — ..." interaction prompts with reasons for locked desks, and first-run hints once per career (`HintManager`). The spawn point was checked and kept.
+- **B5**: the whole room is y-sorted with furniture sorting at its base; furniture footprints block the player only; the entrance is a doormat with a solid sidewalk outside.
+- **B2**: the opening count matters: Minor is logged, Major needs a recount, and after two recounts a supervisor signs off for −2 Reputation.
+- **B3**: money is integer cents end to end, displayed through `MoneyMath.format()`; seeded gameplay is unchanged.
+- **B11**: desks share an `Interactable` base, and desks, screens and the room have class_names and typed references.
+- **B10**: stricter GDScript warnings, all fixed, and CI fails on any warning (`tools/`).
+- **B14**: leftover placeholder files deleted. **B13**: this log, `CLAUDE.md` rewritten, stale comments fixed, status notes on `HANDOFF.md` and `AUDIT_REPORT.md`.
+
 ---
 
 ## Notes for next session
 
-- No `.csproj`/`.sln` yet — everything is still GDScript despite the project being configured for .NET.
-- No persistence: `AccountManager`, `ScoreManager`, `ReputationManager`, `HistoryManager`, etc. are all in-memory only, reset on relaunch.
-- The hiring interview needs to be rebuilt from scratch and reconnected as (or after) the entry point; `is_on_probation` is unused until then.
-- The redesigned office reads sparser than the reference it's modeled on — same furniture count as before, just reskinned. Worth revisiting if it should be denser.
-- No automated tests/CI — verification is manual, via the Godot editor's Play/Run.
+- No `.csproj`/`.sln` yet: everything is still GDScript despite the project being configured for .NET.
+- No persistence: every autoload is in memory only and resets on relaunch.
+- The hiring interview is only reachable after a termination, and `is_on_probation` is still unused.
+- Shift and transaction times still come from the wall clock (`Time.get_datetime_string_from_system()`); there's no sim clock.
+- The cash model still has $1,000/$500 bills and no coins; amounts are already in cents, so coins can be added as more `DENOMINATION_CENTS` entries.
+- Loan application figures are whole-dollar floats by design (judged, never moved as cash).

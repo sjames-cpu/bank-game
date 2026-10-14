@@ -1,5 +1,8 @@
 # BankSim Audit: what was fixed since the handoff
 
+> **Status, 2026-10-14:** everything this audit lists as remaining (sections 3 and 6) is done; the original text below is unchanged. Rework: B2 `8ffb146` (customers are the main score), `887cf5c` (opening count) · B3 `6a53ebd`, `b082030` (integer cents end to end) · B6 `bce4dd0` (Complete Transaction), `cec9ef1` (account reset), `91cc9d0` (section 4 item 2: staff-line accounts) · B10 `bc4fcb9` · B13 the docs commit that adds this note. Not fixed at the time of the audit: B4 `f71b351`, `0d42c19` · B5 `1d75807` · B11 `6797a94` · B14 `8e126ce`.
+> Tests (section 5.2): `5a11e99`, `fc27ec0` and later suites; CI: `181356e`.
+
 **Audited:** 2026-10-09 · **Baseline:** commit `4e2d2e4` (2026-09-23, the "last commit" named in HANDOFF.md) · **Audited state:** `main` at `22995ba`, working tree clean (no uncommitted changes).
 
 **Method:** I read the code itself for every bug and did not rely on commit messages or comments. I also ran the game headless in Godot 4.7.2 (see section 5.3). This was a read-only review: the only file written is this report.

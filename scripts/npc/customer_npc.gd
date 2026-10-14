@@ -131,8 +131,9 @@ const UPSET_FAREWELL_LINES: Array[String] = [
 
 const FAREWELL_DISPLAY_SECONDS: float = 1.5
 
-## Quick-designed visual variety (see scratch/gen_customer_sprites.py for
-## how these were drawn): each spawned customer gets one of these three
+## Quick-designed visual variety (drawn once by a throwaway generator script
+## that isn't kept in the repo; the PNGs in assets/sprites are the source):
+## each spawned customer gets one of these three
 ## looks at random in _ready(), same as the .tscn's default (customer_a)
 ## would otherwise always be. Preloaded once as a class-level const rather
 ## than re-loaded per instance.

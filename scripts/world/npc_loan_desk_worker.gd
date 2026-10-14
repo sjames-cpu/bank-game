@@ -36,7 +36,8 @@ func _process(delta: float) -> void:
 		_elapsed = 0.0
 		decide_next()
 
-## Decides the next application now (also used by tests).
+## Decides the next application now (tests call it directly; see
+## staff_review_test.gd).
 func decide_next() -> void:
 	var staff := staff_npc.staff
 	var application := _applications[_next_index]

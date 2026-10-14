@@ -1,5 +1,10 @@
 # BankSim Handoff: Bug Fixes and the Path to a Sellable Bank-Training Simulation
 
+> **Status, 2026-10-14:** every Part 1 bug (B1-B14) is done; the original text below is unchanged. Commits:
+> B1 `34dacd4`, `cec9ef1` · B2 `ec1ba5e`, `8ffb146`, `887cf5c` (opening count) · B3 `580e2ab`, `6a53ebd`, `b082030` (integer cents end to end) · B4 `f71b351`, `0d42c19` · B5 `1d75807` · B6 `ec1ba5e`, `7f365f7`, `bce4dd0`, `cec9ef1`, `91cc9d0` · B7 and B8 `34dacd4` · B9 `dc91654` · B10 `bc4fcb9` · B11 `6797a94` · B12 `3f8c93b` · B13 the docs commit that adds this note · B14 `8e126ce`.
+> Phase 0's tests and CI: `5a11e99`, `fc27ec0`, `181356e` (gdUnit4 suite, GitHub Actions; CI also fails on GDScript warnings since `bc4fcb9`).
+> Correction to section 1: the player's teller desk is now at (464, 336), the Player Teller Window; (560, 336) is staffed Teller Window 1. `CLAUDE.md` describes the current game.
+
 **Prepared:** 2026-09-29 &nbsp;|&nbsp; **Repo state:** `main`, 9 commits, last commit 2026-09-23 &nbsp;|&nbsp; **Engine:** Godot 4.7.2 (GDScript only)
 
 This document hands off two workstreams to whoever picks the project up next:

@@ -2,11 +2,12 @@ extends Node
 
 ## Autoload singleton — same pattern as ScoreManager/ReputationManager/
 ## XPManager (see ScoreManager for why an autoload is the right fit).
-## Holds a running in-memory log of graded Teller and Loan Officer
-## decisions (see DecisionRecord) for the eventual Branch Manager role
-## (Phase 5) to review — nothing reads this yet, but the log needs to
-## start accumulating as soon as decisions happen, not once a viewer
-## exists for it.
+## Holds a running in-memory log of graded decisions (see DecisionRecord):
+## the player's Teller and Loan Officer work, which the Branch Manager's
+## Approvals screen reviews; disciplinary reports and drawer variances
+## (record only); Branch Manager actions; and NPC staff work (capped at
+## MAX_STAFF_RECORDS, announced via staff_record_added for the Branch
+## Manager shift summary).
 ##
 ## Like the other managers, this only lives in memory for now and resets
 ## if the game is closed. Persisting across full restarts would mean

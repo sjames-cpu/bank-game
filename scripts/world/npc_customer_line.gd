@@ -46,7 +46,8 @@ var staff_npc: StaffNPC = null
 var active: bool = false
 
 ## Seconds the most recent completed service actually took (unpaused time),
-## including any mistake fix — for tests/tuning.
+## including any mistake fix — kept for tuning service speed; nothing reads
+## it yet.
 var last_service_seconds: float = 0.0
 
 var _serving: CustomerNPC = null

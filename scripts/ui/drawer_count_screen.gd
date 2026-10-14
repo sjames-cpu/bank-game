@@ -81,7 +81,7 @@ func _ready() -> void:
 
 	# Every quantity SpinBox drives the same recalculation, regardless of
 	# which one the player just edited — value_changed hands us the new
-	# value, but we ignore it and just re-sum all four inputs.
+	# value, but we ignore it and just re-sum all six inputs.
 	for quantity_input in quantity_inputs:
 		quantity_input.value_changed.connect(_on_quantity_changed)
 

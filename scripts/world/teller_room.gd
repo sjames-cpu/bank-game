@@ -50,11 +50,10 @@ class_name TellerRoom
 ## revealed reactively off XPManager.branch_manager_unlocked. Additive
 ## alongside the Teller/Loan Officer wiring above, not a change to it.
 ##
-## TEMP: DEBUG_UNLOCK_KEY (F1) is a testing shortcut so the Branch Manager
-## desk/shift loop can be exercised without grinding real shifts up to
-## XP_UNLOCK_THRESHOLD_BRANCH_MANAGER — remove this once there's a real
-## way to reach that threshold through normal play testing (or gate it
-## behind a debug-build check).
+## DEBUG_UNLOCK_KEY (F1) is a debug-build-only shortcut (B7: gated on
+## debug_cheats_enabled, i.e. OS.is_debug_build(), so it never works in an
+## exported release) that maxes Reputation and adds XP, so the Loan Officer
+## and Branch Manager loops can be played without grinding real shifts.
 ##
 ## Phase 6a adds the customer queue: TellerScreen's clock-in/clock-out
 ## signals start/stop CustomerQueue's spawning, and the desk interaction
@@ -609,7 +608,7 @@ func _on_atm_interacted() -> void:
 		return
 	atm_screen.show_screen()
 
-## TEMP debug cheat — see DEBUG_UNLOCK_KEY doc comment above. Reputation is
+## The F1 debug shortcut — see DEBUG_UNLOCK_KEY doc comment above. Reputation is
 ## bumped first so it's already at its clamped max by the time
 ## XPManager's unlock check (triggered by the XP change right after) reads
 ## ReputationManager.reputation — both thresholds clear in one keypress
