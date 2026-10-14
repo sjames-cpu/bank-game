@@ -132,7 +132,7 @@ func _populate_entries() -> void:
 	for record in HistoryManager.records:
 		if record.role != DecisionRecord.Role.STAFF:
 			records.append(record)
-	var start_index: int = max(0, records.size() - MAX_VISIBLE_ENTRIES)
+	var start_index := maxi(0, records.size() - MAX_VISIBLE_ENTRIES)
 
 	if start_index > 0:
 		var truncated_label := Label.new()

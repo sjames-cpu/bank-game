@@ -12,9 +12,9 @@ func _press_f1() -> void:
 
 func test_f1_does_nothing_in_a_release_build() -> void:
 	room.debug_cheats_enabled = false
-	var before := totals()
+	var start_totals := totals()
 	_press_f1()
-	assert_vector(totals()).is_equal(before)
+	assert_vector(totals()).is_equal(start_totals)
 	assert_bool(XPManager.is_loan_officer_unlocked).is_false()
 	assert_bool(XPManager.is_branch_manager_unlocked).is_false()
 
@@ -26,17 +26,19 @@ func test_f1_unlocks_in_a_debug_build() -> void:
 
 func test_reputation_rise_alone_unlocks_loan_officer() -> void:
 	ReputationManager.add_reputation(XPManager.REPUTATION_UNLOCK_FLOOR - 1 - ReputationManager.reputation)
-	XPManager.add_shift_xp(XPManager.XP_UNLOCK_THRESHOLD / XPManager.XP_PER_SCORE_POINT)
+	XPManager.add_shift_xp(ceili(float(XPManager.XP_UNLOCK_THRESHOLD) / XPManager.XP_PER_SCORE_POINT))
 	assert_int(XPManager.total_xp).is_equal(XPManager.XP_UNLOCK_THRESHOLD)
 	assert_bool(XPManager.is_loan_officer_unlocked).is_false()
 
 	var signal_monitor := monitor_signals(XPManager, false)
 	ReputationManager.add_reputation(1)
 	assert_bool(XPManager.is_loan_officer_unlocked).is_true()
+	# gdUnit's is_emitted() is a coroutine at runtime; its declared type isn't.
+	@warning_ignore("redundant_await")
 	await assert_signal(signal_monitor).is_emitted("loan_officer_unlocked")
 
 func test_reputation_rise_alone_unlocks_branch_manager() -> void:
-	XPManager.add_shift_xp(XPManager.XP_UNLOCK_THRESHOLD_BRANCH_MANAGER / XPManager.XP_PER_SCORE_POINT)
+	XPManager.add_shift_xp(ceili(float(XPManager.XP_UNLOCK_THRESHOLD_BRANCH_MANAGER) / XPManager.XP_PER_SCORE_POINT))
 	assert_int(ReputationManager.reputation).is_less(XPManager.REPUTATION_UNLOCK_FLOOR_BRANCH_MANAGER)
 	assert_bool(XPManager.is_branch_manager_unlocked).is_false()
 	ReputationManager.add_reputation(XPManager.REPUTATION_UNLOCK_FLOOR_BRANCH_MANAGER - ReputationManager.reputation)

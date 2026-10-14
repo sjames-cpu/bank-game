@@ -11,7 +11,7 @@ func before_test() -> void:
 func test_correct_request_is_rewarded_and_served() -> void:
 	var customer := spawn(ShiftTransaction.Type.WITHDRAWAL, 120.0)
 	var start := customer.account.balance_cents
-	var before := totals()
+	var start_totals := totals()
 	open_desk()
 	assert_bool(ts.complete_transaction_button.visible).is_true()
 	assert_bool(ts.complete_transaction_button.disabled).is_true()
@@ -21,28 +21,28 @@ func test_correct_request_is_rewarded_and_served() -> void:
 	assert_bool(cq.queue.has(customer)).is_false()
 	assert_bool(customer.was_mistake).is_false()
 	assert_int(customer.account.balance_cents).is_equal(start - 12000)
-	assert_int((totals() - before).x).is_equal(TellerScreen.CUSTOMER_REQUEST_CORRECT_SCORE)
+	assert_int((totals() - start_totals).x).is_equal(TellerScreen.CUSTOMER_REQUEST_CORRECT_SCORE)
 
 func test_wrong_amount_is_flagged_once_and_can_be_fixed() -> void:
 	var customer := spawn(ShiftTransaction.Type.DEPOSIT, 500.0)
-	var before := totals()
+	var start_totals := totals()
 	open_desk()
 	deposit(400)
 	complete()
 	assert_bool(customer.was_mistake).is_true()
 	assert_bool(cq.queue.has(customer)).is_true()
 	assert_str(customer.correction_line).contains("only deposited $400").contains("other $100")
-	var penalised := totals() - before
+	var penalised := totals() - start_totals
 	assert_int(penalised.x).is_equal(TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE)
 	assert_int(penalised.y).is_equal(TellerScreen.CUSTOMER_REQUEST_WRONG_REPUTATION)
 	# A second wrong Complete costs nothing more.
 	complete()
-	assert_vector(totals() - before).is_equal(penalised)
+	assert_vector(totals() - start_totals).is_equal(penalised)
 	deposit(100)
 	complete()
 	assert_bool(cq.queue.has(customer)).is_false()
 	assert_int(ts._mistakes_fixed).is_equal(1)
-	assert_vector(totals() - before).is_equal(penalised)
+	assert_vector(totals() - start_totals).is_equal(penalised)
 
 func test_wrong_type_is_flagged() -> void:
 	var customer := spawn(ShiftTransaction.Type.DEPOSIT, 200.0)

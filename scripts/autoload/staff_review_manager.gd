@@ -274,7 +274,7 @@ func terminate(staff_name: String) -> bool:
 
 # --- text ----------------------------------------------------------------------
 
-static func action_label(action: Action) -> String:
+func action_label(action: Action) -> String:
 	match action:
 		Action.REPORT:
 			return "Issue Report"
@@ -283,7 +283,7 @@ static func action_label(action: Action) -> String:
 		_:
 			return "Excuse"
 
-static func severity_label(severity: StaffReviewItem.Severity) -> String:
+func severity_label(severity: StaffReviewItem.Severity) -> String:
 	match severity:
 		StaffReviewItem.Severity.SERIOUS:
 			return "Serious"

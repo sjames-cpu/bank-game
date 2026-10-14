@@ -35,7 +35,7 @@ func test_staff_never_change_player_line_balances() -> void:
 	var served := [0]
 	for line: NpcCustomerLine in [window_1, window_2]:
 		line.customer_served.connect(func(_c: CustomerNPC, _s: StaffMember, _m: bool) -> void: served[0] += 1)
-	var renamed := 0
+	var renamed_count := 0
 	Engine.time_scale = 8.0
 	var frames := 0
 	while served[0] < 6 and frames < 3000:
@@ -43,11 +43,11 @@ func test_staff_never_change_player_line_balances() -> void:
 		# same way a same-named spawn would resolve its account.
 		for line: NpcCustomerLine in [window_1, window_2]:
 			for npc in line.queue:
-				if not npc.has_meta("renamed"):
-					npc.display_name = players[renamed % players.size()].display_name
+				if not npc.has_meta("renamed_count"):
+					npc.display_name = players[renamed_count % players.size()].display_name
 					npc.account = line._get_or_create_customer_account(npc.display_name)
-					npc.set_meta("renamed", true)
-					renamed += 1
+					npc.set_meta("renamed_count", true)
+					renamed_count += 1
 		for customer in players:
 			customer.wait_seconds = 0.0 # keep them in line
 		await get_tree().physics_frame
@@ -104,7 +104,7 @@ func test_account_resets_once_the_customer_has_left() -> void:
 func test_promotion_earned_mid_shift_waits_for_clock_out() -> void:
 	clock_in()
 	ReputationManager.add_reputation(100)
-	XPManager.add_shift_xp(XPManager.XP_UNLOCK_THRESHOLD_BRANCH_MANAGER / XPManager.XP_PER_SCORE_POINT)
+	XPManager.add_shift_xp(ceili(float(XPManager.XP_UNLOCK_THRESHOLD_BRANCH_MANAGER) / XPManager.XP_PER_SCORE_POINT))
 	assert_bool(XPManager.is_branch_manager_promotion_pending).is_true()
 	assert_bool(XPManager.is_branch_manager_unlocked).is_false()
 

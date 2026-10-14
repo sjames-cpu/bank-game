@@ -22,11 +22,11 @@ static func to_cents(amount: float) -> int:
 ## like a customer's request) shows a whole-dollar amount as "$500" and any
 ## other as "$12.34", so cents are never hidden.
 static func format(cents: int, drop_whole_cents: bool = false) -> String:
-	var sign := "-" if cents < 0 else ""
+	var minus := "-" if cents < 0 else ""
 	var magnitude := absi(cents)
 	@warning_ignore("integer_division")
 	var dollars := magnitude / 100
 	var remainder := magnitude % 100
 	if drop_whole_cents and remainder == 0:
-		return "$%s%d" % [sign, dollars]
-	return "$%s%d.%02d" % [sign, dollars, remainder]
+		return "$%s%d" % [minus, dollars]
+	return "$%s%d.%02d" % [minus, dollars, remainder]

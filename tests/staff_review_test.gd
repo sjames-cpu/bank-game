@@ -154,13 +154,13 @@ func test_each_action_for_each_severity() -> void:
 		var staff_name := item.staff_name
 		var reports_before := StaffReviewManager.reports_for(staff_name)
 		var feedbacks_before := StaffReviewManager.feedbacks_for(staff_name)
-		var before := totals()
+		var start_totals := totals()
 		var history_before := HistoryManager.records.size()
 		var result := StaffReviewManager.decide(item, action)
 		var label := "%s + %s" % [StaffReviewManager.severity_label(severity), StaffReviewManager.action_label(action)]
 		assert_int(result["severity"]).override_failure_message(label).is_equal(row[0])
 		assert_bool(result["fair"]).override_failure_message(label).is_equal(row[2])
-		assert_vector(totals() - before).override_failure_message(label).is_equal(expected_delta)
+		assert_vector(totals() - start_totals).override_failure_message(label).is_equal(expected_delta)
 		assert_int(StaffReviewManager.reports_for(staff_name) - reports_before).override_failure_message(label).is_equal(row[6])
 		assert_int(StaffReviewManager.feedbacks_for(staff_name) - feedbacks_before).override_failure_message(label).is_equal(row[7])
 		assert_bool(StaffReviewManager.queue.has(item)).override_failure_message(label).is_false()
@@ -183,9 +183,9 @@ func test_serious_item_outcomes_are_ordered() -> void:
 	assert_int(StaffReviewManager.FEEDBACK_ON_SERIOUS_REPUTATION).is_equal(-1)
 	var outcomes: Array[int] = []
 	for action: Action in [Action.REPORT, Action.FEEDBACK, Action.EXCUSE]:
-		var before := totals()
+		var start_totals := totals()
 		var result := StaffReviewManager.decide(teller_item(Mistake.WRONG_ACCOUNT, "Walter Higgins"), action)
-		var delta := totals() - before
+		var delta := totals() - start_totals
 		# One number per outcome: Score and Reputation weighed equally.
 		outcomes.append(delta.x + delta.y)
 		if action == Action.FEEDBACK:
@@ -329,7 +329,7 @@ func test_termination_empties_the_desk_and_the_schedule() -> void:
 	assert_int(line.queue.size()).is_equal(0)
 	assert_array(_terminate_buttons(screen)).is_empty()
 	var no_records: Array[DecisionRecord] = []
-	assert_str(bm.branch_summary_text(no_records)).contains("Teller Window 1 — Unassigned")
+	assert_str(BranchManagerScreen.branch_summary_text(no_records)).contains("Teller Window 1 — Unassigned")
 
 	# The schedule screen lists neither him nor any report-less ghost.
 	var scheduling: StaffSchedulingScreen = bm.staff_scheduling_screen

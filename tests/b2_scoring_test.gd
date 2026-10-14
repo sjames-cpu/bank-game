@@ -37,7 +37,7 @@ func _scenarios() -> Dictionary:
 	}
 
 func _run_shift(actions: Array, minor: bool) -> Vector3i:
-	var before := totals()
+	var start_totals := totals()
 	clock_in()
 	for action: String in actions:
 		var customer := spawn(ShiftTransaction.Type.DEPOSIT, 500.0)
@@ -54,7 +54,7 @@ func _run_shift(actions: Array, minor: bool) -> Vector3i:
 				complete()
 				close_desk()
 	assert_bool(clock_out(minor)).is_true()
-	return totals() - before
+	return totals() - start_totals
 
 func test_scenario_all_abandoned_perfect() -> void:
 	_check_scenario("all_abandoned_perfect")

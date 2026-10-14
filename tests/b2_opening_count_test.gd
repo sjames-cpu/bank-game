@@ -41,23 +41,23 @@ func finish_shift_summary() -> String:
 # --- tests ------------------------------------------------------------------------
 
 func test_perfect_opening_count_starts_the_shift_immediately() -> void:
-	var before := totals()
+	var start_totals := totals()
 	opening_count(FLOAT)
 	assert_bool(is_clocked_in()).is_true()
 	assert_bool(ts.awaiting_opening_recount).is_false()
 	assert_str(ts.clock_in_button.text).is_equal("Clock In")
 	assert_bool(cq.spawn_timer.is_stopped()).is_false() # the line opened
 	assert_array(variance_records()).is_empty()
-	assert_object(totals()).is_equal(before)
+	assert_object(totals()).is_equal(start_totals)
 	assert_int(ts.shift_start_cents).is_equal(FLOAT)
 	cq.spawn_timer.stop()
 	assert_str(finish_shift_summary()).is_equal("Opening count: Perfect")
 
 func test_minor_opening_count_starts_the_shift_and_logs_the_variance() -> void:
-	var before := totals()
+	var start_totals := totals()
 	opening_count(FLOAT, true)
 	assert_bool(is_clocked_in()).is_true()
-	assert_object(totals()).is_equal(before) # not scored
+	assert_object(totals()).is_equal(start_totals) # not scored
 	assert_int(ts.shift_start_cents).is_equal(FLOAT)
 
 	var records := variance_records()
@@ -76,7 +76,7 @@ func test_minor_opening_count_starts_the_shift_and_logs_the_variance() -> void:
 	assert_str(finish_shift_summary()).is_equal("Opening count: Minor")
 
 func test_major_opening_count_blocks_the_shift_until_a_recount() -> void:
-	var before := totals()
+	var start_totals := totals()
 	opening_count(MAJOR_TOTAL)
 	assert_bool(is_clocked_in()).is_false()
 	assert_bool(ts.awaiting_opening_recount).is_true()
@@ -104,7 +104,7 @@ func test_major_opening_count_blocks_the_shift_until_a_recount() -> void:
 	assert_bool(ts.awaiting_opening_recount).is_false()
 	assert_str(ts.clock_in_button.text).is_equal("Clock In")
 	assert_array(variance_records()).is_empty() # recount was Perfect
-	assert_object(totals()).is_equal(before)
+	assert_object(totals()).is_equal(start_totals)
 
 	cq.spawn_timer.stop()
 	assert_str(finish_shift_summary()).is_equal("Opening count: Major, recounted once, then Perfect")
@@ -123,7 +123,7 @@ func test_minor_recount_starts_the_shift_and_logs() -> void:
 	assert_str(finish_shift_summary()).is_equal("Opening count: Major, recounted twice, then Minor")
 
 func test_three_major_counts_trigger_the_supervisor_sign_off() -> void:
-	var before := totals()
+	var start_totals := totals()
 	opening_count(MAJOR_TOTAL)
 	opening_count(MAJOR_TOTAL)
 	assert_bool(is_clocked_in()).is_false()
@@ -141,7 +141,7 @@ func test_three_major_counts_trigger_the_supervisor_sign_off() -> void:
 
 	# Reputation penalty only — no Score or XP.
 	assert_int(TellerScreen.OPENING_SIGN_OFF_REPUTATION).is_equal(-2)
-	assert_object(totals()).is_equal(before + Vector3i(0, TellerScreen.OPENING_SIGN_OFF_REPUTATION, 0))
+	assert_object(totals()).is_equal(start_totals + Vector3i(0, TellerScreen.OPENING_SIGN_OFF_REPUTATION, 0))
 
 	var records := variance_records()
 	assert_int(records.size()).is_equal(1)

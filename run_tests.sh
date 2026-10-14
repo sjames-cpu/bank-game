@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Runs the full gdUnit4 test suite (tests/) and a headless boot smoke test.
-# Used locally and by CI (.github/workflows/tests.yml).
+# Runs the GDScript warning check, the full gdUnit4 test suite (tests/) and a
+# headless boot smoke test. Used locally and by CI (.github/workflows/tests.yml).
 #
 #   GODOT_BIN=/path/to/godot ./run_tests.sh
 #
-# Fails (non-zero exit) if any test fails, the boot run exits non-zero, or
-# Godot prints an error (ERROR: / SCRIPT ERROR:) at any step.
+# Fails (non-zero exit) if any script has a GDScript warning, any test fails,
+# the boot run exits non-zero, or Godot prints an error (ERROR: /
+# SCRIPT ERROR:) at any step.
 set -uo pipefail
 
 if [[ -z "${GODOT_BIN:-}" ]]; then
@@ -23,6 +24,22 @@ import_exit=$?
 if [[ $import_exit -ne 0 ]]; then
 	cat "$logs/import.log"
 	echo "Import failed (exit $import_exit)" >&2
+	status=1
+fi
+
+echo "== Checking scripts for warnings"
+# Warnings never print when a script loads, so raise every enabled warning to
+# an error for one run (override.cfg, read by Godot at startup) and compile
+# every script. The override is removed straight after, whatever happens.
+trap 'rm -f override.cfg' EXIT
+"$GODOT_BIN" --headless --path . -s res://tools/write_warnings_override.gd >"$logs/warnings.log" 2>&1
+override_exit=$?
+timeout 300 "$GODOT_BIN" --headless --path . -s res://tools/check_scripts.gd >>"$logs/warnings.log" 2>&1
+check_exit=$?
+rm -f override.cfg
+cat "$logs/warnings.log"
+if [[ $override_exit -ne 0 || $check_exit -ne 0 ]]; then
+	echo "Script check failed (exit $override_exit/$check_exit)" >&2
 	status=1
 fi
 
@@ -46,7 +63,7 @@ fi
 
 echo "== Checking output for errors"
 # Strip colour codes, then look for Godot's error lines in every step.
-if sed 's/\x1b\[[0-9;]*m//g' "$logs/import.log" "$logs/tests.log" "$logs/boot.log" \
+if sed 's/\x1b\[[0-9;]*m//g' "$logs/import.log" "$logs/warnings.log" "$logs/tests.log" "$logs/boot.log" \
 	| grep -E '^\s*(SCRIPT ERROR|USER ERROR|ERROR):' ; then
 	echo "Godot printed errors (above)" >&2
 	status=1

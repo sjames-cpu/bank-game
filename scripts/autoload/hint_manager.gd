@@ -27,7 +27,7 @@ func reset() -> void:
 	_shown.clear()
 
 ## Player-facing text for `hint`; the interact key comes from the InputMap.
-static func text_for(hint: Hint) -> String:
+func text_for(hint: Hint) -> String:
 	var key := InputPrompts.key_for(InputPrompts.INTERACT)
 	match hint:
 		Hint.ARRIVAL:
