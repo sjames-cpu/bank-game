@@ -44,6 +44,11 @@ class_name Hud
 @onready var hint_label: Label = $RightColumn/HintPanel/VBox/HintLabel
 @onready var hint_dismiss_button: Button = $RightColumn/HintPanel/VBox/DismissButton
 
+## Always-on reminder of the keys, e.g. "E — interact · Z — zoom", in the
+## bottom-left corner (clear of the right column and every centred screen).
+@onready var controls_panel: PanelContainer = $ControlsPanel
+@onready var controls_label: Label = $ControlsPanel/ControlsLabel
+
 @onready var prompt_panel: PanelContainer = $PromptPanel
 @onready var prompt_label: Label = $PromptPanel/PromptLabel
 
@@ -82,6 +87,7 @@ func _ready() -> void:
 	prompt_panel.visible = false
 	loan_officer_unlocked_label.visible = false
 	branch_manager_unlocked_label.visible = false
+	controls_label.text = controls_text()
 	XPManager.loan_officer_unlocked.connect(show_unlock_notification.bind(loan_officer_unlocked_label))
 	XPManager.branch_manager_unlocked.connect(show_unlock_notification.bind(branch_manager_unlocked_label))
 	refresh()
@@ -106,6 +112,11 @@ func refresh() -> void:
 		prompt_panel.visible = false
 	elif prompt_panel.visible:
 		_place_prompt()
+
+## The controls line, with key names from the InputMap (InputPrompts), so
+## it can't drift from the keys that actually work.
+static func controls_text() -> String:
+	return "%s — interact · %s — zoom" % [InputPrompts.key_for(InputPrompts.INTERACT), InputPrompts.key_for(InputPrompts.OVERVIEW)]
 
 ## The highest role the career has reached.
 static func role_name() -> String:

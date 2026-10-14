@@ -161,6 +161,50 @@ func test_hud_hides_behind_the_termination_letter_only() -> void:
 ## The HUD column (stats + a hint) sits right of every centred screen, letter,
 ## summary and notice in the 1152px-wide window — checked against each panel
 ## the room's UI layer can show, the Branch Manager summary with real content.
+## The permanent controls line: key names from the InputMap, always shown,
+## inside the 648px window and clear of the HUD column, every centred screen
+## panel and letters, at either zoom.
+func test_controls_line_names_the_keys_and_overlaps_nothing() -> void:
+	var window_before := get_tree().root.size
+	get_tree().root.size = Vector2i(1152, 648)
+	await settle()
+	assert_str(hud.controls_label.text).is_equal("E — interact · Z — zoom")
+	assert_str(hud.controls_label.text).is_equal(Hud.controls_text())
+	assert_bool(hud.controls_panel.is_visible_in_tree()).is_true()
+
+	# The tallest the HUD column gets: a hint and every notification.
+	hud._show_hint(Hint.BRANCH_MANAGER_UNLOCKED)
+	hud.show_unlock_notification(hud.loan_officer_unlocked_label)
+	hud.show_unlock_notification(hud.branch_manager_unlocked_label)
+	ReputationManager.add_reputation(-100)
+	# Every centred screen panel at once, and the long orientation letter.
+	var ui: CanvasLayer = room.get_node("UI")
+	var panels: Array[Control] = []
+	for node in ui.find_children("*", "Control", true, false):
+		var control := node as Control
+		if (control is Panel or control is PanelContainer) and control.anchor_left == 0.5:
+			panels.append(control)
+	for panel in panels:
+		var node: Node = panel
+		while node != ui:
+			(node as CanvasItem).visible = true
+			node = node.get_parent()
+	XPManager.has_seen_branch_orientation = false
+	letters.show_branch_orientation_once()
+	assert_int(panels.size()).is_greater(15)
+	assert_bool(panels.has(letters.letter_panel)).is_true()
+	for zoom: float in [RoomCamera.FOLLOW_ZOOM, RoomCamera.OVERVIEW_ZOOM]:
+		room.camera.set_overview(zoom == RoomCamera.OVERVIEW_ZOOM)
+		await settle()
+		var controls := hud.controls_panel.get_global_rect()
+		assert_bool(Rect2(0, 0, 1152, 648).encloses(controls)).override_failure_message("controls %s leave the window" % controls).is_true()
+		var column := (hud.get_node("RightColumn") as Control).get_global_rect()
+		assert_bool(controls.intersects(column)).override_failure_message("controls %s overlap the HUD column %s" % [controls, column]).is_false()
+		for panel in panels:
+			var rect := panel.get_global_rect()
+			assert_bool(controls.intersects(rect)).override_failure_message("controls %s overlap %s (%s) at %sx" % [controls, panel.get_path(), rect, zoom]).is_false()
+	get_tree().root.size = window_before
+
 func test_hud_column_never_overlaps_a_screen_panel() -> void:
 	assert_int(int(get_tree().root.get_visible_rect().size.x)).is_equal(1152)
 	assert_int(hud.layer).is_greater((room.get_node("UI") as CanvasLayer).layer)
