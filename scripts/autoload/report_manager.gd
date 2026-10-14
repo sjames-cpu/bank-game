@@ -19,7 +19,8 @@ extends Node
 ## the Branch Manager can no longer discipline them: reports stop and the
 ## existing record is cleared (see _on_branch_manager_unlocked()).
 ##
-## Like the other managers, this only lives in memory for now.
+## Saved with the career (save_data()/load_data(), see SaveGame). A
+## terminated career has no save, so is_terminated never is.
 
 signal reports_changed(count: int)
 signal report_issued(report: DisciplinaryReport)
@@ -138,3 +139,39 @@ func reset() -> void:
 	is_terminated = false
 	reports_cleared_on_promotion = 0
 	reports_changed.emit(0)
+
+## Pending mistakes are keyed by Role as a String (JSON keys are strings).
+func save_data() -> Dictionary:
+	var saved_reports: Array = []
+	for report in reports:
+		saved_reports.append(SaveGame.resource_to_dict(report))
+	var pending := {}
+	for role: int in _pending_mistakes:
+		var mistakes: PackedStringArray = _pending_mistakes[role]
+		pending[str(role)] = Array(mistakes)
+	return {
+		"reports": saved_reports,
+		"pending_mistakes": pending,
+		"is_exempt": is_exempt,
+		"reports_cleared_on_promotion": reports_cleared_on_promotion,
+	}
+
+func load_data(data: Dictionary) -> void:
+	reports.clear()
+	for entry in SaveGame.dicts_of(SaveGame.array_of(data, "reports")):
+		var report := DisciplinaryReport.new()
+		SaveGame.fill_resource(report, entry)
+		reports.append(report)
+	_pending_mistakes.clear()
+	var pending := SaveGame.dict_of(data, "pending_mistakes")
+	for key: Variant in pending:
+		if not key is String:
+			continue
+		var role_key: String = key
+		var mistakes := SaveGame.strings_of(SaveGame.array_of(pending, role_key))
+		if role_key.is_valid_int() and not mistakes.is_empty():
+			_pending_mistakes[role_key.to_int()] = mistakes
+	is_exempt = SaveGame.bool_of(data, "is_exempt", false)
+	is_terminated = false
+	reports_cleared_on_promotion = SaveGame.int_of(data, "reports_cleared_on_promotion", 0)
+	reports_changed.emit(reports.size())

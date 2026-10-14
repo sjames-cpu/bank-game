@@ -9,9 +9,7 @@ extends Node
 ## MAX_STAFF_RECORDS, announced via staff_record_added for the Branch
 ## Manager shift summary).
 ##
-## Like the other managers, this only lives in memory for now and resets
-## if the game is closed. Persisting across full restarts would mean
-## saving to a user:// file on change and loading it back in _ready().
+## Saved with the career (save_data()/load_data(), see SaveGame).
 
 var records: Array[DecisionRecord] = []
 
@@ -19,6 +17,25 @@ var records: Array[DecisionRecord] = []
 func reset() -> void:
 	records.clear()
 	_staff_record_count = 0
+
+func save_data() -> Dictionary:
+	var saved: Array = []
+	for record in records:
+		saved.append(SaveGame.resource_to_dict(record))
+	return {"records": saved}
+
+## Keeps the staff-record cap: if a save holds more than MAX_STAFF_RECORDS
+## staff records, only the newest are kept.
+func load_data(data: Dictionary) -> void:
+	records.clear()
+	for entry in SaveGame.dicts_of(SaveGame.array_of(data, "records")):
+		var record := DecisionRecord.new()
+		SaveGame.fill_resource(record, entry)
+		records.append(record)
+	var staff_records := records.filter(func(record: DecisionRecord) -> bool: return record.role == DecisionRecord.Role.STAFF)
+	for i in maxi(0, staff_records.size() - MAX_STAFF_RECORDS):
+		records.erase(staff_records[i])
+	_staff_record_count = mini(staff_records.size(), MAX_STAFF_RECORDS)
 
 func add_record(role: DecisionRecord.Role, description: String, grade_label: String = "") -> DecisionRecord:
 	var record := DecisionRecord.new()

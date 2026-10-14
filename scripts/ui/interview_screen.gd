@@ -1,9 +1,9 @@
 extends Control
 class_name InterviewScreen
 
-## The hiring interview mini-game (2h): the game's main scene, so every new
-## game starts here, and also where "Apply for a new job" lands after a
-## termination (discipline_letter_screen.gd resets all career progress
+## The hiring interview mini-game (2h): every new game starts here (the
+## start screen, start_screen.gd, comes straight here when there's no save,
+## or on New Game), and so does "Apply for a new job" after a termination (discipline_letter_screen.gd resets all career progress
 ## first). teller_room (and its Player/first shift) loads once the
 ## interview ends in Hired or Hired-on-Probation; the latter starts a
 ## probation (InterviewManager). A Rejected outcome loops back to the first
@@ -64,8 +64,13 @@ func _on_answer_selected(answer: InterviewAnswer) -> void:
 	else:
 		_show_current_question()
 
+## A hire starts the career, so it's saved straight away (SaveGame): quitting
+## before the first clock-out continues it, and a probation can't be escaped
+## by quitting and taking the interview again.
 func _finish_interview() -> void:
 	last_outcome = InterviewManager.resolve_outcome(running_score, instant_rejected)
+	if last_outcome != InterviewManager.Outcome.REJECTED:
+		SaveGame.save()
 	panel.visible = false
 	_show_outcome(last_outcome)
 

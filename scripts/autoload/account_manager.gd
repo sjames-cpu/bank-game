@@ -8,9 +8,8 @@ extends Node
 ## seeded and mutated a separate array, so a deposit made at one desk was
 ## invisible at the other.
 ##
-## Like the other managers, this only lives in memory for now and resets
-## if the game is closed. Persisting across full restarts would mean
-## saving to a user:// file on change and loading it back in _ready().
+## Every account and balance is saved with the career (save_data()/
+## load_data(), see SaveGame).
 ##
 ## deposit()/withdraw() here are thin wrappers around Account's own
 ## deposit()/withdraw()/can_withdraw() (Fix 4) — callers are still
@@ -39,6 +38,24 @@ func _create_default_accounts() -> void:
 func reset() -> void:
 	accounts.clear()
 	_create_default_accounts()
+	accounts_changed.emit()
+
+func save_data() -> Dictionary:
+	var saved: Array = []
+	for existing_account in accounts:
+		saved.append(SaveGame.resource_to_dict(existing_account))
+	return {"accounts": saved}
+
+## A save with no accounts at all can't come from play (the demo account is
+## never removed), so it gets the default accounts instead.
+func load_data(data: Dictionary) -> void:
+	accounts.clear()
+	for entry in SaveGame.dicts_of(SaveGame.array_of(data, "accounts")):
+		var loaded := Account.new()
+		SaveGame.fill_resource(loaded, entry)
+		accounts.append(loaded)
+	if accounts.is_empty():
+		_create_default_accounts()
 	accounts_changed.emit()
 
 ## Flat list, not keyed by name — customer names aren't guaranteed unique

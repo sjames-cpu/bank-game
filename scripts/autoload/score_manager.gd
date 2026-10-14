@@ -8,12 +8,9 @@ extends Node
 ## the right fit for state like this that needs to outlive any single
 ## shift or scene.
 ##
-## total_score only lives in memory for now, so it resets if the game is
-## closed — it survives between shifts within a play session because
-## this node does, not because anything is written to disk. Making it
-## survive a full restart later would mean saving it to a file (e.g. via
-## ConfigFile or FileAccess against a user:// path) on change and
-## loading it back in _ready().
+## total_score survives between shifts within a play session because this
+## node does; across launches it's saved with the rest of the career
+## (save_data()/load_data(), see SaveGame).
 
 signal score_changed(new_total: int)
 
@@ -26,4 +23,11 @@ func add_shift_score(points: int) -> void:
 ## New career after termination — see CareerReset.
 func reset() -> void:
 	total_score = 0
+	score_changed.emit(total_score)
+
+func save_data() -> Dictionary:
+	return {"total_score": total_score}
+
+func load_data(data: Dictionary) -> void:
+	total_score = SaveGame.int_of(data, "total_score", 0)
 	score_changed.emit(total_score)

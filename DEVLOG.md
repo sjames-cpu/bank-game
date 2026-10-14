@@ -106,13 +106,19 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **B10**: stricter GDScript warnings, all fixed, and CI fails on any warning (`tools/`).
 - **B14**: leftover placeholder files deleted. **B13**: this log, `CLAUDE.md` rewritten, stale comments fixed, status notes on `HANDOFF.md` and `AUDIT_REPORT.md`.
 
+## Session 11 — Oct 14, 2026: Probation, save and load
+*(commits `8d19d94` through the save/load commit)*
+
+- **Probation**: every new game now starts at the interview. Hired on Probation lowers the termination limit to 2 reports. Three teller shifts in a row without a report end probation with a "Probation Complete" letter, and a report restarts the count. Promotion to Branch Manager ends probation without a letter. The HUD shows progress ("Probation — 1 of 3 clean shifts") and warning letters mention probation.
+- **Boot check**: `run_tests.sh` and CI also boot `teller_room.tscn` directly, since the main scene no longer leads straight to it.
+- **Save and load** (`SaveGame`, the HANDOFF "no persistence" flaw): the whole career is saved as versioned JSON in `user://career.json` when the player is hired, at every clock-out, after a promotion and after the orientation letter. Mid-shift state is never saved. A new start screen offers Continue (back into the room, off shift) or New Game (after a confirmation, the save is deleted). A damaged or wrong-version save shows a message, is moved aside, and a new game starts. Termination deletes the save as soon as the letter appears. Tests use their own save path.
+
 ---
 
 ## Notes for next session
 
 - No `.csproj`/`.sln` yet: everything is still GDScript despite the project being configured for .NET.
-- No persistence: every autoload is in memory only and resets on relaunch.
-- The hiring interview is only reachable after a termination, and `is_on_probation` is still unused.
+- The save has one slot and no autosave mid-shift: quitting mid-shift loses that shift's work.
 - Shift and transaction times still come from the wall clock (`Time.get_datetime_string_from_system()`); there's no sim clock.
 - The cash model still has $1,000/$500 bills and no coins; amounts are already in cents, so coins can be added as more `DENOMINATION_CENTS` entries.
 - Loan application figures are whole-dollar floats by design (judged, never moved as cash).

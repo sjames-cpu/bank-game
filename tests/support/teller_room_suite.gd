@@ -6,10 +6,15 @@ extends GdUnitTestSuite
 ## and a fresh career (CareerReset), and the global RNG is seeded so
 ## spawned names, staff timing and mistakes are the same every run.
 ##
+## The room saves the career at clock-outs (SaveGame), so every test points
+## SaveGame at TEST_SAVE_PATH and starts and ends without a save there: tests
+## never read or write the real save.
+##
 ## Not a test suite itself (no test_ functions) — suites extend it by path.
 
 const TELLER_ROOM_SCENE := "res://scenes/world/teller_room.tscn"
 const RNG_SEED := 20261012
+const TEST_SAVE_PATH := "user://test_career.json"
 
 var room: TellerRoom
 var ts: TellerScreen
@@ -17,6 +22,7 @@ var cq: CustomerQueue
 
 func before_test() -> void:
 	seed(RNG_SEED)
+	use_test_save_path()
 	CareerReset.reset_all()
 	room = instantiate_room()
 	get_tree().root.add_child(room)
@@ -43,9 +49,18 @@ func after_test() -> void:
 		scene.free()
 	room = null
 	CareerReset.reset_all()
+	use_test_save_path()
 	# Let queue_free()'d nodes (rebuilt UI rows, re-placed staff) actually go
 	# before gdUnit's orphan check.
 	await get_tree().process_frame
+
+## Points SaveGame at TEST_SAVE_PATH and removes any test save (and the
+## files SaveGame writes beside it).
+func use_test_save_path() -> void:
+	SaveGame.path = TEST_SAVE_PATH
+	for leftover: String in [TEST_SAVE_PATH, TEST_SAVE_PATH + ".tmp", TEST_SAVE_PATH + ".bad"]:
+		if FileAccess.file_exists(leftover):
+			DirAccess.remove_absolute(leftover)
 
 # --- desk -------------------------------------------------------------------
 

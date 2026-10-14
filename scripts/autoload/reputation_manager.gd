@@ -6,9 +6,7 @@ extends Node
 ## than a per-shift tally, so it's never reset between shifts — only
 ## ever adjusted up or down and clamped to [0, 100].
 ##
-## Like ScoreManager, this only lives in memory for now and resets if
-## the game is closed. Persisting across full restarts would mean
-## saving to a user:// file on change and loading it back in _ready().
+## Saved with the career (save_data()/load_data(), see SaveGame).
 
 signal reputation_changed(new_reputation: int)
 
@@ -28,4 +26,11 @@ func add_reputation(delta: int) -> void:
 ## New career after termination — see CareerReset.
 func reset() -> void:
 	reputation = STARTING_REPUTATION
+	reputation_changed.emit(reputation)
+
+func save_data() -> Dictionary:
+	return {"reputation": reputation}
+
+func load_data(data: Dictionary) -> void:
+	reputation = clampi(SaveGame.int_of(data, "reputation", STARTING_REPUTATION), 0, 100)
 	reputation_changed.emit(reputation)

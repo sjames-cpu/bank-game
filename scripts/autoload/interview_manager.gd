@@ -15,8 +15,8 @@ extends Node
 ## Manager). A promotion to Branch Manager ends it too, without a letter:
 ## managers aren't subject to reports at all.
 ##
-## Like the other managers, this only lives in memory for now and resets
-## if the game is closed.
+## Probation is saved with the career (save_data()/load_data(), see
+## SaveGame); whether a report came this shift isn't (mid-shift state).
 
 ## Probation ended after enough clean shifts (not on promotion or reset).
 signal probation_completed
@@ -54,6 +54,14 @@ func _ready() -> void:
 func reset() -> void:
 	is_on_probation = false
 	probation_clean_shifts = 0
+	_reported_this_shift = false
+
+func save_data() -> Dictionary:
+	return {"is_on_probation": is_on_probation, "probation_clean_shifts": probation_clean_shifts}
+
+func load_data(data: Dictionary) -> void:
+	is_on_probation = SaveGame.bool_of(data, "is_on_probation", false)
+	probation_clean_shifts = clampi(SaveGame.int_of(data, "probation_clean_shifts", 0), 0, PROBATION_CLEAN_SHIFTS - 1) if is_on_probation else 0
 	_reported_this_shift = false
 
 ## Called once the interview screen has asked every question (or hit an

@@ -6,6 +6,7 @@ extends "res://tests/support/teller_room_suite.gd"
 ## PROBATION_CLEAN_SHIFTS completed teller shifts without a new report.
 
 const INTERVIEW_SCENE := "res://scenes/ui/interview_screen.tscn"
+const START_SCREEN := "res://scenes/ui/start_screen.tscn"
 
 var letters: DisciplineLetterScreen
 var hud: Hud
@@ -49,15 +50,19 @@ func hud_text(label: Label) -> String:
 # --- opening scene ---------------------------------------------------------------
 
 func test_new_game_starts_at_the_interview_and_hiring_starts_the_career() -> void:
-	assert_str(str(ProjectSettings.get_setting("application/run/main_scene"))).is_equal(INTERVIEW_SCENE)
+	# The game opens on the start screen, which goes straight on to the
+	# interview when there's no save (save_load_test.gd covers the rest).
+	assert_str(str(ProjectSettings.get_setting("application/run/main_scene"))).is_equal(START_SCREEN)
+	room.free()
+	var start: StartScreen = (load(START_SCREEN) as PackedScene).instantiate()
+	get_tree().root.add_child(start)
+	get_tree().current_scene = start
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var interview := get_tree().current_scene as InterviewScreen
+	assert_object(interview).is_not_null()
 
 	# Play the interview as a new game would: best answer to every question.
-	room.free()
-	var scene: PackedScene = load(INTERVIEW_SCENE)
-	var interview := scene.instantiate() as InterviewScreen
-	get_tree().root.add_child(interview)
-	get_tree().current_scene = interview
-	await get_tree().process_frame
 	for question: InterviewQuestion in interview.questions:
 		var best: Button = null
 		var best_score := -999

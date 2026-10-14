@@ -77,6 +77,12 @@ class_name TellerRoom
 ## line (describe_shift_status()), the "E — ..." prompt for whichever
 ## interactable the player stands at (interaction_prompt_text(), refreshed in
 ## _process()), and the moments each first-run hint (HintManager) fires.
+##
+## Save and load (SaveGame): the room saves the career at every clock-out
+## (teller, Loan Desk, Branch Manager), after a promotion and after the
+## one-time orientation letter (save_career()). A career loaded from the
+## start screen (start_screen.gd) comes straight into this room off shift:
+## everything here is built from the autoloads in _ready().
 
 const DEBUG_UNLOCK_KEY := KEY_F1
 
@@ -179,12 +185,15 @@ func _ready() -> void:
 	# Probation counts completed teller shifts without a new report.
 	teller_screen.shift_clocked_in.connect(InterviewManager.begin_teller_shift)
 	teller_screen.shift_clocked_out.connect(InterviewManager.end_teller_shift)
+	# Saved last, once the promotion and probation above have settled.
+	teller_screen.shift_clocked_out.connect(save_career)
 	customer_queue.customer_abandoned.connect(_on_customer_abandoned)
 	loan_officer_desk.interacted.connect(_on_loan_officer_desk_interacted)
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
 
 	branch_manager_desk.interacted.connect(_on_branch_manager_desk_interacted)
-	branch_manager_screen.shift_clocked_in.connect(letter_screen.show_branch_orientation_once)
+	branch_manager_screen.shift_clocked_in.connect(_on_branch_manager_clocked_in)
+	branch_manager_screen.shift_clocked_out.connect(save_career)
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 	_update_branch_manager_desk_availability()
 
@@ -192,6 +201,7 @@ func _ready() -> void:
 
 	loan_officer_screen.shift_clocked_in.connect(_on_player_clocked_in.bind(ScheduleManager.SLOT_LOAN_DESK))
 	loan_officer_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_LOAN_DESK))
+	loan_officer_screen.shift_clocked_out.connect(save_career)
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
 	_place_staff()
 
@@ -580,6 +590,18 @@ func _on_branch_manager_unlocked() -> void:
 	_update_branch_manager_desk_availability()
 	_apply_branch_manager_desks()
 	hud.show_hint_once(HintManager.Hint.BRANCH_MANAGER_UNLOCKED)
+	save_career()
+
+## The orientation letter is one-time, so the career is saved once it's shown.
+func _on_branch_manager_clocked_in() -> void:
+	if letter_screen.show_branch_orientation_once():
+		save_career()
+
+## Saves the career (SaveGame) at clock-outs, the promotion and the
+## orientation letter. Never mid-shift state: the save holds only the
+## autoloads' career data, and a loaded career starts off shift.
+func save_career() -> void:
+	SaveGame.save()
 
 ## After promotion (never mid-shift — XPManager holds it until clock-out):
 ## the Player Teller Window becomes Teller Window 3, staffed (ScheduleManager

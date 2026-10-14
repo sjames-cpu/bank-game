@@ -37,6 +37,8 @@ class_name BranchManagerScreen
 
 ## teller_room.gd shows the one-time orientation letter off this.
 signal shift_clocked_in
+## After the clock-out summary is ready; teller_room.gd saves the career.
+signal shift_clocked_out
 
 @onready var main_panel: PanelContainer = $Panel
 @onready var schedule_staff_button: Button = $Panel/VBox/ScheduleStaffButton
@@ -354,6 +356,7 @@ func _prepare_shift_summary() -> void:
 	main_panel.visible = false
 	shift_summary_panel.visible = true
 	_update_shift_controls()
+	shift_clocked_out.emit()
 
 ## The summary's "Branch" section — report only, no points. One line per
 ## (desk, staff member) in desk order: customers served and mistakes for a

@@ -15,8 +15,8 @@ extends Node
 ## _default_schedule()) so the desks are staffed from the first shift;
 ## staff_scheduling_screen.gd (Branch Manager) can replace it, and
 ## teller_room.gd places the StaffNPCs from it — and re-places them on
-## schedule_confirmed. Like the other managers, this only lives in memory
-## and resets if the game is closed.
+## schedule_confirmed. Saved with the career (save_data()/load_data(), see
+## SaveGame), by staff name.
 
 signal schedule_confirmed(schedule: Dictionary)
 
@@ -88,6 +88,48 @@ func reset() -> void:
 	is_teller_window_3_open = false
 	dismissed_staff.clear()
 	schedule = _default_schedule()
+
+## The schedule as slot name -> staff name.
+func save_data() -> Dictionary:
+	var assignments := {}
+	for slot_name: String in schedule:
+		var member: StaffMember = schedule[slot_name]
+		assignments[slot_name] = member.staff_name
+	return {
+		"schedule": assignments,
+		"is_teller_window_3_open": is_teller_window_3_open,
+		"dismissed_staff": dismissed_staff.duplicate(),
+	}
+
+## Staff are looked up by name in the current roster; a slot or name the
+## game doesn't know, a dismissed staff member, or someone already placed at
+## another desk is left out (that desk stays unassigned). With no schedule
+## in `data` at all, the default one is kept (minus dismissed staff). The
+## room isn't loaded yet, so schedule_confirmed isn't emitted: the room
+## places staff from the schedule when it's ready.
+func load_data(data: Dictionary) -> void:
+	is_teller_window_3_open = SaveGame.bool_of(data, "is_teller_window_3_open", false)
+	dismissed_staff.clear()
+	for staff_name in SaveGame.strings_of(SaveGame.array_of(data, "dismissed_staff")):
+		if not dismissed_staff.has(staff_name):
+			dismissed_staff.append(staff_name)
+	if not data.get("schedule") is Dictionary:
+		for staff_name in dismissed_staff:
+			schedule.erase(slot_of(staff_name))
+		return
+	var slot_names: Array[String] = []
+	for slot in get_desk_slots():
+		slot_names.append(slot["name"])
+	var assignments := SaveGame.dict_of(data, "schedule")
+	schedule = {}
+	for slot_name in slot_names:
+		var staff_name := SaveGame.string_of(assignments, slot_name, "")
+		if staff_name == "" or slot_of(staff_name) != "":
+			continue
+		for member in get_roster():
+			if member.staff_name == staff_name:
+				schedule[slot_name] = member
+				break
 
 ## The branch's current staff: StaffRosterData minus anyone dismissed.
 func get_roster() -> Array[StaffMember]:

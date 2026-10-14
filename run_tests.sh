@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the GDScript warning check, the full gdUnit4 test suite (tests/) and
-# headless boot smoke tests of the main scene (the interview) and the teller
+# headless boot smoke tests of the main scene (the start screen) and the teller
 # room. Used locally and by CI (.github/workflows/tests.yml).
 #
 #   GODOT_BIN=/path/to/godot ./run_tests.sh
@@ -63,7 +63,7 @@ if [[ $boot_exit -ne 0 ]]; then
 fi
 
 echo "== Headless boot of the teller room (300 frames)"
-# The main scene is the interview, so boot the gameplay room directly too.
+# The main scene is the start screen, so boot the gameplay room directly too.
 "$GODOT_BIN" --headless --path . res://scenes/world/teller_room.tscn --quit-after 300 2>&1 \
 	| tee "$logs/room_boot.log"
 room_boot_exit=${PIPESTATUS[0]}

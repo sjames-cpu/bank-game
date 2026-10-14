@@ -6,9 +6,8 @@ extends Node
 ## else reads/writes it directly — this manager also owns the Loan
 ## Officer unlock check, since that check needs both XP and Reputation.
 ##
-## Like the other managers, this only lives in memory for now and resets
-## if the game is closed. Persisting across full restarts would mean
-## saving to a user:// file on change and loading it back in _ready().
+## Saved with the career (save_data()/load_data(), see SaveGame), except
+## which desks are on shift: a loaded career starts off shift.
 
 signal xp_changed(new_total: int)
 signal loan_officer_unlocked
@@ -84,6 +83,28 @@ func reset() -> void:
 	is_branch_manager_unlocked = false
 	is_branch_manager_promotion_pending = false
 	has_seen_branch_orientation = false
+	_desks_on_shift.clear()
+	xp_changed.emit(total_xp)
+
+func save_data() -> Dictionary:
+	return {
+		"total_xp": total_xp,
+		"is_loan_officer_unlocked": is_loan_officer_unlocked,
+		"is_branch_manager_unlocked": is_branch_manager_unlocked,
+		"is_branch_manager_promotion_pending": is_branch_manager_promotion_pending,
+		"has_seen_branch_orientation": has_seen_branch_orientation,
+	}
+
+## Restores the flags as saved, without running the unlock checks or
+## emitting the unlock signals (the career already had its letters). A
+## pending promotion (saved at one desk's clock-out while still on shift at
+## another) is granted at the next clock-out (end_player_shift()).
+func load_data(data: Dictionary) -> void:
+	total_xp = maxi(0, SaveGame.int_of(data, "total_xp", 0))
+	is_loan_officer_unlocked = SaveGame.bool_of(data, "is_loan_officer_unlocked", false)
+	is_branch_manager_unlocked = SaveGame.bool_of(data, "is_branch_manager_unlocked", false)
+	is_branch_manager_promotion_pending = SaveGame.bool_of(data, "is_branch_manager_promotion_pending", false) and not is_branch_manager_unlocked
+	has_seen_branch_orientation = SaveGame.bool_of(data, "has_seen_branch_orientation", false)
 	_desks_on_shift.clear()
 	xp_changed.emit(total_xp)
 

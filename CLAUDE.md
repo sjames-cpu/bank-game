@@ -10,7 +10,7 @@ Keep this file in step with the code: update it when structure or behaviour chan
 
 ## Flow
 
-`run/main_scene` is the hiring interview (`scenes/ui/interview_screen.tscn`, `InterviewManager`): every new game starts there. Hired or Hired on Probation loads `scenes/world/teller_room.tscn`, where the whole branch is one room and every role works; Rejected restarts the interview. Termination (see Reports) shows a letter whose "Apply for a new job" wipes all career progress (`CareerReset.reset_all()`, which calls each autoload's `reset()`) and loads the interview again.
+`run/main_scene` is the start screen (`scenes/ui/start_screen.tscn`, `StartScreen`). With no save it goes straight to the hiring interview (`scenes/ui/interview_screen.tscn`, `InterviewManager`); with one it offers Continue and New Game (see Save and load). Hired or Hired on Probation loads `scenes/world/teller_room.tscn`, where the whole branch is one room and every role works; Rejected restarts the interview. Termination (see Reports) shows a letter whose "Apply for a new job" wipes all career progress (`CareerReset.reset_all()`, which calls each autoload's `reset()`) and loads the interview again.
 
 Desk screens pause the tree while open (`get_tree().paused = true`), so customers, staff and the room's `_process` stop; the HUD, letters and the day/night tint run with `process_mode` ALWAYS.
 
@@ -23,7 +23,7 @@ Desk screens pause the tree while open (`get_tree().paused = true`), so customer
 
 ## Autoloads (`scripts/autoload/`, registered in `project.godot`)
 
-All in memory only (nothing persists across launches). Each has `reset()`, called by `CareerReset`; any new autoload holding career progress needs one too.
+Each has `reset()`, called by `CareerReset`, and `save_data()`/`load_data()`, called by `SaveGame` (see Save and load); any new autoload holding career progress needs all three, plus lines in `CareerReset.reset_all()` and `SaveGame.capture()`/`restore()`.
 
 - **AccountManager**: the shared `Account` list (Teller, ATM and staff lines all use it). `create_account()`, `deposit()`/`withdraw()` (cents), `get_browsable_accounts()` (hides auto-created customer accounts from the teller dropdown), `find_account_by_name(name, staff_line)` (the player's line and the staff lines are separate namespaces, so staff work never moves a player-line customer's balance). Seeds a $1,000 demo account.
 - **ScoreManager** / **ReputationManager**: career Score, and Reputation clamped to [0, 100] starting at 50 (`LOW_REPUTATION_THRESHOLD` 0 shows the HUD warning).
@@ -68,6 +68,14 @@ Unlocked at 1500 XP / 60 Reputation, granted at clock-out if earned mid-shift, w
 
 Every 2 mistaken teller customers = 1 written warning (a letter); 3 reports = termination (2 while on probation; `ReportManager.report_limit()`), with a full-screen letter, then the interview (see Flow). Warning letters on probation say so. Reports carry across shifts and roles. Branch Managers are exempt: promotion clears the record (TODO: Regional Manager review for managers).
 
+## Save and load (`scripts/util/save_game.gd`, `SaveGame`; `scripts/ui/start_screen.gd`)
+
+- **What**: the whole career, as JSON at `SaveGame.path` (`user://career.json`) with `FORMAT_VERSION` (1). That covers every autoload's career state: Score, Reputation, XP and unlock/promotion flags, reports, pending mistakes and probation, every account and balance, the schedule (by staff name), dismissed staff, staff reports and feedback counts, the review queue, history (the 200 staff-record cap still holds on load), the orientation flag and hints. Mid-shift state (queues, drawers, screens, desks on shift) is never saved, so a loaded career starts off shift. `Account`, `DecisionRecord`, `DisciplinaryReport` and `StaffReviewItem` are saved from their exported properties (`resource_to_dict()`/`fill_resource()`), so a new exported field is saved automatically.
+- **When**: on being hired (Hired or Hired on Probation, `interview_screen.gd`), so quitting before the first clock-out continues the career and probation can't be escaped by re-taking the interview; and (`teller_room.save_career()`) at every clock-out (teller, Loan Desk, Branch Manager's new `shift_clocked_out`), after a promotion, and after the one-time orientation letter. The Probation Complete letter comes at a teller clock-out, so that save covers it. Writes go to a `.tmp` file that is then moved over the save.
+- **Start screen**: Continue runs `SaveGame.restore()` (a `CareerReset` and then each `load_data()`, with Reputation before XP so no unlock fires again) and loads the room. New Game asks for confirmation, then deletes the save and goes to the interview.
+- **Robustness**: `SaveGame.read()` reports MISSING, OK, CORRUPT (not JSON, or the wrong shape) or WRONG_VERSION, and never errors. An unreadable save shows a short message, is moved to `career.json.bad` and a new game starts. Values are read through typed getters (`int_of()`, `dict_of()`, ...), so a mistyped value falls back to its new-game default.
+- **Termination** deletes the save as soon as the letter appears (so quitting at the letter can't undo it) and again on "Apply for a new job". `SaveGame.save()` refuses while `ReportManager.is_terminated`.
+
 ## HUD, prompts and hints (`scripts/ui/hud.gd`, `scenes/ui/hud.tscn`, B4)
 
 The `HUD` CanvasLayer (layer 2, above `UI`) shows role, Score, Reputation, XP, Reports (with the probation line, e.g. "Probation — 1 of 3 clean shifts", while on probation) and shift status in a top-right column that stays clear of every centred screen at 1152×648. Below it are the low-reputation and role-unlocked notifications, then first-run hints with a "Got it" button. It's visible with or without a desk screen open, and hidden while the termination letter is up. The "E — …" interaction prompt appears below whichever interactable the player stands at (`teller_room.interaction_prompt_text()`), or says why a desk can't be used (e.g. "Loan Desk — unlocks at 500 XP and 40 Reputation"). It's hidden while a screen is open. Key names come from the InputMap (`InputPrompts.key_for()`).
@@ -99,7 +107,7 @@ Play by opening the project in the Godot 4.7 editor and using Play/Run.
 
 ### Tests and CI
 
-Tests use **gdUnit4 v6.2.1** (`addons/gdUnit4/`, the addon's own self-tests left out). Suites live in `tests/` (`*_test.gd`, extending `GdUnitTestSuite`). Suites that drive the real room extend `tests/support/teller_room_suite.gd`: a fresh `teller_room.tscn` (`room: TellerRoom`) and a fresh career per test, a seeded RNG, and helpers to clock in/out, spawn customers with fixed requests, and press the teller buttons (`deposit()`/`withdraw()`/`spawn()` take dollars, like a player typing; `count_drawer()` takes cents).
+Tests use **gdUnit4 v6.2.1** (`addons/gdUnit4/`, the addon's own self-tests left out). Suites live in `tests/` (`*_test.gd`, extending `GdUnitTestSuite`). Suites that drive the real room extend `tests/support/teller_room_suite.gd`: a fresh `teller_room.tscn` (`room: TellerRoom`) and a fresh career per test, `SaveGame.path` pointed at `user://test_career.json` (removed before and after each test, so tests never touch the real save), a seeded RNG, and helpers to clock in/out, spawn customers with fixed requests, and press the teller buttons (`deposit()`/`withdraw()`/`spawn()` take dollars, like a player typing; `count_drawer()` takes cents).
 
 Run everything locally (Git Bash on Windows):
 
@@ -111,7 +119,7 @@ GODOT_BIN="/c/Users/USER/Downloads/Godot_v4.7.1-stable_win64.exe/Godot_v4.7.1-st
 1. Imports the project.
 2. Checks scripts for warnings. Warnings never print when a script loads, so `tools/write_warnings_override.gd` writes `override.cfg` raising every enabled warning to Error for one run, and `tools/check_scripts.gd` compiles every script (addons excluded); the override is deleted afterwards.
 3. Runs every suite in `tests/`.
-4. Does two `--headless --quit-after 300` boots: the main scene (the interview) and `teller_room.tscn` directly, so the gameplay room is boot-checked on its own, not only through tests.
+4. Does two `--headless --quit-after 300` boots: the main scene (the start screen, which goes on to the interview when there is no save) and `teller_room.tscn` directly, so the gameplay room is boot-checked on its own, not only through tests.
 
 It fails on any warning, any failing test, a failed boot, or any `ERROR:`/`SCRIPT ERROR:` line. CI (`.github/workflows/tests.yml`) runs the same script on every push and pull request with a pinned Godot 4.7.1 Linux build and uploads the gdUnit4 report. Keep the CI, local and gdUnit4 versions in step.
 

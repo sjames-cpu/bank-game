@@ -16,7 +16,8 @@ extends Node
 ##   (ScheduleManager.dismiss_staff()).
 ##
 ## Registered after ScheduleManager and XPManager in project.godot. Cleared
-## by reset() (CareerReset).
+## by reset() (CareerReset); saved with the career (save_data()/load_data(),
+## see SaveGame).
 
 signal queue_changed
 ## Emitted after every review decision with the outcome (see decide()).
@@ -57,6 +58,42 @@ func reset() -> void:
 	queue.clear()
 	staff_reports.clear()
 	staff_feedbacks.clear()
+	queue_changed.emit()
+
+func save_data() -> Dictionary:
+	var saved_queue: Array = []
+	for item in queue:
+		saved_queue.append(SaveGame.resource_to_dict(item))
+	var reports := {}
+	for staff_name: String in staff_reports:
+		var reasons: PackedStringArray = staff_reports[staff_name]
+		reports[staff_name] = Array(reasons)
+	return {"queue": saved_queue, "staff_reports": reports, "staff_feedbacks": staff_feedbacks.duplicate()}
+
+func load_data(data: Dictionary) -> void:
+	queue.clear()
+	for entry in SaveGame.dicts_of(SaveGame.array_of(data, "queue")):
+		var item := StaffReviewItem.new()
+		SaveGame.fill_resource(item, entry)
+		queue.append(item)
+	staff_reports.clear()
+	var reports := SaveGame.dict_of(data, "staff_reports")
+	for key: Variant in reports:
+		if not key is String:
+			continue
+		var staff_name: String = key
+		var reasons := SaveGame.strings_of(SaveGame.array_of(reports, staff_name))
+		if not reasons.is_empty():
+			staff_reports[staff_name] = reasons
+	staff_feedbacks.clear()
+	var feedbacks := SaveGame.dict_of(data, "staff_feedbacks")
+	for key: Variant in feedbacks:
+		if not key is String:
+			continue
+		var staff_name: String = key
+		var count := SaveGame.int_of(feedbacks, staff_name, 0)
+		if count > 0:
+			staff_feedbacks[staff_name] = count
 	queue_changed.emit()
 
 # --- queueing ----------------------------------------------------------------

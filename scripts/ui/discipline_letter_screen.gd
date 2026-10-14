@@ -18,8 +18,9 @@ class_name DisciplineLetterScreen
 ## it paused — same _paused_by_self pattern as DrawerCountScreen.
 ##
 ## The termination letter's only button, "Apply for a new job", wipes all
-## career progress (CareerReset) and loads the interview; passing it starts
-## a new career in teller_room the usual way (interview_screen.gd).
+## career progress (CareerReset) and its save (SaveGame, already deleted when
+## the letter came up) and loads the interview; passing it starts a new
+## career in teller_room the usual way (interview_screen.gd).
 
 const INTERVIEW_SCENE: String = "res://scenes/ui/interview_screen.tscn"
 
@@ -88,6 +89,9 @@ func _on_termination_issued(reports: Array[DisciplinaryReport]) -> void:
 		lines.append("Report %d — %s: %s" % [report.number, report.reason, ", ".join(report.items)])
 	var during := " during your probation period" if InterviewManager.is_on_probation else ""
 	var body := "Following %d disciplinary reports%s, your employment with the branch is terminated, effective immediately.\n\n%s" % [reports.size(), during, "\n".join(lines)]
+	# The career is over: delete its save now, so quitting at this letter
+	# can't bring it back (SaveGame won't save a terminated career either).
+	SaveGame.delete()
 	# Termination supersedes anything still waiting to be shown.
 	_queue.clear()
 	_show(Mode.TERMINATION, "Notice of Termination", body)
@@ -109,12 +113,13 @@ const ORIENTATION_BODY: String = "As Branch Manager, you're responsible for the 
 ## Called on every Branch Manager clock-in (branch_manager_screen.gd's
 ## shift_clocked_in, wired by teller_room.gd); only the first one per career
 ## shows the letter — it's kept apart from the promotion letter so the
-## player never gets two letters in a row.
-func show_branch_orientation_once() -> void:
+## player never gets two letters in a row. Returns whether it was shown.
+func show_branch_orientation_once() -> bool:
 	if XPManager.has_seen_branch_orientation:
-		return
+		return false
 	XPManager.has_seen_branch_orientation = true
 	_enqueue(Mode.NOTICE, "Welcome to Branch Management", ORIENTATION_BODY, PROMOTION_SENDER)
+	return true
 
 ## The termination letter covers the whole window (opaque backdrop); the
 ## room's HUD hides while it's up.
@@ -161,6 +166,7 @@ func _on_action_button_pressed() -> void:
 
 func _apply_for_new_job() -> void:
 	get_tree().paused = false
+	SaveGame.delete()
 	CareerReset.reset_all()
 	get_tree().change_scene_to_file(INTERVIEW_SCENE)
 
