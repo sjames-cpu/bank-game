@@ -33,7 +33,7 @@ jobs:
           mv ~/godot/Godot_v${GODOT_VERSION}_linux.x86_64 ~/godot/godot
           chmod +x ~/godot/godot
 
-      - name: Run tests and headless boot
+      - name: Run tests and headless boots
         run: GODOT_BIN=~/godot/godot ./run_tests.sh
 
       - name: Upload test report

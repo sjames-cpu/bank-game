@@ -111,7 +111,7 @@ GODOT_BIN="/c/Users/USER/Downloads/Godot_v4.7.1-stable_win64.exe/Godot_v4.7.1-st
 1. Imports the project.
 2. Checks scripts for warnings. Warnings never print when a script loads, so `tools/write_warnings_override.gd` writes `override.cfg` raising every enabled warning to Error for one run, and `tools/check_scripts.gd` compiles every script (addons excluded); the override is deleted afterwards.
 3. Runs every suite in `tests/`.
-4. Does a `--headless --quit-after 300` boot.
+4. Does two `--headless --quit-after 300` boots: the main scene (the interview) and `teller_room.tscn` directly, so the gameplay room is boot-checked on its own, not only through tests.
 
 It fails on any warning, any failing test, a failed boot, or any `ERROR:`/`SCRIPT ERROR:` line. CI (`.github/workflows/tests.yml`) runs the same script on every push and pull request with a pinned Godot 4.7.1 Linux build and uploads the gdUnit4 report. Keep the CI, local and gdUnit4 versions in step.
 

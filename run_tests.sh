@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Runs the GDScript warning check, the full gdUnit4 test suite (tests/) and a
-# headless boot smoke test. Used locally and by CI (.github/workflows/tests.yml).
+# Runs the GDScript warning check, the full gdUnit4 test suite (tests/) and
+# headless boot smoke tests of the main scene (the interview) and the teller
+# room. Used locally and by CI (.github/workflows/tests.yml).
 #
 #   GODOT_BIN=/path/to/godot ./run_tests.sh
 #
 # Fails (non-zero exit) if any script has a GDScript warning, any test fails,
-# the boot run exits non-zero, or Godot prints an error (ERROR: /
+# either boot run exits non-zero, or Godot prints an error (ERROR: /
 # SCRIPT ERROR:) at any step.
 set -uo pipefail
 
@@ -61,9 +62,19 @@ if [[ $boot_exit -ne 0 ]]; then
 	status=1
 fi
 
+echo "== Headless boot of the teller room (300 frames)"
+# The main scene is the interview, so boot the gameplay room directly too.
+"$GODOT_BIN" --headless --path . res://scenes/world/teller_room.tscn --quit-after 300 2>&1 \
+	| tee "$logs/room_boot.log"
+room_boot_exit=${PIPESTATUS[0]}
+if [[ $room_boot_exit -ne 0 ]]; then
+	echo "Teller room boot failed (exit $room_boot_exit)" >&2
+	status=1
+fi
+
 echo "== Checking output for errors"
 # Strip colour codes, then look for Godot's error lines in every step.
-if sed 's/\x1b\[[0-9;]*m//g' "$logs/import.log" "$logs/warnings.log" "$logs/tests.log" "$logs/boot.log" \
+if sed 's/\x1b\[[0-9;]*m//g' "$logs/import.log" "$logs/warnings.log" "$logs/tests.log" "$logs/boot.log" "$logs/room_boot.log" \
 	| grep -E '^\s*(SCRIPT ERROR|USER ERROR|ERROR):' ; then
 	echo "Godot printed errors (above)" >&2
 	status=1
