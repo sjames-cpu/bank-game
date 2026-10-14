@@ -193,6 +193,8 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_str(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_1).staff_name).is_equal("Nina Ortiz")
 	assert_str(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_2).staff_name).is_equal("Harper Quinn")
 	assert_int(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_2).speed).is_equal(9)
+	# Their uniform look, chosen when hired.
+	assert_str(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_2).look).is_equal(StaffLooks.HIRE_LOOKS[0])
 	assert_int(ScheduleManager.hired_staff.size()).is_equal(1)
 	var waiting: Array[StaffCandidate] = HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK]
 	assert_int(waiting.size()).is_equal(3)

@@ -94,10 +94,9 @@ const ARRIVAL_DISTANCE: float = 4.0
 ## a normally-paced player rarely sees it" shape at game speed.
 const WAIT_ABANDON_SECONDS: float = 50.0
 
-## Tinted toward this as wait_seconds climbs (see _process below), so the
-## patience cue reads as "this customer's placeholder tint is reddening"
-## rather than replacing their color outright.
-const IMPATIENT_COLOR: Color = Color(0.9, 0.15, 0.15)
+## As wait_seconds climbs, the bubble above them (PatienceIndicator) goes
+## from hidden to "..." to "!" to "!!" (see _process below). The sprite's
+## own colours never change.
 
 ## How long this customer has been in the queue. Starts counting the moment
 ## the node exists, which is also the moment CustomerQueue._spawn_customer()
@@ -131,16 +130,24 @@ const UPSET_FAREWELL_LINES: Array[String] = [
 
 const FAREWELL_DISPLAY_SECONDS: float = 1.5
 
-## Quick-designed visual variety (drawn once by a throwaway generator script
-## that isn't kept in the repo; the PNGs in assets/sprites are the source):
-## each spawned customer gets one of these three
-## looks at random in _ready(), same as the .tscn's default (customer_a)
-## would otherwise always be. Preloaded once as a class-level const rather
-## than re-loaded per instance.
+## Visual variety: each spawned customer gets one of these looks at random
+## in _ready(). The three original designs (customer_a/b/c, by lym221-not)
+## and three recolours of each (hair, skin and clothing), made by
+## tools/art/generate_characters.py (see ART.md). Preloaded once as a
+## class-level const rather than re-loaded per instance.
 const CUSTOMER_FRAME_SETS: Array[SpriteFrames] = [
 	preload("res://assets/sprites/customer_a_frames.tres"),
+	preload("res://assets/sprites/customer_a2_frames.tres"),
+	preload("res://assets/sprites/customer_a3_frames.tres"),
+	preload("res://assets/sprites/customer_a4_frames.tres"),
 	preload("res://assets/sprites/customer_b_frames.tres"),
+	preload("res://assets/sprites/customer_b2_frames.tres"),
+	preload("res://assets/sprites/customer_b3_frames.tres"),
+	preload("res://assets/sprites/customer_b4_frames.tres"),
 	preload("res://assets/sprites/customer_c_frames.tres"),
+	preload("res://assets/sprites/customer_c2_frames.tres"),
+	preload("res://assets/sprites/customer_c3_frames.tres"),
+	preload("res://assets/sprites/customer_c4_frames.tres"),
 ]
 
 var target_position: Vector2
@@ -152,7 +159,7 @@ var _leaving: bool = false
 
 @onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var _farewell_label: Label = $FarewellLabel
-var _base_modulate: Color
+@onready var patience_indicator: PatienceIndicator = $PatienceIndicator
 
 ## Mirrors player_movement.gd's own _facing/_facing_flip — side-facing
 ## reuses one mirrored animation via flip_h rather than separate left/right
@@ -163,7 +170,6 @@ var _facing_flip: bool = false
 func _ready() -> void:
 	target_position = global_position
 	_sprite.sprite_frames = CUSTOMER_FRAME_SETS.pick_random()
-	_base_modulate = _sprite.modulate
 
 ## Which queue spot (index into CustomerQueue.queue_positions) this customer
 ## stands at or is stepping into; -1 until their line gives them one.
@@ -212,7 +218,7 @@ func _hide_speech(token: int) -> void:
 ## abandon the line mid-transaction.
 func stop_waiting() -> void:
 	_abandoning = true
-	_sprite.modulate = _base_modulate
+	patience_indicator.set_urgency(0.0)
 
 ## Phase 6i: called once by CustomerQueue.send_customer_off() after this
 ## customer has been served and the Teller screen closed. Shows a random
@@ -226,7 +232,8 @@ func say_farewell_and_leave(exit_route: Array[Vector2], farewell: String = "") -
 	if _leaving:
 		return
 	_leaving = true
-	_abandoning = true # stop the patience tint — this customer is done, not waiting
+	_abandoning = true # stop the patience clock — this customer is done, not waiting
+	patience_indicator.set_urgency(0.0)
 
 	if farewell == "":
 		farewell = (UPSET_FAREWELL_LINES if left_upset else FAREWELL_LINES).pick_random()
@@ -296,7 +303,7 @@ func _process(delta: float) -> void:
 		return
 	wait_seconds += delta
 	var urgency := clampf(wait_seconds / WAIT_ABANDON_SECONDS, 0.0, 1.0)
-	_sprite.modulate = _base_modulate.lerp(IMPATIENT_COLOR, urgency)
+	patience_indicator.set_urgency(urgency)
 	if wait_seconds >= WAIT_ABANDON_SECONDS:
 		_abandoning = true
 		patience_expired.emit()

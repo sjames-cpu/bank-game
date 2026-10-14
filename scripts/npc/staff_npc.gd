@@ -5,9 +5,10 @@ class_name StaffNPC
 ## slots and teller_room.gd, which places these). Visual only for now —
 ## staff don't serve customers yet.
 ##
-## Same placeholder approach as CustomerNPC (customer sprite frames, walks
-## straight at a target, no pathfinding), but visibly staff: a blue
-## "uniform" tint and their name always shown above them. Movement follows
+## Walks like CustomerNPC (straight at a target, no pathfinding), but
+## visibly staff: the bank uniform, in their own look (StaffLooks, from
+## StaffMember.look) so each coworker can be told apart, and their name
+## always shown above them. Movement follows
 ## a list of waypoints (follow_route()) so teller_room.gd can route them
 ## around the back-office wall to the break room and back.
 ##
@@ -20,11 +21,6 @@ enum State { AT_DESK, WALKING, ON_BREAK }
 
 const ARRIVAL_DISTANCE: float = 4.0
 const SPEED: float = 110.0
-
-## Strong blue "uniform" tint plus a gold name badge (Badge in the scene)
-## mark staff apart from customers at a glance — customers start untinted
-## and only redden with impatience, and never wear a badge.
-const STAFF_TINT: Color = Color(0.3, 0.5, 1.0)
 
 var staff: StaffMember = null
 var state: State = State.AT_DESK
@@ -48,15 +44,25 @@ var _facing_flip: bool = false
 var _speech_token: int = 0
 
 func _ready() -> void:
-	_sprite.modulate = STAFF_TINT
 	if staff != null:
-		_name_label.text = staff.staff_name
+		_show_member()
 
 ## Call before adding to the tree (or any time after) to set who this is.
 func setup(member: StaffMember) -> void:
 	staff = member
 	if is_node_ready():
-		_name_label.text = member.staff_name
+		_show_member()
+
+## Their name, and their uniform look (keeping the current animation, and
+## whether it was playing).
+func _show_member() -> void:
+	_name_label.text = staff.staff_name
+	var animation := _sprite.animation
+	var was_playing := _sprite.is_playing()
+	_sprite.sprite_frames = StaffLooks.frames_for(staff.look)
+	_sprite.animation = animation
+	if was_playing:
+		_sprite.play(animation)
 
 ## Short speech line above the name label, hidden after `seconds` of
 ## unpaused time unless something newer replaced it.

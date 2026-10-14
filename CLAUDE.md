@@ -66,6 +66,13 @@ Unlocked at 1500 XP / 60 Reputation, granted at clock-out if earned mid-shift, w
 
 `teller_room.gd` places a `StaffNPC` at each staffed desk from `ScheduleManager`. Teller Windows 1/2 (and 3 after promotion) serve their own `NpcCustomerLine` (extends `CustomerQueue`: regular customers only, no per-shift cap, up to 3 waiting, arrivals every 12–18 s), with service time and mistake chance from the staff member's stats. `NpcLoanDeskWorker` decides loan applications in the background while the player isn't at the Loan Desk. NPC work changes real (staff-line) accounts but never the player's Score, Reputation, XP or drawer; it's logged as STAFF records.
 
+## Character art (`ART.md`, `tools/art/generate_characters.py`)
+
+Every character uses one format: 16×24 frames, six per direction sheet (down, up, side; left is side mirrored), idle frames 0–1 at 2 fps and walk frames 2–5 at 8 fps, in a `<name>_frames.tres`. All art is original. The player and the three customer designs are lym221-not's. The rest is generated from them by `tools/art/generate_characters.py` (standard-library Python; `--check` verifies the committed art is current). `ART.md` has the credits and how to regenerate.
+- **Staff** wear a bank uniform (blue blazer, white shirt front, charcoal trousers, gold name tag) built on the player's body, with no tint or badge. Each has a look (`StaffMember.look`, a `StaffLooks` id) with its own hair style, hair colour and skin. The six roster members have fixed looks (`staff_01`–`06`). A hire gets one of `StaffLooks.HIRE_LOOKS` (`staff_07`–`10`) in `ScheduleManager.hire_staff()`, preferring one nobody wears, and it's saved with them.
+- **Customers** pick from 12 looks (`CustomerNPC.CUSTOMER_FRAME_SETS`): the three designs plus three recolours of each.
+- **Impatience** shows as a pixel speech bubble above the customer (`PatienceIndicator`, drawn above the room): hidden, then "…" at 40% of their patience, "!" at 65% and "!!" at 85%. The sprite's own colours never change.
+
 ## Reports and termination (`ReportManager`)
 
 Every 2 mistaken teller customers = 1 written warning (a letter); 3 reports = termination (2 while on probation; `ReportManager.report_limit()`), with a full-screen letter, then the interview (see Flow). Warning letters on probation say so. Reports carry across shifts and roles. Branch Managers are exempt: promotion clears the record (TODO: Regional Manager review for managers).
@@ -84,7 +91,7 @@ The `HUD` CanvasLayer (layer 2, above `UI`) shows role, Score, Reputation, XP, R
 
 ## Data resources (`scripts/data/`)
 
-Small `Resource` structs built in code (no `.tres` data files): `Account`, `ShiftTransaction`, `DecisionRecord`, `DisciplinaryReport`, `StaffMember`, `StaffReviewItem`, `StaffCandidate`, `LoanApplication`, `CustomerComplaint`/`ComplaintResponse`, `CustomerDialogueLine`, `InterviewQuestion`/`InterviewAnswer`. Content lives in static providers kept apart from the data shapes: `InterviewQuestionsData`, `LoanApplicationsData`, `CustomerComplaintsData`, `CustomerDialogueData`, `StaffRosterData`, `StaffCandidatesData`.
+Small `Resource` structs built in code (no `.tres` data files): `Account`, `ShiftTransaction`, `DecisionRecord`, `DisciplinaryReport`, `StaffMember`, `StaffReviewItem`, `StaffCandidate`, `LoanApplication`, `CustomerComplaint`/`ComplaintResponse`, `CustomerDialogueLine`, `InterviewQuestion`/`InterviewAnswer`. Content lives in static providers kept apart from the data shapes: `InterviewQuestionsData`, `LoanApplicationsData`, `CustomerComplaintsData`, `CustomerDialogueData`, `StaffRosterData`, `StaffCandidatesData`, `StaffLooks`.
 
 ## Engine configuration (`project.godot`)
 

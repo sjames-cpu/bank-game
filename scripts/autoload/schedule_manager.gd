@@ -200,10 +200,14 @@ func role_for_slot(slot_name: String) -> String:
 ## A new hire joins the roster at the vacant desk `slot_name`, and the
 ## schedule is re-announced so teller_room.gd places them and opens the
 ## desk's line. Refused (false) unless the desk is vacant, the branch has
-## room, and the name is new.
+## room, and the name is new. A hire without a look gets one of
+## StaffLooks.HIRE_LOOKS.
 func hire_staff(member: StaffMember, slot_name: String) -> bool:
 	if not vacant_slots().has(slot_name) or not has_room_to_hire() or is_known_staff_name(member.staff_name):
 		return false
+	# Their uniform look is chosen now and saved with them.
+	if member.look == "":
+		member.look = StaffLooks.pick_hire_look(get_roster())
 	hired_staff.append(member)
 	schedule[slot_name] = member
 	schedule_confirmed.emit(schedule)

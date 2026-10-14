@@ -31,6 +31,11 @@ class_name StaffMember
 ## as "quick but cuts corners" rather than just a bar chart of numbers).
 @export var flavor_text: String = ""
 
+## Which uniform sprite they wear (a StaffLooks id, e.g. "staff_03"): fixed
+## per member on the starting roster (StaffRosterData), chosen when hired
+## for new staff (ScheduleManager.hire_staff()) and saved with them.
+@export var look: String = ""
+
 ## --- How stats drive NPC work (NpcCustomerLine / NpcLoanDeskWorker) ---
 ## All 1-10 stats map linearly; first-pass values, tune after playtesting.
 
