@@ -173,7 +173,8 @@ func test_hud_column_never_overlaps_a_screen_panel() -> void:
 	dismiss_all_hints()
 	hud._show_hint(Hint.BRANCH_MANAGER_UNLOCKED) # the longest hint text
 	# Every notification up at once: the tallest the column gets.
-	XPManager.is_loan_officer_unlocked = true
+	hud.show_unlock_notification(hud.loan_officer_unlocked_label)
+	hud.show_unlock_notification(hud.branch_manager_unlocked_label)
 	ReputationManager.add_reputation(-100)
 	acknowledge_letters()
 
@@ -237,7 +238,10 @@ func test_notifications_show_on_the_hud_with_no_screen_open() -> void:
 	assert_bool(hud.branch_manager_unlocked_label.is_visible_in_tree()).is_true()
 	room.branch_manager_screen.hide_screen()
 
-	CareerReset.reset_all()
+	# Unlock notifications go after their time (unlock_notification_test.gd
+	# covers the timing).
+	for tween: Tween in hud.unlock_tweens.values():
+		tween.custom_step(Hud.UNLOCK_NOTIFICATION_SECONDS + Hud.UNLOCK_FADE_SECONDS + 0.1)
 	await settle()
 	assert_bool(hud.notification_panel.visible).is_false()
 

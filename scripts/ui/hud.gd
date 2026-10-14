@@ -30,8 +30,11 @@ class_name Hud
 @onready var shift_label: Label = $RightColumn/StatsPanel/VBox/ShiftLabel
 @onready var stats_panel: PanelContainer = $RightColumn/StatsPanel
 
-## Stacked in one panel; each stays up while its condition holds (an unlock
-## is never taken back within a career).
+## Stacked in one panel. The low-reputation warning is a state: it stays up
+## while Reputation is low. A role-unlocked notification is an event: shown
+## once when the unlock happens (XPManager's signal, so never again after a
+## save is loaded or the room reloads), then faded out
+## (show_unlock_notification()).
 @onready var notification_panel: PanelContainer = $RightColumn/NotificationPanel
 @onready var low_reputation_warning_label: Label = $RightColumn/NotificationPanel/NotificationStack/LowReputationWarningLabel
 @onready var loan_officer_unlocked_label: Label = $RightColumn/NotificationPanel/NotificationStack/LoanOfficerUnlockedLabel
@@ -51,6 +54,14 @@ class_name Hud
 ## name labels above the counters.
 const PROMPT_OFFSET_Y: float = 52.0
 
+## How long an unlock notification stays up, then how long it takes to fade.
+## Real seconds, paused or not (the HUD always processes).
+const UNLOCK_NOTIFICATION_SECONDS: float = 5.0
+const UNLOCK_FADE_SECONDS: float = 0.6
+
+## Unlock label -> the Tween showing and fading it.
+var unlock_tweens: Dictionary[Label, Tween] = {}
+
 ## Returns the shift-status line ("Off shift" / "On shift — ..."); set by
 ## teller_room.gd. Left unset, the HUD shows "Off shift".
 var shift_status: Callable
@@ -69,6 +80,10 @@ func _ready() -> void:
 	hint_dismiss_button.pressed.connect(dismiss_hint)
 	hint_panel.visible = false
 	prompt_panel.visible = false
+	loan_officer_unlocked_label.visible = false
+	branch_manager_unlocked_label.visible = false
+	XPManager.loan_officer_unlocked.connect(show_unlock_notification.bind(loan_officer_unlocked_label))
+	XPManager.branch_manager_unlocked.connect(show_unlock_notification.bind(branch_manager_unlocked_label))
 	refresh()
 
 func _process(_delta: float) -> void:
@@ -85,8 +100,6 @@ func refresh() -> void:
 	probation_label.visible = probation_label.text != ""
 	shift_label.text = shift_status.call() if shift_status.is_valid() else "Off shift"
 	low_reputation_warning_label.visible = ReputationManager.reputation <= ReputationManager.LOW_REPUTATION_THRESHOLD
-	loan_officer_unlocked_label.visible = XPManager.is_loan_officer_unlocked
-	branch_manager_unlocked_label.visible = XPManager.is_branch_manager_unlocked
 	notification_panel.visible = low_reputation_warning_label.visible or loan_officer_unlocked_label.visible or branch_manager_unlocked_label.visible
 	# Any open desk screen pauses the tree, and the prompt belongs to the room.
 	if get_tree().paused:
@@ -101,6 +114,29 @@ static func role_name() -> String:
 	if XPManager.is_loan_officer_unlocked:
 		return "Loan Officer"
 	return "Teller"
+
+# --- unlock notifications ---------------------------------------------------
+
+## Shows `label` (an unlock notification) for UNLOCK_NOTIFICATION_SECONDS,
+## then fades it out and hides it. Showing it again restarts the timer.
+func show_unlock_notification(label: Label) -> void:
+	var previous: Tween = unlock_tweens.get(label)
+	if previous != null:
+		previous.kill()
+	label.modulate.a = 1.0
+	label.visible = true
+	var tween := create_tween()
+	tween.tween_interval(UNLOCK_NOTIFICATION_SECONDS)
+	tween.tween_property(label, "modulate:a", 0.0, UNLOCK_FADE_SECONDS)
+	tween.tween_callback(_hide_unlock_notification.bind(label))
+	unlock_tweens[label] = tween
+	refresh()
+
+func _hide_unlock_notification(label: Label) -> void:
+	label.visible = false
+	label.modulate.a = 1.0
+	unlock_tweens.erase(label)
+	refresh()
 
 # --- hints ------------------------------------------------------------------
 
