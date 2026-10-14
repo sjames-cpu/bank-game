@@ -211,8 +211,8 @@ func _resolve_override(override_decision_type: LoanApplication.DecisionType) -> 
 		# call happened, so it shouldn't retroactively become a non-event.
 		# Half, rounded up so even a small original penalty (e.g. -1
 		# Reputation) still visibly reverses instead of rounding to 0.
-		var reversal_score := int(ceil(abs(old_score) / 2.0)) if old_score < 0 else 0
-		var reversal_reputation := int(ceil(abs(old_reputation) / 2.0)) if old_reputation < 0 else 0
+		var reversal_score := ceili(absi(old_score) / 2.0) if old_score < 0 else 0
+		var reversal_reputation := ceili(absi(old_reputation) / 2.0) if old_reputation < 0 else 0
 		score_delta = reversal_score + BRANCH_MANAGER_OVERRIDE_JUSTIFIED_SCORE
 		reputation_delta = reversal_reputation + BRANCH_MANAGER_OVERRIDE_JUSTIFIED_REPUTATION
 	else:

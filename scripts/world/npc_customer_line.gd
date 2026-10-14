@@ -82,8 +82,9 @@ func close_line() -> void:
 	_cancel_service()
 	var leaving := queue.duplicate()
 	queue.clear()
-	for customer in leaving:
-		if is_instance_valid(customer):
+	for entry: Variant in leaving:
+		if is_instance_valid(entry):
+			var customer: CustomerNPC = entry
 			_departing.append(customer)
 			send_customer_off(customer, CLOSED_LINE_FAREWELL)
 

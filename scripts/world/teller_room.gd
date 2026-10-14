@@ -1,4 +1,5 @@
 extends Node2D
+class_name TellerRoom
 
 ## Root of the room. Listens for signals from interactable objects
 ## in the scene and decides what should happen.
@@ -102,13 +103,13 @@ const ABANDONMENT_REPUTATION_PENALTY: int = -2
 const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 
 @onready var teller_screen: TellerScreen = $UI/TellerScreen
-@onready var teller_desk: Area2D = $TellerDesk
-@onready var loan_officer_desk: Area2D = $LoanOfficerDesk
-@onready var loan_officer_screen: Control = $UI/LoanOfficerScreen
-@onready var branch_manager_desk: Area2D = $BranchManagerDesk
-@onready var branch_manager_screen: Control = $UI/BranchManagerScreen
+@onready var teller_desk: TellerDesk = $TellerDesk
+@onready var loan_officer_desk: LoanOfficerDesk = $LoanOfficerDesk
+@onready var loan_officer_screen: LoanOfficerScreen = $UI/LoanOfficerScreen
+@onready var branch_manager_desk: BranchManagerDesk = $BranchManagerDesk
+@onready var branch_manager_screen: BranchManagerScreen = $UI/BranchManagerScreen
 @onready var customer_queue: CustomerQueue = $CustomerQueue
-@onready var atm: Area2D = $ATM
+@onready var atm: ATM = $ATM
 @onready var atm_screen: ATMScreen = $UI/ATMScreen
 @onready var staff_layer: Node2D = $Staff
 @onready var staff_break_area: Node2D = $StaffBreakArea
@@ -116,7 +117,8 @@ const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 @onready var window2_line: NpcCustomerLine = $Window2Line
 @onready var window3_line: NpcCustomerLine = $Window3Line
 @onready var loan_desk_worker: NpcLoanDeskWorker = $LoanDeskWorker
-@onready var desk_notice: Control = $UI/DeskNotice
+@onready var desk_notice: PanelContainer = $UI/DeskNotice
+@onready var player: PlayerMovement = $Player
 @onready var desk_notice_label: Label = $UI/DeskNotice/Label
 @onready var letter_screen: DisciplineLetterScreen = $UI/DisciplineLetterScreen
 @onready var hud: Hud = $HUD
@@ -135,7 +137,7 @@ const MANAGER_DESK_REMINDER: String = " As Branch Manager, your desk is in the o
 const STAFF_NPC_SCENE: PackedScene = preload("res://scenes/characters/staff_npc.tscn")
 
 ## Desk node for each ScheduleManager desk slot; each has a StaffSpot marker.
-@onready var _desk_for_slot: Dictionary = {
+@onready var _desk_for_slot: Dictionary[String, Node2D] = {
 	ScheduleManager.SLOT_TELLER_WINDOW_1: $TellerWindow1,
 	ScheduleManager.SLOT_TELLER_WINDOW_2: $TellerWindow2,
 	ScheduleManager.SLOT_TELLER_WINDOW_3: $TellerDesk, # the Player Teller Window, after promotion
@@ -143,7 +145,7 @@ const STAFF_NPC_SCENE: PackedScene = preload("res://scenes/characters/staff_npc.
 }
 
 ## slot name -> the StaffNPC currently placed at that desk.
-var _staff_by_slot: Dictionary = {}
+var _staff_by_slot: Dictionary[String, StaffNPC] = {}
 
 ## Desks the player is currently clocked in at (by slot name) — their staff
 ## member is on break.
@@ -180,7 +182,7 @@ func _ready() -> void:
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
 
 	branch_manager_desk.interacted.connect(_on_branch_manager_desk_interacted)
-	branch_manager_screen.shift_clocked_in.connect($UI/DisciplineLetterScreen.show_branch_orientation_once)
+	branch_manager_screen.shift_clocked_in.connect(letter_screen.show_branch_orientation_once)
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 	_update_branch_manager_desk_availability()
 
@@ -207,14 +209,14 @@ func _process(_delta: float) -> void:
 # --- HUD (B4) -----------------------------------------------------------------
 
 ## The interactables the prompt covers, in the order ties are broken.
-func _interactables() -> Array[Area2D]:
+func _interactables() -> Array[Interactable]:
 	return [teller_desk, loan_officer_desk, branch_manager_desk, atm]
 
 ## The interactable the player is standing at (the nearest, if several), or
 ## null. A hidden desk (the Branch Manager desk before promotion) doesn't count.
-func interactable_in_range() -> Area2D:
-	var player_position: Vector2 = $Player.global_position
-	var nearest: Area2D = null
+func interactable_in_range() -> Interactable:
+	var player_position := player.global_position
+	var nearest: Interactable = null
 	for desk in _interactables():
 		if not (desk.monitoring and desk.visible and desk.player_in_range):
 			continue
@@ -231,7 +233,7 @@ func _update_interaction_prompt() -> void:
 
 ## "E — what pressing the interact key does here", or, for a desk the player
 ## can't use, why not. The key comes from the InputMap (InputPrompts).
-func interaction_prompt_text(desk: Area2D) -> String:
+func interaction_prompt_text(desk: Interactable) -> String:
 	var key := InputPrompts.key_for(InputPrompts.INTERACT)
 	if desk == teller_desk:
 		if XPManager.is_branch_manager_unlocked:
@@ -281,12 +283,13 @@ func _hint_first_customer(customer: CustomerNPC) -> void:
 ## the player is clocked in at gets its staff member placed straight in the
 ## break room instead.
 func _place_staff() -> void:
-	for npc in _staff_by_slot.values():
+	for npc: StaffNPC in _staff_by_slot.values():
 		staff_layer.remove_child(npc)
 		npc.queue_free()
 	_staff_by_slot.clear()
 	for slot in ScheduleManager.get_desk_slots():
-		_place_slot_staff(slot["name"])
+		var slot_name: String = slot["name"]
+		_place_slot_staff(slot_name)
 	_assign_staff_to_work()
 
 ## Places the StaffNPC for one desk (nothing if the desk is unassigned).
@@ -376,7 +379,7 @@ func _on_player_clocked_out(slot_name: String) -> void:
 	npc.follow_route(walked, StaffNPC.State.AT_DESK)
 
 func _desk_spot(slot_name: String) -> Vector2:
-	return (_desk_for_slot[slot_name] as Node2D).get_node("StaffSpot").global_position
+	return (_desk_for_slot[slot_name].get_node("StaffSpot") as Node2D).global_position
 
 ## Each desk slot gets its own break-room spot (same order as DESK_SLOTS).
 func _break_spot_for(slot_name: String) -> Vector2:

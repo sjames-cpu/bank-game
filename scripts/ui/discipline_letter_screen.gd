@@ -132,7 +132,11 @@ func _on_action_button_pressed() -> void:
 		return
 	if not _queue.is_empty():
 		var next: Array = _queue.pop_front()
-		_show(next[0], next[1], next[2], next[3])
+		var mode: Mode = next[0]
+		var title: String = next[1]
+		var body: String = next[2]
+		var sender: String = next[3]
+		_show(mode, title, body, sender)
 		return
 	visible = false
 	_mode = Mode.NONE

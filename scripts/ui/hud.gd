@@ -116,7 +116,8 @@ func dismiss_hint() -> void:
 		current_hint = -1
 		hint_panel.visible = false
 	else:
-		_show_hint(_hint_queue.pop_front())
+		var next_hint: HintManager.Hint = _hint_queue.pop_front()
+		_show_hint(next_hint)
 
 func _show_hint(hint: HintManager.Hint) -> void:
 	current_hint = hint

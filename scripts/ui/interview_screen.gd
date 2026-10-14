@@ -1,4 +1,5 @@
 extends Control
+class_name InterviewScreen
 
 ## First-shift interview mini-game (2h). No longer the main_scene (the
 ## game currently boots straight into teller_room); it's reached after a

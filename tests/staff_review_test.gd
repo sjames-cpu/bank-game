@@ -8,12 +8,12 @@ const Action := StaffReviewManager.Action
 const Mistake := StaffReviewItem.TellerMistake
 
 var letters: DisciplineLetterScreen
-var bm: Control
+var bm: BranchManagerScreen
 
 func before_test() -> void:
 	await super()
 	letters = room.get_node("UI/DisciplineLetterScreen")
-	bm = room.get_node("UI/BranchManagerScreen")
+	bm = room.branch_manager_screen
 
 # --- helpers -------------------------------------------------------------------
 
@@ -144,17 +144,23 @@ func test_each_action_for_each_severity() -> void:
 		CareerReset.reset_all()
 		XPManager._grant_branch_manager()
 		acknowledge_letters()
-		var item := item_of(row[0])
+		var severity: Severity = row[0]
+		var action: Action = row[1]
+		var score_delta: int = row[3]
+		var reputation_delta: int = row[4]
+		var xp_delta: int = row[5]
+		var expected_delta := Vector3i(score_delta, reputation_delta, xp_delta)
+		var item := item_of(severity)
 		var staff_name := item.staff_name
 		var reports_before := StaffReviewManager.reports_for(staff_name)
 		var feedbacks_before := StaffReviewManager.feedbacks_for(staff_name)
 		var before := totals()
 		var history_before := HistoryManager.records.size()
-		var result := StaffReviewManager.decide(item, row[1])
-		var label := "%s + %s" % [StaffReviewManager.severity_label(row[0]), StaffReviewManager.action_label(row[1])]
+		var result := StaffReviewManager.decide(item, action)
+		var label := "%s + %s" % [StaffReviewManager.severity_label(severity), StaffReviewManager.action_label(action)]
 		assert_int(result["severity"]).override_failure_message(label).is_equal(row[0])
 		assert_bool(result["fair"]).override_failure_message(label).is_equal(row[2])
-		assert_vector(totals() - before).override_failure_message(label).is_equal(Vector3i(row[3], row[4], row[5]))
+		assert_vector(totals() - before).override_failure_message(label).is_equal(expected_delta)
 		assert_int(StaffReviewManager.reports_for(staff_name) - reports_before).override_failure_message(label).is_equal(row[6])
 		assert_int(StaffReviewManager.feedbacks_for(staff_name) - feedbacks_before).override_failure_message(label).is_equal(row[7])
 		assert_bool(StaffReviewManager.queue.has(item)).override_failure_message(label).is_false()
@@ -176,7 +182,7 @@ func test_serious_item_outcomes_are_ordered() -> void:
 	promote()
 	assert_int(StaffReviewManager.FEEDBACK_ON_SERIOUS_REPUTATION).is_equal(-1)
 	var outcomes: Array[int] = []
-	for action in [Action.REPORT, Action.FEEDBACK, Action.EXCUSE]:
+	for action: Action in [Action.REPORT, Action.FEEDBACK, Action.EXCUSE]:
 		var before := totals()
 		var result := StaffReviewManager.decide(teller_item(Mistake.WRONG_ACCOUNT, "Walter Higgins"), action)
 		var delta := totals() - before
@@ -373,9 +379,9 @@ func test_loan_details_hide_the_grade_until_decided() -> void:
 	promote()
 	var item := loan_item(LoanApplication.Grade.WORST)
 	var details := StaffReviewScreen.details_text(item)
-	for hidden in ["risk", "Risky", "Correct", "Serious", "grade", "Graded"]:
+	for hidden: String in ["risk", "Risky", "Correct", "Serious", "grade", "Graded"]:
 		assert_str(details).not_contains(hidden)
-	for shown in ["Credit score", "Income $", "Debt payments $", "DTI", "Loan-to-income", "Decision: Approve"]:
+	for shown: String in ["Credit score", "Income $", "Debt payments $", "DTI", "Loan-to-income", "Decision: Approve"]:
 		assert_str(details).contains(shown)
 	_bm_clock_in()
 	bm.review_staff_button.pressed.emit()

@@ -1,4 +1,5 @@
 extends TileMapLayer
+class_name RoomBuilder
 
 ## Procedurally builds the branch floor plan. It's a vertical mirror of the
 ## paper floor-plan reference: a back-office row (Vault / Manager's Office /

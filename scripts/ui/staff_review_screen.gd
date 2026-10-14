@@ -150,7 +150,8 @@ static func _result_text(item: StaffReviewItem, result: Dictionary) -> String:
 		points.append("%+d Reputation" % result["reputation"])
 	# The screen has already moved on to the next item, so name whose work
 	# this verdict is about.
-	var text := "%s (%s): %s" % [item.staff_name, StaffReviewManager.severity_label(result["severity"]), result["explanation"]]
+	var severity: StaffReviewItem.Severity = result["severity"]
+	var text := "%s (%s): %s" % [item.staff_name, StaffReviewManager.severity_label(severity), result["explanation"]]
 	if not points.is_empty():
 		text += " (%s)" % ", ".join(points)
 	if item.kind == StaffReviewItem.Kind.LOAN:

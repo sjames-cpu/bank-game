@@ -114,7 +114,7 @@ func test_hud_stays_visible_and_live_while_the_teller_screen_is_open() -> void:
 
 func test_hud_shift_status_for_loan_desk_and_branch_manager_office() -> void:
 	XPManager.add_shift_xp(50)
-	var loan: Control = room.get_node("UI/LoanOfficerScreen")
+	var loan: LoanOfficerScreen = room.loan_officer_screen
 	loan.show_screen()
 	loan.clock_in_button.pressed.emit()
 	await settle()
@@ -122,7 +122,7 @@ func test_hud_shift_status_for_loan_desk_and_branch_manager_office() -> void:
 	loan.hide_screen()
 
 	promote()
-	var bm: Control = room.get_node("UI/BranchManagerScreen")
+	var bm: BranchManagerScreen = room.branch_manager_screen
 	bm.show_screen()
 	bm.clock_in_button.pressed.emit()
 	acknowledge_letters() # orientation
@@ -163,9 +163,9 @@ func test_hud_hides_behind_the_termination_letter_only() -> void:
 ## the room's UI layer can show, the Branch Manager summary with real content.
 func test_hud_column_never_overlaps_a_screen_panel() -> void:
 	assert_int(int(get_tree().root.get_visible_rect().size.x)).is_equal(1152)
-	assert_int(hud.layer).is_greater(room.get_node("UI").layer)
+	assert_int(hud.layer).is_greater((room.get_node("UI") as CanvasLayer).layer)
 	promote()
-	var bm: Control = room.get_node("UI/BranchManagerScreen")
+	var bm: BranchManagerScreen = room.branch_manager_screen
 	bm.show_screen()
 	bm.clock_in_button.pressed.emit()
 	acknowledge_letters()
@@ -397,7 +397,7 @@ func reload_room(new_career: bool) -> void:
 	room.free()
 	if new_career:
 		CareerReset.reset_all()
-	room = load(TELLER_ROOM_SCENE).instantiate()
+	room = instantiate_room()
 	get_tree().root.add_child(room)
 	get_tree().current_scene = room
 	ts = room.get_node("UI/TellerScreen")
@@ -489,7 +489,7 @@ func test_player_spawns_inside_the_entrance_clear_of_furniture_and_lanes() -> vo
 	assert_vector(spawn_point).is_equal(Vector2(384, 624))
 	var player_rect := Rect2(spawn_point - Vector2(12, 12), Vector2(24, 24))
 
-	var tiles: TileMapLayer = room.get_node("Room")
+	var tiles: RoomBuilder = room.get_node("Room")
 	var cell := tiles.local_to_map(spawn_point)
 	var tile := tiles.get_cell_atlas_coords(cell)
 	assert_bool(tile in [tiles.WALL_LOBBY, tiles.WALL_OFFICE]).is_false()

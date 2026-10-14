@@ -117,7 +117,8 @@ func _populate_slots() -> void:
 		option_button.add_item("Unassigned")
 		option_button.set_item_metadata(0, null)
 
-		var assigned := ScheduleManager.get_assigned(slot["name"])
+		var slot_name: String = slot["name"]
+		var assigned := ScheduleManager.get_assigned(slot_name)
 		for staff in all_staff:
 			# The current assignee is always listed — Teller Window 3's default
 			# can be a non-Teller if no Teller was free.

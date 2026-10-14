@@ -128,7 +128,8 @@ func _enqueue(item: StaffReviewItem) -> void:
 # --- staff records -----------------------------------------------------------
 
 func reports_for(staff_name: String) -> int:
-	return (staff_reports.get(staff_name, PackedStringArray()) as PackedStringArray).size()
+	var reports: PackedStringArray = staff_reports.get(staff_name, PackedStringArray())
+	return reports.size()
 
 func feedbacks_for(staff_name: String) -> int:
 	return staff_feedbacks.get(staff_name, 0)

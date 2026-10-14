@@ -103,7 +103,8 @@ func is_dismissed(staff_name: String) -> bool:
 ## The desk `staff_name` is assigned to, or "" if none.
 func slot_of(staff_name: String) -> String:
 	for slot_name: String in schedule:
-		if (schedule[slot_name] as StaffMember).staff_name == staff_name:
+		var member: StaffMember = schedule[slot_name]
+		if member != null and member.staff_name == staff_name:
 			return slot_name
 	return ""
 

@@ -1,4 +1,5 @@
 extends Control
+class_name BranchManagerScreen
 
 ## Branch Manager desk task screen (Phase 5f). Mirrors
 ## loan_officer_screen.gd's clock-in/out + shift-summary shell — no drawer

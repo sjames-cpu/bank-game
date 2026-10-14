@@ -1,4 +1,5 @@
 extends CharacterBody2D
+class_name PlayerMovement
 
 ## 8-direction top-down movement, driving a 4-direction (down/up/side)
 ## AnimatedSprite2D. Side-facing uses one mirrored animation via flip_h

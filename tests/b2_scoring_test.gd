@@ -70,14 +70,19 @@ func test_scenario_two_correct_two_fixed_perfect() -> void:
 
 func _check_scenario(key: String) -> void:
 	var scenario: Array = _scenarios()[key]
-	var delta := _run_shift(scenario[0], scenario[1])
-	assert_vector(delta).is_equal(scenario[2])
+	var actions: Array = scenario[0]
+	var minor: bool = scenario[1]
+	var expected: Vector3i = scenario[2]
+	var delta := _run_shift(actions, minor)
+	assert_vector(delta).is_equal(expected)
 	# The summary's "This shift" line adds drawer + customers up to the same.
 	assert_str(ts.shift_net_label.text).is_equal("This shift: Score %+d · Reputation %+d · XP %+d" % [delta.x, delta.y, delta.z])
 
 func test_ignoring_everyone_scores_below_serving_everyone() -> void:
-	var ignored := _run_shift(_scenarios()["all_abandoned_perfect"][0], false)
+	var abandon_all: Array = _scenarios()["all_abandoned_perfect"][0]
+	var serve_all: Array = _scenarios()["all_correct_minor"][0]
+	var ignored := _run_shift(abandon_all, false)
 	CareerReset.reset_all()
-	var served := _run_shift(_scenarios()["all_correct_minor"][0], true)
+	var served := _run_shift(serve_all, true)
 	assert_int(ignored.x).is_less(served.x)
 	assert_int(ignored.x).is_less_equal(0)

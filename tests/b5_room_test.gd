@@ -17,7 +17,7 @@ func before_test() -> void:
 		await get_tree().physics_frame
 
 func after_test() -> void:
-	for action in ["move_up", "move_down", "move_left", "move_right"]:
+	for action: String in ["move_up", "move_down", "move_left", "move_right"]:
 		Input.action_release(action)
 	await super()
 
@@ -33,6 +33,10 @@ func footprints() -> Array[CollisionShape2D]:
 func shape_rect(shape: CollisionShape2D) -> Rect2:
 	var size := (shape.shape as RectangleShape2D).size
 	return Rect2(shape.global_position - size / 2.0, size)
+
+## The footprint collision shape at `path` (under the room).
+func footprint(path: String) -> CollisionShape2D:
+	return room.get_node(path) as CollisionShape2D
 
 func player_rect(at: Vector2) -> Rect2:
 	return Rect2(at - Vector2(12, 12), Vector2(24, 24))
@@ -82,7 +86,7 @@ func reachable_positions() -> Array[Vector2]:
 	while not frontier.is_empty():
 		var p: Vector2 = frontier.pop_back()
 		reached.append(p)
-		for step in [Vector2(GRID, 0), Vector2(-GRID, 0), Vector2(0, GRID), Vector2(0, -GRID)]:
+		for step: Vector2 in [Vector2(GRID, 0), Vector2(-GRID, 0), Vector2(0, GRID), Vector2(0, -GRID)]:
 			var next: Vector2 = p + step
 			if seen.has(next) or next.x < -64 or next.y < -64 or next.x > 832 or next.y > 832:
 				continue
@@ -92,7 +96,7 @@ func reachable_positions() -> Array[Vector2]:
 	return reached
 
 func reaches(reached: Array[Vector2], area: Area2D) -> bool:
-	var target := shape_rect(area.get_node("CollisionShape2D"))
+	var target := shape_rect(area.get_node("CollisionShape2D") as CollisionShape2D)
 	for p in reached:
 		if player_rect(p).intersects(target):
 			return true
@@ -125,12 +129,12 @@ func test_furniture_footprints_are_solid_for_the_player_only() -> void:
 		assert_int((npc as CharacterBody2D).collision_mask).is_equal(WALL_LAYER)
 
 func test_player_cannot_walk_through_furniture() -> void:
-	var cases := {
-		"TellerDesk": room.get_node("TellerDesk/Footprint/CollisionShape2D"),
-		"LoanOfficerDesk": room.get_node("LoanOfficerDesk/Footprint/CollisionShape2D"),
-		"ATM": room.get_node("ATM/Footprint/CollisionShape2D"),
-		"Couch3": room.get_node("Decor/Couch3/Footprint/CollisionShape2D"),
-		"LoungePlantLeft": room.get_node("Decor/LoungePlantLeft/Footprint/CollisionShape2D"),
+	var cases: Dictionary[String, CollisionShape2D] = {
+		"TellerDesk": footprint("TellerDesk/Footprint/CollisionShape2D"),
+		"LoanOfficerDesk": footprint("LoanOfficerDesk/Footprint/CollisionShape2D"),
+		"ATM": footprint("ATM/Footprint/CollisionShape2D"),
+		"Couch3": footprint("Decor/Couch3/Footprint/CollisionShape2D"),
+		"LoungePlantLeft": footprint("Decor/LoungePlantLeft/Footprint/CollisionShape2D"),
 	}
 	for label: String in cases:
 		var rect := shape_rect(cases[label])
@@ -159,22 +163,22 @@ func test_hidden_branch_manager_desk_is_not_solid_until_promotion() -> void:
 
 func test_every_interactable_is_reachable_from_the_spawn_point() -> void:
 	var reached := reachable_positions()
-	for path in ["TellerDesk", "LoanOfficerDesk", "ATM"]:
-		assert_bool(reaches(reached, room.get_node(path))) \
+	for path: String in ["TellerDesk", "LoanOfficerDesk", "ATM"]:
+		assert_bool(reaches(reached, room.get_node(path) as Area2D)) \
 			.override_failure_message("%s can't be reached from the spawn point" % path).is_true()
 
 	XPManager._grant_branch_manager()
 	for i in 2:
 		await get_tree().physics_frame
 	reached = reachable_positions()
-	for path in ["TellerDesk", "LoanOfficerDesk", "ATM", "BranchManagerDesk"]:
-		assert_bool(reaches(reached, room.get_node(path))) \
+	for path: String in ["TellerDesk", "LoanOfficerDesk", "ATM", "BranchManagerDesk"]:
+		assert_bool(reaches(reached, room.get_node(path) as Area2D)) \
 			.override_failure_message("%s can't be reached after promotion" % path).is_true()
 
 ## The doorway is a doorstep: the player can stand on the doormat but the
 ## sidewalk outside is solid, so they can't leave the building.
 func test_entrance_has_outdoor_tiles_and_keeps_the_player_inside() -> void:
-	var tiles: TileMapLayer = room.get_node("Room")
+	var tiles: RoomBuilder = room.get_node("Room")
 	var bottom: int = tiles.ROOM_HEIGHT - 1
 	for column: int in tiles.ENTRANCE_DOOR_COLUMNS:
 		var cell := Vector2i(column, bottom)
@@ -211,12 +215,12 @@ func test_room_is_y_sorted_with_sort_origins_at_each_base() -> void:
 	assert_object(sort_unit(player)).is_same(player)
 	var customer := spawn()
 	assert_object(sort_unit(customer)).is_same(customer)
-	for npc in room.staff_layer.get_children():
+	for npc: StaffNPC in room.staff_layer.get_children():
 		assert_object(sort_unit(npc)).is_same(npc)
 
 func test_player_draws_behind_a_desk_above_it_and_in_front_below_it() -> void:
 	var counter: Sprite2D = room.get_node("TellerDesk/Sprite2D")
-	var rect := shape_rect(room.get_node("TellerDesk/Footprint/CollisionShape2D"))
+	var rect := shape_rect(footprint("TellerDesk/Footprint/CollisionShape2D"))
 
 	# Above (behind the counter, as close as collision allows).
 	player.global_position = Vector2(counter.global_position.x, rect.position.y - 30)
@@ -230,7 +234,7 @@ func test_player_draws_behind_a_desk_above_it_and_in_front_below_it() -> void:
 
 	# Same rule for a tall item: the ATM.
 	var atm: Sprite2D = room.get_node("ATM/Sprite2D")
-	var atm_rect := shape_rect(room.get_node("ATM/Footprint/CollisionShape2D"))
+	var atm_rect := shape_rect(footprint("ATM/Footprint/CollisionShape2D"))
 	player.global_position = Vector2(atm.global_position.x, atm_rect.position.y - 30)
 	await walk("move_down", 30)
 	assert_bool(draws_in_front(player, atm)).is_false()
@@ -248,7 +252,7 @@ func test_staff_draw_behind_their_counter_and_customers_in_front() -> void:
 
 	var customer := spawn()
 	customer.global_position = cq.queue_positions[0].global_position
-	assert_bool(draws_in_front(customer, room.get_node("TellerDesk/Sprite2D"))).is_true()
+	assert_bool(draws_in_front(customer, room.get_node("TellerDesk/Sprite2D") as Sprite2D)).is_true()
 
 # --- NPC paths -------------------------------------------------------------------
 
@@ -281,7 +285,7 @@ func test_staff_break_walk_still_completes() -> void:
 	XPManager.add_shift_xp(50)
 	var npc: StaffNPC = room._staff_by_slot[ScheduleManager.SLOT_LOAN_DESK]
 	var desk_spot := npc.global_position
-	var loan: Control = room.loan_officer_screen
+	var loan: LoanOfficerScreen = room.loan_officer_screen
 	loan.show_screen()
 	loan.clock_in_button.pressed.emit()
 	loan.hide_screen()

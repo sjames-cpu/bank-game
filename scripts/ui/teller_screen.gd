@@ -691,7 +691,8 @@ func _describe_visit_transactions(customer: CustomerNPC) -> String:
 	for entry in _customer_transactions:
 		var entry_type: ShiftTransaction.Type = entry["type"]
 		var entry_account: Account = entry["account"]
-		var part := "%s %s" % [_past_tense_label(entry_type), _money(entry["amount_cents"])]
+		var entry_cents: int = entry["amount_cents"]
+		var part := "%s %s" % [_past_tense_label(entry_type), _money(entry_cents)]
 		if entry_account != customer.account:
 			part += " %s %s's account" % [_account_preposition(entry_type), entry_account.customer_name]
 		parts.append(part)

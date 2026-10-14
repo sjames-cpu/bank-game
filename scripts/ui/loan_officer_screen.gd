@@ -1,4 +1,5 @@
 extends Control
+class_name LoanOfficerScreen
 
 ## Loan Officer desk task screen (Phase 4f). Owns its own show/hide + pause
 ## behavior, same as teller_screen.gd — callers (teller_room.gd) just say

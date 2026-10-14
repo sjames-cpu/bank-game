@@ -324,8 +324,11 @@ func _update_queue_movement() -> void:
 	# instance can't be passed as a CustomerNPC).
 	var still_here: Array[CustomerNPC] = []
 	for leaving: Variant in _departing:
-		if is_instance_valid(leaving) and not (leaving as Node).is_queued_for_deletion():
-			still_here.append(leaving)
+		if not is_instance_valid(leaving):
+			continue
+		var customer: CustomerNPC = leaving
+		if not customer.is_queued_for_deletion():
+			still_here.append(customer)
 	_departing = still_here
 	for i in queue.size():
 		var customer := queue[i]

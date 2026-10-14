@@ -11,14 +11,14 @@ extends GdUnitTestSuite
 const TELLER_ROOM_SCENE := "res://scenes/world/teller_room.tscn"
 const RNG_SEED := 20261012
 
-var room: Node
+var room: TellerRoom
 var ts: TellerScreen
 var cq: CustomerQueue
 
 func before_test() -> void:
 	seed(RNG_SEED)
 	CareerReset.reset_all()
-	room = load(TELLER_ROOM_SCENE).instantiate()
+	room = instantiate_room()
 	get_tree().root.add_child(room)
 	get_tree().current_scene = room
 	await get_tree().process_frame
@@ -26,6 +26,11 @@ func before_test() -> void:
 	cq = room.get_node("CustomerQueue")
 	# Customers in these tests are spawned explicitly (spawn()).
 	cq.spawn_timer.stop()
+
+## A fresh, not yet added, teller room.
+func instantiate_room() -> TellerRoom:
+	var scene: PackedScene = load(TELLER_ROOM_SCENE)
+	return scene.instantiate() as TellerRoom
 
 func after_test() -> void:
 	get_tree().paused = false
