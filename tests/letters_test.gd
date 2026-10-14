@@ -166,3 +166,48 @@ func test_every_letter_fits_the_window() -> void:
 	await settle_letter()
 	assert_str(letters.action_button.text).is_equal("Apply for a new job")
 	assert_letter_fits("termination")
+
+# --- the orientation letter ------------------------------------------------------------
+
+## Promotes the player (clicking away the promotion letter) and clocks in at
+## the Branch Manager desk.
+func promote_and_clock_in() -> void:
+	XPManager._grant_branch_manager()
+	acknowledge_all()
+	room.branch_manager_screen.show_screen()
+	room.branch_manager_screen.clock_in_button.pressed.emit()
+
+func test_the_orientation_letter_shows_once_per_career() -> void:
+	promote_and_clock_in()
+	assert_bool(letters.visible).is_true()
+	assert_str(letters.title_label.text).is_equal("Welcome to Branch Management")
+	assert_bool(XPManager.has_seen_branch_orientation).is_true()
+	acknowledge_all()
+
+	# The next Branch Manager shift in the same career: no letter.
+	var bm := room.branch_manager_screen
+	bm._prepare_shift_summary()
+	assert_bool(bm.is_clocked_in()).is_false()
+	bm.clock_in_button.pressed.emit()
+	assert_bool(bm.is_clocked_in()).is_true()
+	assert_bool(letters.visible).is_false()
+	assert_bool(letters.show_branch_orientation_once()).is_false()
+
+func test_the_orientation_letter_returns_in_a_new_career() -> void:
+	promote_and_clock_in()
+	assert_str(letters.title_label.text).is_equal("Welcome to Branch Management")
+	acknowledge_all()
+
+	# Fired and hired again: a new career, in a fresh room.
+	CareerReset.reset_all()
+	assert_bool(XPManager.has_seen_branch_orientation).is_false()
+	room.free()
+	room = instantiate_room()
+	get_tree().root.add_child(room)
+	get_tree().current_scene = room
+	await get_tree().process_frame
+	letters = room.letter_screen
+
+	promote_and_clock_in()
+	assert_bool(letters.visible).is_true()
+	assert_str(letters.title_label.text).is_equal("Welcome to Branch Management")
