@@ -903,7 +903,7 @@ func _record_transaction(type: ShiftTransaction.Type, amount_cents: int) -> Shif
 	transaction.type = type
 	transaction.amount_cents = amount_cents
 	transaction.account_name = account.customer_name
-	transaction.timestamp = Time.get_datetime_string_from_system()
+	transaction.timestamp = GameClock.timestamp()
 	transaction.payment_method = _current_payment_method()
 	shift_transactions.append(transaction)
 	return transaction
@@ -1061,7 +1061,7 @@ func _begin_shift() -> void:
 	awaiting_opening_recount = false
 	shift_state = ShiftState.CLOCKED_IN
 	shift_start_cents = STARTING_FLOAT_CENTS
-	shift_start_time = Time.get_datetime_string_from_system()
+	shift_start_time = GameClock.timestamp()
 	shift_transactions.clear()
 	_customers_correct = 0
 	_mistakes_fixed = 0
@@ -1145,7 +1145,7 @@ func _discrepancy_result_label(discrepancy_result: DiscrepancyResult) -> String:
 
 func _prepare_shift_summary(ending_total_cents: int) -> void:
 	var discrepancy_cents := ending_total_cents - _calculate_expected_ending_cents()
-	var shift_end_time := Time.get_datetime_string_from_system()
+	var shift_end_time := GameClock.timestamp()
 	var discrepancy_result := _categorize_discrepancy(discrepancy_cents, drawer_count_screen.get_excess_bill_count())
 	var served := _customers_served()
 	var shift_customers := _shift_customer_count()

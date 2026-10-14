@@ -99,7 +99,7 @@ func build_full_career() -> void:
 	teller_item.severity = StaffReviewItem.Severity.SERIOUS
 	teller_item.staff_name = "Derek Voss"
 	teller_item.staff_slot = ScheduleManager.SLOT_TELLER_WINDOW_3
-	teller_item.timestamp = "2026-10-14T09:30:00"
+	teller_item.timestamp = "Day 2, 9:30 AM"
 	teller_item.customer_name = "Sam Chen"
 	teller_item.request_type = ShiftTransaction.Type.WITHDRAWAL
 	teller_item.request_amount_cents = 20000
@@ -110,7 +110,7 @@ func build_full_career() -> void:
 	loan_item.severity = StaffReviewItem.Severity.ACCEPTABLE
 	loan_item.staff_name = "Sana Malik"
 	loan_item.staff_slot = ScheduleManager.SLOT_LOAN_DESK
-	loan_item.timestamp = "2026-10-14T09:31:00"
+	loan_item.timestamp = "Day 2, 9:31 AM"
 	loan_item.applicant_name = "Avery Stone"
 	loan_item.requested_amount = 25000.5
 	loan_item.loan_purpose = "Car"
@@ -127,6 +127,9 @@ func build_full_career() -> void:
 	StaffReviewManager.staff_reports["Derek Voss"] = PackedStringArray(["late", "short"])
 	StaffReviewManager.staff_feedbacks["Nina Ortiz"] = 2
 
+	# Day 3, 10:42 AM and a bit (the clock keeps fractions of a minute).
+	GameClock.day = 3
+	GameClock.minutes = 642.75
 	HintManager.mark_shown(HintManager.Hint.FIRST_CLOCK_OUT)
 	HintManager.mark_shown(HintManager.Hint.LOAN_OFFICER_UNLOCKED)
 
@@ -207,6 +210,9 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_int(StaffReviewManager.reports_for("Derek Voss")).is_equal(2)
 	assert_int(StaffReviewManager.feedbacks_for("Nina Ortiz")).is_equal(2)
 	assert_bool(HintManager.has_shown(HintManager.Hint.FIRST_CLOCK_OUT)).is_true()
+	assert_int(GameClock.day).is_equal(3)
+	assert_float(GameClock.minutes).is_equal(642.75)
+	assert_str(GameClock.hud_text()).is_equal("Day 3 · 10:42 AM")
 	assert_bool(HintManager.has_shown(HintManager.Hint.FIRST_CUSTOMER)).is_false()
 
 func test_saved_resources_cover_every_exported_field() -> void:

@@ -110,7 +110,7 @@ func add_teller_mistake(staff: StaffMember, slot_name: String, customer: Custome
 	item.kind = StaffReviewItem.Kind.TELLER
 	item.staff_name = staff.staff_name
 	item.staff_slot = slot_name
-	item.timestamp = Time.get_datetime_string_from_system()
+	item.timestamp = GameClock.timestamp()
 	item.customer_name = customer.display_name
 	item.request_type = customer.intent_type
 	item.request_amount_cents = customer.intent_amount_cents
@@ -129,7 +129,7 @@ func add_loan_decision(staff: StaffMember, slot_name: String, application: LoanA
 	item.kind = StaffReviewItem.Kind.LOAN
 	item.staff_name = staff.staff_name
 	item.staff_slot = slot_name
-	item.timestamp = Time.get_datetime_string_from_system()
+	item.timestamp = GameClock.timestamp()
 	item.applicant_name = application.applicant_name
 	item.requested_amount = application.requested_amount
 	item.loan_purpose = application.loan_purpose

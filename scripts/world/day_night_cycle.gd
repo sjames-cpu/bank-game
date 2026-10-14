@@ -1,43 +1,53 @@
 extends CanvasModulate
 
-## Purely atmospheric day/night tint for the Teller room (Phase 6d) — a
-## CanvasModulate tints every CanvasItem in the same canvas (Room,
-## Player, desks, CustomerQueue) without touching UI, since UI lives
-## under its own CanvasLayer (see teller_room.tscn) and CanvasLayers
-## aren't affected by a CanvasModulate in the parent canvas.
+## Atmospheric tint for the room, driven by the game clock (GameClock): a
+## CanvasModulate tints every CanvasItem in the room's canvas (floor,
+## furniture, characters) without touching the UI, since the HUD, screens
+## and letters live on their own CanvasLayers.
 ##
-## No gameplay hook whatsoever — nothing reads _elapsed or the current
-## color, and nothing here affects spawn rates, NPC behavior, or
-## scoring. Purely a lerp between two colors driven by elapsed time.
+## Over a game day: night until dawn, brightening to full daylight by 8 AM,
+## bright through business hours, warming through the late afternoon to
+## 5 PM, then dimming into the evening and night. The colour comes straight
+## from the clock (colour_at()), so it stops when the clock does (a desk
+## screen or letter pauses both) and matches a loaded save at once.
 ##
-## process_mode = ALWAYS so the cycle keeps advancing even while a Teller/
-## Loan Officer/Branch Manager screen has the tree paused — this is
-## environmental atmosphere, not shift state, so it shouldn't visibly
-## freeze just because the player opened a desk screen (see Phase 6d
-## requirements).
+## No gameplay hook: nothing reads the tint, and it affects no spawning, NPC
+## behaviour or scoring.
 
-## One full day -> night -> day cycle, in real seconds. 360s (6 minutes)
-## keeps the shift noticeable within a normal play session without being
-## so fast it feels like flickering.
-@export var cycle_duration_seconds: float = 360.0
+const NIGHT: Color = Color(0.35, 0.4, 0.6, 1.0)
+const DAY: Color = Color(1.0, 1.0, 1.0, 1.0)
+const LATE_AFTERNOON: Color = Color(1.0, 0.9, 0.76, 1.0)
 
-@export var day_color: Color = Color(1.0, 1.0, 1.0, 1.0)
-@export var night_color: Color = Color(0.35, 0.4, 0.6, 1.0)
-
-var _elapsed: float = 0.0
+## (game minutes since midnight, colour) keyframes, blended linearly
+## between: night to 6 AM, day from 8 AM to 3 PM, warmest at 5 PM, night
+## again from 7:30 PM.
+const KEYFRAMES: Array = [
+	[0.0, NIGHT],
+	[6.0 * 60.0, NIGHT],
+	[8.0 * 60.0, DAY],
+	[15.0 * 60.0, DAY],
+	[17.0 * 60.0, LATE_AFTERNOON],
+	[19.5 * 60.0, NIGHT],
+	[24.0 * 60.0, NIGHT],
+]
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS
-	color = day_color
+	color = colour_at(GameClock.minutes)
 
-func _process(delta: float) -> void:
-	_elapsed = fmod(_elapsed + delta, cycle_duration_seconds)
-	color = day_color.lerp(night_color, _day_night_blend())
+func _process(_delta: float) -> void:
+	color = colour_at(GameClock.minutes)
 
-## 0.0 at the start/end of the cycle (day), smoothly easing up to 1.0 at
-## the midpoint (night) and back down — a cosine curve rather than a
-## linear ramp so the transition eases in/out instead of changing at a
-## constant rate.
-func _day_night_blend() -> float:
-	var phase := _elapsed / cycle_duration_seconds
-	return (1.0 - cos(phase * TAU)) / 2.0
+## The tint at `game_minutes` since midnight.
+static func colour_at(game_minutes: float) -> Color:
+	var at := clampf(game_minutes, 0.0, GameClock.MINUTES_PER_DAY)
+	for i in range(1, KEYFRAMES.size()):
+		var after: Array = KEYFRAMES[i]
+		var after_minutes: float = after[0]
+		if at <= after_minutes:
+			var before: Array = KEYFRAMES[i - 1]
+			var before_minutes: float = before[0]
+			var before_colour: Color = before[1]
+			var after_colour: Color = after[1]
+			var blend := 0.0 if after_minutes == before_minutes else (at - before_minutes) / (after_minutes - before_minutes)
+			return before_colour.lerp(after_colour, blend)
+	return NIGHT

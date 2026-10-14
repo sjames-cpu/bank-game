@@ -4,6 +4,7 @@
 > B1 `34dacd4`, `cec9ef1` · B2 `ec1ba5e`, `8ffb146`, `887cf5c` (opening count) · B3 `580e2ab`, `6a53ebd`, `b082030` (integer cents end to end) · B4 `f71b351`, `0d42c19` · B5 `1d75807` · B6 `ec1ba5e`, `7f365f7`, `bce4dd0`, `cec9ef1`, `91cc9d0` · B7 and B8 `34dacd4` · B9 `dc91654` · B10 `bc4fcb9` · B11 `6797a94` · B12 `3f8c93b` · B13 the docs commit that adds this note · B14 `8e126ce`.
 > Phase 0's tests and CI: `5a11e99`, `fc27ec0`, `181356e` (gdUnit4 suite, GitHub Actions; CI also fails on GDScript warnings since `bc4fcb9`).
 > Part 1 design flaw "no persistence": the career now saves to `user://career.json` and loads from a start screen (`SaveGame`; see "Save and load" in `CLAUDE.md`). The "no fail state" half was already covered by reports and termination.
+> Part 1 design flaw "wall-clock time, no business day": part 1 adds a game clock (`GameClock`: day number and time of day, on the HUD, driving the day/night tint and every timestamp the player sees). Opening hours and the end of the day are still to come.
 > Correction to section 1: the player's teller desk is now at (464, 336), the Player Teller Window; (560, 336) is staffed Teller Window 1. `CLAUDE.md` describes the current game.
 
 **Prepared:** 2026-09-29 &nbsp;|&nbsp; **Repo state:** `main`, 9 commits, last commit 2026-09-23 &nbsp;|&nbsp; **Engine:** Godot 4.7.2 (GDScript only)

@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+GameClock="*res://scripts/autoload/game_clock.gd"
 AccountManager="*res://scripts/autoload/account_manager.gd"
 ScoreManager="*res://scripts/autoload/score_manager.gd"
 ReputationManager="*res://scripts/autoload/reputation_manager.gd"

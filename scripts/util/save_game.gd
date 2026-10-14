@@ -81,6 +81,7 @@ static func capture() -> Dictionary:
 		"staff_review": StaffReviewManager.save_data(),
 		"hiring": HiringManager.save_data(),
 		"hints": HintManager.save_data(),
+		"clock": GameClock.save_data(),
 	}
 
 ## Replaces the current career with `career` (from capture() or read()).
@@ -103,6 +104,7 @@ static func restore(career: Dictionary) -> void:
 	# After ScheduleManager: candidates are kept per desk slot.
 	HiringManager.load_data(dict_of(career, "hiring"))
 	HintManager.load_data(dict_of(career, "hints"))
+	GameClock.load_data(dict_of(career, "clock"))
 
 ## Writes the current career to `path`. Refused once the player has been
 ## terminated (that career is over), and for the real save outside the real

@@ -19,7 +19,7 @@ offset_bottom = 8.0
 grow_horizontal = 0
 mouse_filter = 2
 theme = ExtResource("banking_theme")
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="StatsPanel" type="PanelContainer" parent="RightColumn"]
 layout_mode = 2
@@ -29,7 +29,11 @@ theme_type_variation = &"HudPanel"
 [node name="VBox" type="VBoxContainer" parent="RightColumn/StatsPanel"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 1
+
+[node name="ClockLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
+layout_mode = 2
+text = "Day 1 · 8:30 AM"
 
 [node name="RoleLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
 layout_mode = 2
@@ -63,6 +67,7 @@ autowrap_mode = 2
 [node name="Separator" type="HSeparator" parent="RightColumn/StatsPanel/VBox"]
 layout_mode = 2
 mouse_filter = 2
+theme_override_constants/separation = 2
 
 [node name="ShiftLabel" type="Label" parent="RightColumn/StatsPanel/VBox"]
 layout_mode = 2
@@ -78,7 +83,7 @@ theme_type_variation = &"HudPanel"
 [node name="NotificationStack" type="VBoxContainer" parent="RightColumn/NotificationPanel"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="LowReputationWarningLabel" type="Label" parent="RightColumn/NotificationPanel/NotificationStack"]
 visible = false

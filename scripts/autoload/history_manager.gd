@@ -42,7 +42,7 @@ func add_record(role: DecisionRecord.Role, description: String, grade_label: Str
 	record.role = role
 	record.description = description
 	record.grade_label = grade_label
-	record.timestamp = Time.get_datetime_string_from_system()
+	record.timestamp = GameClock.timestamp()
 	records.append(record)
 	return record
 

@@ -175,7 +175,7 @@ func _on_clock_in_button_pressed() -> void:
 
 func _begin_shift() -> void:
 	shift_state = ShiftState.CLOCKED_IN
-	shift_start_time = Time.get_datetime_string_from_system()
+	shift_start_time = GameClock.timestamp()
 	_awaiting_vault_reconciliation_result = false
 	_vault_reconciled_this_shift = false
 	actions_completed = 0
@@ -350,7 +350,7 @@ func _on_clock_out_button_pressed() -> void:
 	_prepare_shift_summary()
 
 func _prepare_shift_summary() -> void:
-	var shift_end_time := Time.get_datetime_string_from_system()
+	var shift_end_time := GameClock.timestamp()
 
 	# Serious staff mistakes left unreviewed are closed as ignored, at a
 	# Reputation cost; minor/acceptable items carry over to the next shift.

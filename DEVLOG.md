@@ -127,6 +127,6 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 
 - No `.csproj`/`.sln` yet: everything is still GDScript despite the project being configured for .NET.
 - The save has one slot and no autosave mid-shift: quitting mid-shift loses that shift's work.
-- Shift and transaction times still come from the wall clock (`Time.get_datetime_string_from_system()`); there's no sim clock.
+- The game clock (`GameClock`) runs but nothing closes the bank yet: opening hours and the end of the business day are part 2.
 - The cash model still has $1,000/$500 bills and no coins; amounts are already in cents, so coins can be added as more `DENOMINATION_CENTS` entries.
 - Loan application figures are whole-dollar floats by design (judged, never moved as cash).

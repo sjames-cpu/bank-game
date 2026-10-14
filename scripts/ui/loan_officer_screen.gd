@@ -91,7 +91,7 @@ func _on_clock_in_button_pressed() -> void:
 
 func _begin_shift() -> void:
 	shift_state = ShiftState.CLOCKED_IN
-	shift_start_time = Time.get_datetime_string_from_system()
+	shift_start_time = GameClock.timestamp()
 	applications_reviewed = 0
 	shift_score_total = 0
 	shift_reputation_total = 0
@@ -135,7 +135,7 @@ func _on_clock_out_button_pressed() -> void:
 	_prepare_shift_summary()
 
 func _prepare_shift_summary() -> void:
-	var shift_end_time := Time.get_datetime_string_from_system()
+	var shift_end_time := GameClock.timestamp()
 
 	shift_start_time_label.text = "Start Time: %s" % shift_start_time
 	shift_end_time_label.text = "End Time: %s" % shift_end_time

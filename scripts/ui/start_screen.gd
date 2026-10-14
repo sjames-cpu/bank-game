@@ -68,8 +68,13 @@ static func describe(result: SaveGame.ReadResult) -> String:
 	var score := SaveGame.int_of(SaveGame.dict_of(result.career, "score"), "total_score", 0)
 	var reputation := SaveGame.int_of(SaveGame.dict_of(result.career, "reputation"), "reputation", ReputationManager.STARTING_REPUTATION)
 	var text := "Saved career: %s · Score %d · Reputation %d" % [role, score, reputation]
+	# Where the career's game clock stands, then when the file was written
+	# (real time: the one place the player sees the wall clock).
+	var clock := SaveGame.dict_of(result.career, "clock")
+	var game_time := "Day %d, %s" % [maxi(1, SaveGame.int_of(clock, "day", GameClock.START_DAY)), GameClock.format_time(SaveGame.float_of(clock, "minutes", GameClock.START_MINUTES))]
+	text += "\n%s" % game_time
 	if result.saved_at != "":
-		text += "\nSaved %s" % result.saved_at.replace("T", " ")
+		text += " · saved %s" % result.saved_at.replace("T", " ")
 	return text
 
 func _show_only(panel: Control) -> void:

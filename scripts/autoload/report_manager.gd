@@ -91,7 +91,7 @@ func _issue_report(role: DecisionRecord.Role, items: PackedStringArray) -> void:
 	report.role = role
 	report.reason = REPORT_REASONS.get(role, "Repeated errors")
 	report.items = items
-	report.timestamp = Time.get_datetime_string_from_system()
+	report.timestamp = GameClock.timestamp()
 	reports.append(report)
 	var limit := report_limit()
 	HistoryManager.add_record(

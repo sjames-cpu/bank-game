@@ -23,3 +23,4 @@ static func reset_all() -> void:
 	StaffReviewManager.reset()
 	HiringManager.reset()
 	HintManager.reset()
+	GameClock.reset()

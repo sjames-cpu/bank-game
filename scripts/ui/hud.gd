@@ -20,6 +20,8 @@ class_name Hud
 ## and drives the prompt (show_prompt()/hide_prompt()). Processes while the
 ## tree is paused, so the stats stay live behind an open screen.
 
+## "Day 3 · 10:42 AM" (GameClock), at the top of the column.
+@onready var clock_label: Label = $RightColumn/StatsPanel/VBox/ClockLabel
 @onready var role_label: Label = $RightColumn/StatsPanel/VBox/RoleLabel
 @onready var score_label: Label = $RightColumn/StatsPanel/VBox/ScoreLabel
 @onready var reputation_label: Label = $RightColumn/StatsPanel/VBox/ReputationLabel
@@ -97,6 +99,7 @@ func _process(_delta: float) -> void:
 
 func refresh() -> void:
 	visible = letter_screen == null or not letter_screen.is_full_screen_letter_shown()
+	clock_label.text = GameClock.hud_text()
 	role_label.text = "Role: %s" % role_name()
 	score_label.text = "Score: %d" % ScoreManager.total_score
 	reputation_label.text = "Reputation: %d" % ReputationManager.reputation
