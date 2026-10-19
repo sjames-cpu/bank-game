@@ -929,6 +929,13 @@ func _calculate_expected_ending_cents() -> int:
 ## Also the Recount button: while awaiting_opening_recount, the same button
 ## (relabelled) reopens the count for the same opening.
 func _on_clock_in_button_pressed() -> void:
+	# No new shifts after BusinessDay.LAST_CLOCK_IN (a recount of a shift
+	# already being opened is fine).
+	if not awaiting_opening_recount and not BusinessDay.can_start_shift():
+		error_label.text = BusinessDay.CLOCK_IN_REFUSED_TEXT
+		error_label.visible = true
+		return
+	error_label.visible = false
 	var title := "Starting Drawer Count"
 	if awaiting_opening_recount:
 		title = "Recount Drawer (%d of %d)" % [_opening_results.size(), MAX_OPENING_RECOUNTS]

@@ -7,7 +7,8 @@ extends Node
 ## them. Reset with the career (CareerReset), like XPManager's
 ## has_seen_branch_orientation, and saved with it (see SaveGame).
 
-enum Hint { ARRIVAL, FIRST_CUSTOMER, FIRST_CLOCK_OUT, LOAN_OFFICER_UNLOCKED, BRANCH_MANAGER_UNLOCKED }
+## New hints go at the end: saves store them by value.
+enum Hint { ARRIVAL, FIRST_CUSTOMER, FIRST_CLOCK_OUT, LOAN_OFFICER_UNLOCKED, BRANCH_MANAGER_UNLOCKED, OPENING_HOURS }
 
 ## Hint -> true once shown.
 var _shown: Dictionary = {}
@@ -53,4 +54,6 @@ func text_for(hint: Hint) -> String:
 			return "Loan Officer unlocked! The Loan Desk is left of the teller windows, between the two marketing desks. Walk up to it and press %s to clock in." % key
 		Hint.BRANCH_MANAGER_UNLOCKED:
 			return "Branch Manager unlocked! Your desk is in the Manager's Office at the back, through the doorway above the marketing desk right of the Loan Desk."
+		Hint.OPENING_HOURS:
+			return "The branch is open 9:00 AM to 5:00 PM. You can clock in early for the opening count, but not after 4:30 PM. Done for the day? Walk to the entrance doormat and press %s to go home." % key
 	return ""

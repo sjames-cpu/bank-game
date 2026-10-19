@@ -194,7 +194,7 @@ func test_the_prompt_never_covers_the_player() -> void:
 		letters.action_button.pressed.emit()
 	for zoom in every_zoom():
 		camera.set_overview(zoom == RoomCamera.OVERVIEW_ZOOM)
-		for desk: Interactable in [room.teller_desk, room.loan_officer_desk, room.branch_manager_desk, room.atm]:
+		for desk: Interactable in [room.teller_desk, room.loan_officer_desk, room.branch_manager_desk, room.atm, room.exit_door]:
 			await stand_at(desk)
 			assert_object(room.interactable_in_range()).is_same(desk)
 			assert_bool(hud.prompt_panel.visible).is_true()

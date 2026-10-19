@@ -12,9 +12,12 @@ func before_test() -> void:
 	hud = room.hud
 	tint = room.get_node("DayNightCycle")
 
+## Sets the clock, with the business day following it (as if every day
+## before it had ended at its summary).
 func set_clock(day: int, hour: int, minute: int) -> void:
 	GameClock.day = day
 	GameClock.minutes = hour * 60.0 + minute
+	BusinessDay.stats_day = day
 
 func frames(count: int) -> void:
 	for i in count:

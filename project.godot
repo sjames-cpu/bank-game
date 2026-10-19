@@ -28,6 +28,7 @@ ScheduleManager="*res://scripts/autoload/schedule_manager.gd"
 StaffReviewManager="*res://scripts/autoload/staff_review_manager.gd"
 HiringManager="*res://scripts/autoload/hiring_manager.gd"
 HintManager="*res://scripts/autoload/hint_manager.gd"
+BusinessDay="*res://scripts/autoload/business_day.gd"
 ReportManager="*res://scripts/autoload/report_manager.gd"
 
 [debug]

@@ -33,6 +33,8 @@
 [ext_resource type="Script" path="res://scripts/world/atm.gd" id="atm_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/atm_screen.tscn" id="atm_screen_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ui/discipline_letter_screen.tscn" id="discipline_letter_screen_scene"]
+[ext_resource type="PackedScene" path="res://scenes/ui/end_of_day_screen.tscn" id="end_of_day_screen_scene"]
+[ext_resource type="Script" path="res://scripts/world/exit_door.gd" id="exit_door_script"]
 [ext_resource type="Script" path="res://scripts/world/npc_customer_line.gd" id="npc_customer_line_script"]
 [ext_resource type="Script" path="res://scripts/world/npc_loan_desk_worker.gd" id="npc_loan_desk_worker_script"]
 [ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
@@ -77,6 +79,9 @@ size = Vector2(64, 48)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_atm"]
 size = Vector2(48, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_exit_door"]
+size = Vector2(64, 32)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_10x8"]
 size = Vector2(10, 8)
@@ -255,6 +260,16 @@ shape = SubResource("RectangleShape2D_footprint_52x16")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="BranchManagerDesk" unique_id=193677990]
 shape = SubResource("RectangleShape2D_branch_manager_desk")
+
+[node name="ExitDoor" type="Area2D" parent="."]
+position = Vector2(384, 664)
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("exit_door_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ExitDoor"]
+position = Vector2(0, 24)
+shape = SubResource("RectangleShape2D_exit_door")
 
 [node name="ATM" type="Area2D" parent="."]
 y_sort_enabled = true
@@ -665,6 +680,8 @@ layout_mode = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
+
+[node name="EndOfDayScreen" parent="UI" instance=ExtResource("end_of_day_screen_scene")]
 
 [node name="DisciplineLetterScreen" parent="UI" instance=ExtResource("discipline_letter_screen_scene")]
 layout_mode = 3

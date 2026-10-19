@@ -2,7 +2,7 @@
 
 Living record of what's been built, session by session. Update this alongside `CLAUDE.md` as new work lands; `CLAUDE.md` describes current architecture, this file describes how it got there.
 
-## Where things stand (as of 2026-10-14)
+## Where things stand (as of 2026-10-19)
 
 BankSim is a single-room bank-branch simulation with a career path, NPC coworkers and an automated test suite:
 
@@ -12,7 +12,8 @@ BankSim is a single-room bank-branch simulation with a career path, NPC coworker
 - **World**: a full branch floor plan (`room_builder.gd`) with y-sorted characters and furniture, furniture collision, an outdoor entrance, a customer queue per window, and a day/night tint.
 - **Player guidance**: an always-on HUD (role, Score, Reputation, XP, Reports, shift status, notifications), "E — ..." interaction prompts and first-run hints.
 - **Money**: integer cents end to end, formatted through `MoneyMath`.
-- **Quality**: 84 gdUnit4 tests, strict GDScript warnings that fail CI, and a GitHub Actions run on every push.
+- **Time**: a game clock and a business day (open 9 AM-5 PM), with an End of Day summary and going home early. The career saves to disk and continues from a start screen.
+- **Quality**: 177 gdUnit4 tests, strict GDScript warnings that fail CI, and a GitHub Actions run on every push.
 
 ---
 
@@ -121,12 +122,22 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Scoring** (`HiringManager`): candidates are ranked by the stats the desk's formulas use. The best hire earns +6 Score/+1 Reputation, the middle one +1/0, the weakest −4/−1, and a red-flag hire −6/−2. Reject All scores nothing, and new candidates arrive at the next clock-in. Hired staff work with the same formulas as everyone else. The roster is capped at 8, and hiring is only possible for a real vacancy.
 - **Save/load**: hired staff, waiting candidates with their interview progress, and rejected vacancies are saved. A new career goes back to the original roster.
 
+## Session 13 — Oct 14–19, 2026: Game clock and business day
+*(commit `5c77e6d` for part 1, and the business day part 2 commit)*
+
+- **Part 1, the game clock** (`GameClock`, the HANDOFF "wall-clock time" flaw): a day number and time of day that run only on unpaused time, 1.5 game minutes per second. It's shown on the HUD, drives the day/night tint, and stamps every record, report and shift summary. A new career starts on Day 1 at 8:30 AM.
+- **Part 2, opening hours** (`BusinessDay`): the branch is open 9:00 AM–5:00 PM. Customers arrive and the Loan Desk's staff decide only while it's open. The player can clock in from 8:30 for the opening count, but not after 4:30 PM. At 9:00 every line taking customers restarts its arrival timer, so the first customers come within a few game minutes instead of up to half an hour late.
+- **Closing**: at 5:00 PM the doors close. Customers already inside are still served and staff finish theirs, then idle. Customers the player's shift never got don't block clock-out, and the HUD says the branch is closed.
+- **End of Day summary** (`end_of_day_screen.gd`): once it's past 5:00, the player is off shift and the lobby is empty, a summary shows the customers the branch served (player and staff), the player's shifts, and the day's Score, Reputation and XP changes. "Start Day N+1" moves to 8:30 the next morning. A day left running past midnight still ends at its summary.
+- **Going home early**: off shift, the entrance doormat (`ExitDoor`) asks "Go home and end Day N?". Going home skips the clock to 5:00 PM, clears the lobby and shows the same summary, with nothing simulated for the skipped hours.
+- **Save/load and hints**: the day's totals are saved with the career, which is also saved when the summary appears and when the next day starts. A one-time hint explains the hours and going home.
+
 ---
 
 ## Notes for next session
 
 - No `.csproj`/`.sln` yet: everything is still GDScript despite the project being configured for .NET.
 - The save has one slot and no autosave mid-shift: quitting mid-shift loses that shift's work.
-- The game clock (`GameClock`) runs but nothing closes the bank yet: opening hours and the end of the business day are part 2.
+- The business day has opening hours and an End of Day summary (`BusinessDay`), but nothing ever closes the career's days for good: there's no week, month or year view yet.
 - The cash model still has $1,000/$500 bills and no coins; amounts are already in cents, so coins can be added as more `DENOMINATION_CENTS` entries.
 - Loan application figures are whole-dollar floats by design (judged, never moved as cash).

@@ -137,6 +137,24 @@ func end_shift() -> void:
 		customer.queue_free()
 	queue.clear()
 
+## Whether anyone from this line is still in the building: waiting, at the
+## counter, or walking out (BusinessDay's end of day waits for an empty
+## lobby).
+func has_customers() -> bool:
+	for child in get_children():
+		if child is CustomerNPC and not child.is_queued_for_deletion():
+			return true
+	return false
+
+## Everyone from this line leaves at once (going home early skips the rest
+## of the day, so nobody is left to serve). Doesn't stop the line: it takes
+## customers again when the branch next opens.
+func clear_lobby() -> void:
+	for child in get_children():
+		if child is CustomerNPC:
+			child.queue_free()
+	queue.clear()
+
 ## How many more customers this shift will still spawn before
 ## CUSTOMERS_PER_SHIFT_CAP is reached — teller_room.gd uses this (with the
 ## current queue size) to decide whether every customer this shift has been
@@ -182,10 +200,30 @@ func send_customer_off(customer: CustomerNPC, farewell: String = "") -> void:
 	]
 	customer.say_farewell_and_leave(route, farewell)
 
+## The first arrival after opening comes this many seconds (unpaused time)
+## after 9:00: 1.5-4.5 game minutes at GameClock.GAME_MINUTES_PER_SECOND.
+const OPENING_ARRIVAL_MIN_SECONDS: float = 1.0
+const OPENING_ARRIVAL_MAX_SECONDS: float = 3.0
+
+## The branch has just opened (teller_room.gd calls this at 9:00). A line
+## that's taking customers starts its spawn timer fresh, so its first
+## customer comes within a few game minutes of opening, instead of whenever
+## the timer that ticked through the closed hours next fires. A stopped line
+## (no shift, no staff) stays stopped.
+func open_for_the_day() -> void:
+	if spawn_timer.is_stopped():
+		return
+	spawn_timer.start(randf_range(OPENING_ARRIVAL_MIN_SECONDS, OPENING_ARRIVAL_MAX_SECONDS))
+
+## Customers only come in while the branch is open (BusinessDay, 9 AM to
+## 5 PM), here and at the staff lines (NpcCustomerLine shares this).
 func _on_spawn_timer_timeout() -> void:
+	# After open_for_the_day()'s short first gap, back to the usual one.
+	if not is_equal_approx(spawn_timer.wait_time, spawn_interval):
+		spawn_timer.start(spawn_interval)
 	if queue.size() >= queue_positions.size():
 		return
-	if not _may_spawn():
+	if not BusinessDay.is_open() or not _may_spawn():
 		return
 	_spawn_customer()
 

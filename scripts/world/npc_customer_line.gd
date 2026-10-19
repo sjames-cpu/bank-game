@@ -89,6 +89,12 @@ func close_line() -> void:
 			_departing.append(customer)
 			send_customer_off(customer, CLOSED_LINE_FAREWELL)
 
+## Going home early: whoever is being served goes too.
+func clear_lobby() -> void:
+	_cancel_service()
+	_departing.clear()
+	super.clear_lobby()
+
 func _next_spawn_interval() -> float:
 	return randf_range(spawn_interval_min, spawn_interval_max)
 

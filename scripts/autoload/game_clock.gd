@@ -17,8 +17,11 @@ extends Node
 ## the 9 AM-5 PM business day, so four shifts fill a day. A whole 24-hour
 ## day takes 16 real minutes of unpaused play.
 ##
-## Business hours, opening and closing come later (part 2); for now the
-## clock just runs, and past midnight it rolls on to the next day.
+## Opening hours and the end of the day belong to BusinessDay: every day
+## ends at its End of Day summary, whose "Start Day N+1" sets the clock to
+## 8:30 AM the next morning. Rolling past midnight on its own (advance())
+## is only a fallback for a day left running; BusinessDay still ends that
+## day at its summary.
 
 const GAME_MINUTES_PER_SECOND: float = 1.5
 

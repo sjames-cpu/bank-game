@@ -28,8 +28,10 @@ var _applications: Array[LoanApplication] = LoanApplicationsData.get_application
 var _next_index: int = 0
 var _elapsed: float = 0.0
 
+## Works only while the branch is open (BusinessDay); idle at the desk
+## before 9 AM and after 5 PM.
 func _process(delta: float) -> void:
-	if not active or not is_instance_valid(staff_npc) or staff_npc.state != StaffNPC.State.AT_DESK:
+	if not active or not BusinessDay.is_open() or not is_instance_valid(staff_npc) or staff_npc.state != StaffNPC.State.AT_DESK:
 		return
 	_elapsed += delta
 	if _elapsed >= staff_npc.staff.loan_decision_seconds():

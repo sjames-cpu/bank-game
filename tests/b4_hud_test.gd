@@ -430,6 +430,12 @@ func test_arrival_hint_shows_once_per_career() -> void:
 	assert_str(hud.hint_label.text).is_equal("Walk with WASD or the arrow keys. Go to your teller window and press E to clock in. Press Z to zoom out and see the whole branch.")
 	assert_int(hud.hint_dismiss_button.focus_mode).is_equal(Control.FOCUS_NONE)
 	hud.hint_dismiss_button.pressed.emit()
+	# The opening-hours hint comes straight after it, once too.
+	assert_int(hud.current_hint).is_equal(Hint.OPENING_HOURS)
+	assert_str(hud.hint_label.text).contains("9:00 AM to 5:00 PM")
+	assert_str(hud.hint_label.text).contains("not after 4:30 PM")
+	assert_str(hud.hint_label.text).contains("entrance doormat and press E to go home")
+	hud.hint_dismiss_button.pressed.emit()
 	assert_bool(hud.hint_panel.visible).is_false()
 
 	# Same career, room loaded again: no repeat.

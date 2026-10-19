@@ -86,7 +86,13 @@ func _show_main_panel() -> void:
 	shift_summary_panel.visible = false
 	main_panel.visible = true
 
+## No new shifts after BusinessDay.LAST_CLOCK_IN (4:30 PM).
 func _on_clock_in_button_pressed() -> void:
+	if not BusinessDay.can_start_shift():
+		error_label.text = BusinessDay.CLOCK_IN_REFUSED_TEXT
+		error_label.visible = true
+		return
+	error_label.visible = false
 	_begin_shift()
 
 func _begin_shift() -> void:

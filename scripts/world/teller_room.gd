@@ -129,6 +129,8 @@ const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 @onready var hud: Hud = $HUD
 @onready var camera: RoomCamera = $Player/Camera2D
 @onready var room_layer: TileMapLayer = $Room
+@onready var exit_door: ExitDoor = $ExitDoor
+@onready var end_of_day_screen: EndOfDayScreen = $UI/EndOfDayScreen
 
 ## How long the "X is working this window" notice stays up.
 const DESK_NOTICE_SECONDS: float = 3.5
@@ -190,22 +192,28 @@ func _ready() -> void:
 	teller_screen.shift_clocked_in.connect(InterviewManager.begin_teller_shift)
 	teller_screen.shift_clocked_out.connect(InterviewManager.end_teller_shift)
 	# Saved last, once the promotion and probation above have settled.
-	teller_screen.shift_clocked_out.connect(save_career)
+	teller_screen.shift_clocked_out.connect(_on_shift_completed)
 	customer_queue.customer_abandoned.connect(_on_customer_abandoned)
 	loan_officer_desk.interacted.connect(_on_loan_officer_desk_interacted)
 	XPManager.loan_officer_unlocked.connect(_on_loan_officer_unlocked)
 
 	branch_manager_desk.interacted.connect(_on_branch_manager_desk_interacted)
 	branch_manager_screen.shift_clocked_in.connect(_on_branch_manager_clocked_in)
-	branch_manager_screen.shift_clocked_out.connect(save_career)
+	branch_manager_screen.shift_clocked_out.connect(_on_shift_completed)
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 	_update_branch_manager_desk_availability()
 
 	atm.interacted.connect(_on_atm_interacted)
+	exit_door.interacted.connect(_on_exit_door_interacted)
+	end_of_day_screen.go_home_confirmed.connect(_on_go_home_confirmed)
+	end_of_day_screen.next_day_requested.connect(_on_next_day_requested)
+	# Customers the staff serve count toward today's branch total.
+	for line: NpcCustomerLine in [window1_npc_line, window2_line, window3_line]:
+		line.customer_served.connect(_on_staff_customer_served)
 
 	loan_officer_screen.shift_clocked_in.connect(_on_player_clocked_in.bind(ScheduleManager.SLOT_LOAN_DESK))
 	loan_officer_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_LOAN_DESK))
-	loan_officer_screen.shift_clocked_out.connect(save_career)
+	loan_officer_screen.shift_clocked_out.connect(_on_shift_completed)
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
 	_place_staff()
 
@@ -218,9 +226,87 @@ func _ready() -> void:
 		_apply_branch_manager_desks()
 
 	hud.show_hint_once(HintManager.Hint.ARRIVAL)
+	hud.show_hint_once(HintManager.Hint.OPENING_HOURS)
 
 func _process(_delta: float) -> void:
 	_update_interaction_prompt()
+	_check_branch_opening()
+	_check_end_of_day()
+
+# --- the business day (BusinessDay) -----------------------------------------------
+
+## Customers the player's shift will still bring: none once the doors have
+## closed for the day, so the ones that never came don't block clock-out.
+func customers_still_to_arrive() -> int:
+	if BusinessDay.doors_closed():
+		return 0
+	return customer_queue.get_customers_left_to_spawn()
+
+## Clocked in at any desk (teller window, Loan Desk or Branch Manager's).
+func is_player_on_shift() -> bool:
+	return teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN or loan_officer_screen.is_clocked_in() or branch_manager_screen.is_clocked_in()
+
+## Whether the branch was open last frame, to catch the moment it opens.
+## Starts as it is now, so a career loaded mid-morning doesn't "open" again.
+var _was_open: bool = BusinessDay.is_open()
+
+## At 9:00 every line taking customers restarts its spawn timer, so the day's
+## first customers arrive within a few game minutes of opening.
+func _check_branch_opening() -> void:
+	var open := BusinessDay.is_open()
+	if open and not _was_open:
+		for line: CustomerQueue in [customer_queue, window1_npc_line, window2_line, window3_line]:
+			line.open_for_the_day()
+	_was_open = open
+
+## Nobody from any line is still in the building.
+func is_lobby_empty() -> bool:
+	for line: CustomerQueue in [customer_queue, window1_npc_line, window2_line, window3_line]:
+		if line.has_customers():
+			return false
+	return true
+
+## The day ends on its own once it's past closing time, the player is off
+## shift and the last customer has left (checked every frame the world runs,
+## so never behind an open screen or letter).
+func _check_end_of_day() -> void:
+	if end_of_day_screen.visible or get_tree().paused:
+		return
+	if BusinessDay.is_day_over() and not is_player_on_shift() and is_lobby_empty():
+		show_end_of_day()
+
+## The End of Day summary, saved as it appears.
+func show_end_of_day() -> void:
+	end_of_day_screen.show_summary(BusinessDay.summary())
+	save_career()
+
+func _on_exit_door_interacted() -> void:
+	if end_of_day_screen.visible or is_player_on_shift():
+		return
+	end_of_day_screen.ask_go_home(BusinessDay.stats_day)
+
+## Going home early: the rest of the day is skipped, with nobody left in the
+## lobby to serve (no customers or staff work are simulated).
+func _on_go_home_confirmed() -> void:
+	end_of_day_screen.close()
+	BusinessDay.go_home_early()
+	for line: CustomerQueue in [customer_queue, window1_npc_line, window2_line, window3_line]:
+		line.clear_lobby()
+	_customers_awaiting_farewell.clear()
+	_customer_being_served = null
+	show_end_of_day()
+
+## "Start Day N+1": 8:30 AM the next morning, saved.
+func _on_next_day_requested() -> void:
+	BusinessDay.start_next_day()
+	save_career()
+
+func _on_shift_completed() -> void:
+	BusinessDay.note_shift_completed()
+	save_career()
+
+func _on_staff_customer_served(_customer: CustomerNPC, _staff: StaffMember, _was_mistake: bool) -> void:
+	BusinessDay.note_customer_served_by_staff()
 
 ## The whole tiled area (the room and the sidewalk outside it), in world
 ## pixels: what the camera may show (RoomCamera).
@@ -233,7 +319,7 @@ func room_bounds() -> Rect2:
 
 ## The interactables the prompt covers, in the order ties are broken.
 func _interactables() -> Array[Interactable]:
-	return [teller_desk, loan_officer_desk, branch_manager_desk, atm]
+	return [teller_desk, loan_officer_desk, branch_manager_desk, atm, exit_door]
 
 ## The interactable the player is standing at (the nearest, if several), or
 ## null. A hidden desk (the Branch Manager desk before promotion) doesn't count.
@@ -276,6 +362,10 @@ func interaction_prompt_text(desk: Interactable) -> String:
 		return "%s — %s (%s)" % [key, loan_action, ScheduleManager.SLOT_LOAN_DESK]
 	if desk == branch_manager_desk:
 		return "%s — Branch Manager desk" % key
+	if desk == exit_door:
+		if is_player_on_shift():
+			return "Clock out before you go home"
+		return "%s — Go home (end Day %d)" % [key, BusinessDay.stats_day]
 	if desk == atm:
 		return "%s — Use ATM" % key
 	return ""
@@ -285,8 +375,12 @@ func interaction_prompt_text(desk: Interactable) -> String:
 func describe_shift_status() -> String:
 	var parts: PackedStringArray = []
 	if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
-		var customers_left := customer_queue.queue.size() + customer_queue.get_customers_left_to_spawn()
-		parts.append("%s · %d customer%s left" % [PLAYER_TELLER_WINDOW, customers_left, "" if customers_left == 1 else "s"])
+		var customers_left := customer_queue.queue.size() + customers_still_to_arrive()
+		var teller_part := "%s · %d customer%s left" % [PLAYER_TELLER_WINDOW, customers_left, "" if customers_left == 1 else "s"]
+		# Closing time cut this shift short: say so, since fewer than 4 came.
+		if BusinessDay.doors_closed() and customer_queue.get_customers_left_to_spawn() > 0:
+			teller_part += " · %s" % BusinessDay.DOORS_CLOSED_TEXT
+		parts.append(teller_part)
 	if loan_officer_screen.is_clocked_in():
 		var applications_left: int = loan_officer_screen.applications_left()
 		parts.append("%s · %d application%s left" % [ScheduleManager.SLOT_LOAN_DESK, applications_left, "" if applications_left == 1 else "s"])
@@ -486,6 +580,7 @@ func _serve_current_customer() -> void:
 	var served := customer_queue.serve_front_customer()
 	if served != null:
 		_customers_awaiting_farewell.append(served)
+		BusinessDay.note_customer_served_by_player()
 	_customer_being_served = customer_queue.get_front_customer()
 	teller_screen.advance_to_customer(_customer_being_served)
 	_hint_first_customer(_customer_being_served)
@@ -520,7 +615,7 @@ func _describe_remaining_shift_work() -> String:
 			waiting -= 1
 	if waiting > 0:
 		parts.append("%d %scustomer%s still waiting" % [waiting, "more " if parts.size() > 0 else "", "" if waiting == 1 else "s"])
-	var to_arrive := customer_queue.get_customers_left_to_spawn()
+	var to_arrive := customers_still_to_arrive()
 	if to_arrive > 0:
 		parts.append("%d more customer%s still to arrive" % [to_arrive, "" if to_arrive == 1 else "s"])
 	if parts.is_empty() and is_instance_valid(_customer_being_served):
