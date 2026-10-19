@@ -122,7 +122,14 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Scoring** (`HiringManager`): candidates are ranked by the stats the desk's formulas use. The best hire earns +6 Score/+1 Reputation, the middle one +1/0, the weakest −4/−1, and a red-flag hire −6/−2. Reject All scores nothing, and new candidates arrive at the next clock-in. Hired staff work with the same formulas as everyone else. The roster is capped at 8, and hiring is only possible for a real vacancy.
 - **Save/load**: hired staff, waiting candidates with their interview progress, and rejected vacancies are saved. A new career goes back to the original roster.
 
-## Session 13 — Oct 14–19, 2026: Game clock and business day
+## Session 13 — Oct 15, 2026: Camera zoom and controls line
+*(commits `995e8ac`, `89fb8a4`)*
+
+- **Camera** (`RoomCamera`): characters were 24 px tall at the 1x zoom, too small to show their sprite detail. The camera now follows the player at 2x, smoothly, clamped to the room and sidewalk so nothing past the walls shows. Z (`toggle_overview`, named in the arrival hint) switches to the old 1x overview, centred on the room horizontally.
+- **Crisp world text** (`WorldText`): staff names and speech, customer farewells and requests are rasterised at their on-screen size and scaled by 1/zoom, so they stay sharp at either zoom (11–12 px at 1x, 1.25x that at 2x). The HUD, screens and letters don't zoom.
+- **Controls line**: "E — interact · Z — zoom" stays in the HUD's bottom-left corner, with key names read from the InputMap, so the zoom key can still be found after the one-time arrival hint. It sits clear of the HUD column, every centred screen and letters.
+
+## Session 14 — Oct 15–19, 2026: Game clock and business day
 *(commit `5c77e6d` for part 1, and the business day part 2 commit)*
 
 - **Part 1, the game clock** (`GameClock`, the HANDOFF "wall-clock time" flaw): a day number and time of day that run only on unpaused time, 1.5 game minutes per second. It's shown on the HUD, drives the day/night tint, and stamps every record, report and shift summary. A new career starts on Day 1 at 8:30 AM.
