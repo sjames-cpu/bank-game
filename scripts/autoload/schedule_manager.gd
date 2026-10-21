@@ -114,6 +114,14 @@ func open_teller_window_3() -> void:
 	if member != null:
 		schedule[SLOT_TELLER_WINDOW_3] = member
 
+## Who covers the Player Teller Window while the player works Loan Desk 1
+## (teller_room.gd): the first Teller-role roster member not at a desk, the
+## same person open_teller_window_3() would place there at promotion (Nina
+## Ortiz by default). Another unassigned teller if they've been dismissed or
+## placed elsewhere; null if no teller is free (the window stays empty).
+func cover_teller() -> StaffMember:
+	return _first_unassigned("Teller")
+
 ## A demotion back to Loan Officer: the player's window is theirs again, so
 ## the Teller Window 3 slot goes, and whoever worked it is unassigned (they
 ## stay on the roster). The schedule is re-announced so the room re-places

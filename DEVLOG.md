@@ -190,6 +190,13 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Staff Scheduling** broke with six desks: it was a fixed 440x560 `Panel` whose contents overflowed it (the title above the window, Close below it, the roster under the HUD, a confirmation line per desk). It's now one auto-sizing `PanelContainer` like the other screens, with a scrolling, wrapping roster, desks in two columns (teller windows, loan desks) and a one-line confirmation.
 - **Fit tests that look inside**: `layout_problems()` checks every visible control of a screen against its panel, the window (with an 8 px margin) and the HUD column, not just the panel's rect. It failed on the old Staff Scheduling screen. Run on every screen that lists desks or staff, it also caught the Branch shift summary and the Hiring screen within a few pixels of the window's edge: the summary's lines are now closer together, and the interview transcript scrolls in 180 px instead of 220.
 
+## Session 22 — Oct 21, 2026: A cover teller for the Player Teller Window
+*(the cover teller commit)*
+
+- **Cover teller**: while the player works Loan Desk 1, the teller who'd take Teller Window 3 at promotion (Nina Ortiz, or another free teller) walks from the break room to the Player Teller Window and runs its line like Windows 1 and 2. The window says who's covering instead of opening the teller screen.
+- **Clock-out**: no new arrivals, waiting customers move to Teller Window 1 or 2 if there's room or leave, the customer at the window is finished, and the cover teller walks back to the break room. The window is the player's again.
+- **Promotion and demotion**: a promotion at that clock-out hands the window to Teller Window 3's staff; after a demotion the cover returns. Cover work is logged and counted like other staff work; nothing new is saved (it's mid-shift state).
+
 ---
 
 ## Notes for next session

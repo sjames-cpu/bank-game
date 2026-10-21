@@ -149,6 +149,8 @@ var _desk_notice_token: int = 0
 const WINDOW_STAFFED_TEXT: String = "%s is working this window."
 const LOAN_DESK_STAFFED_TEXT: String = "%s is working Loan Desk 1."
 const UNASSIGNED_DESK_TEXT: String = "No one is assigned here right now."
+## The Player Teller Window while its cover teller works it (%s = their name).
+const WINDOW_COVERED_TEXT: String = "%s is covering this window while you work the Loan Desk."
 const MANAGER_DESK_REMINDER: String = " As Branch Manager, your desk is in the office."
 
 const STAFF_NPC_SCENE: PackedScene = preload("res://scenes/characters/staff_npc.tscn")
@@ -165,6 +167,17 @@ const STAFF_NPC_SCENE: PackedScene = preload("res://scenes/characters/staff_npc.
 
 ## slot name -> the StaffNPC currently placed at that desk.
 var _staff_by_slot: Dictionary[String, StaffNPC] = {}
+
+## The cover teller: while the player works Loan Desk 1 (before promotion),
+## ScheduleManager.cover_teller() walks from the break room to the Player
+## Teller Window and serves Window3Line, the window's NPC line, as a staff
+## window like Windows 1 and 2. At clock-out they finish their customer,
+## the rest of the line moves to Windows 1/2 or leaves (wind_down()), and
+## they walk back to the break room and go. Null when nobody's covering.
+## Mid-shift state, so never saved: a loaded career starts off shift.
+var cover_npc: StaffNPC = null
+## The cover teller has finished and is walking back to the break room.
+var _cover_leaving: bool = false
 
 ## Desks the player is currently clocked in at (by slot name) — their staff
 ## member is on break.
@@ -456,6 +469,8 @@ func interaction_prompt_text(desk: Interactable) -> String:
 	if desk == teller_desk:
 		if XPManager.is_branch_manager_unlocked:
 			return _staffed_desk_text(ScheduleManager.SLOT_TELLER_WINDOW_3, WINDOW_STAFFED_TEXT)
+		if is_window_covered():
+			return WINDOW_COVERED_TEXT % cover_npc.staff.staff_name
 		var teller_action := "Clock in"
 		if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
 			teller_action = "Clock out" if _describe_remaining_shift_work() == "" else "Serve customers"
@@ -536,7 +551,8 @@ func _place_slot_staff(slot_name: String) -> void:
 func _assign_staff_to_work() -> void:
 	window1_npc_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_1)
 	window2_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_2)
-	window3_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_3)
+	var window_3_staff: StaffNPC = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_3)
+	window3_line.staff_npc = window_3_staff if window_3_staff != null else cover_npc
 	for worker in loan_desk_workers:
 		worker.staff_npc = _staff_by_slot.get(worker.slot_name)
 	_update_staff_lines()
@@ -583,6 +599,7 @@ func _on_player_clocked_in(slot_name: String) -> void:
 		return
 	if slot_name == ScheduleManager.SLOT_LOAN_DESK_1:
 		loan_desk_worker.active = false
+		_start_cover()
 	if not _player_desk_slots.has(slot_name):
 		_player_desk_slots.append(slot_name)
 	var npc: StaffNPC = _staff_by_slot.get(slot_name)
@@ -597,7 +614,11 @@ func _on_player_clocked_out(slot_name: String) -> void:
 	if slot_name == ScheduleManager.SLOT_LOAN_DESK_1:
 		loan_desk_worker.active = true
 	_player_desk_slots.erase(slot_name)
+	# A promotion held back during the shift is granted here, and takes the
+	# cover teller over as Teller Window 3 (_apply_branch_manager_desks()).
 	XPManager.end_player_shift(slot_name)
+	if slot_name == ScheduleManager.SLOT_LOAN_DESK_1:
+		_end_cover()
 	var npc: StaffNPC = _staff_by_slot.get(slot_name)
 	if npc == null:
 		return
@@ -613,6 +634,75 @@ func _on_player_clocked_out(slot_name: String) -> void:
 		walked.remove_at(0) # already standing at the break spot
 	walked.append(_desk_spot(slot_name))
 	npc.follow_route(walked, StaffNPC.State.AT_DESK)
+
+# --- the cover teller -------------------------------------------------------------
+
+## The Player Teller Window is being worked by the cover teller.
+func is_window_covered() -> bool:
+	return cover_npc != null and not _cover_leaving
+
+## Loan Desk 1 clock-in: the cover teller (if there is one) walks from the
+## break room to the Player Teller Window, and its line opens as a staff
+## window. Not as Branch Manager (Teller Window 3 is staffed for good), nor
+## while the player is still on a teller shift there.
+func _start_cover() -> void:
+	if XPManager.is_branch_manager_unlocked or cover_npc != null or teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
+		return
+	var member := ScheduleManager.cover_teller()
+	if member == null:
+		return
+	cover_npc = STAFF_NPC_SCENE.instantiate()
+	cover_npc.setup(member)
+	cover_npc.name = "CoverTeller"
+	staff_layer.add_child(cover_npc)
+	_cover_leaving = false
+	# The break-room route, the other way round, ending at the window.
+	var route := _route_to_break(ScheduleManager.SLOT_TELLER_WINDOW_3)
+	route.reverse()
+	cover_npc.place_at(route[0], StaffNPC.State.ON_BREAK)
+	route.remove_at(0)
+	route.append(_desk_spot(ScheduleManager.SLOT_TELLER_WINDOW_3))
+	cover_npc.follow_route(route, StaffNPC.State.AT_DESK)
+	window3_line.slot_name = PLAYER_TELLER_WINDOW
+	window3_line.staff_npc = cover_npc
+	window3_line.activate()
+
+## Loan Desk 1 clock-out: the cover teller finishes their customer, the rest
+## move to Windows 1/2 if there's room or leave, then they walk back.
+func _end_cover() -> void:
+	if cover_npc == null or _cover_leaving or XPManager.is_branch_manager_unlocked:
+		return
+	window3_line.wind_down([window1_npc_line, window2_line])
+	if not window3_line.wound_down.is_connected(_send_cover_to_break):
+		window3_line.wound_down.connect(_send_cover_to_break, CONNECT_ONE_SHOT)
+
+func _send_cover_to_break() -> void:
+	if cover_npc == null:
+		return
+	_cover_leaving = true
+	window3_line.staff_npc = null
+	window3_line.slot_name = ScheduleManager.SLOT_TELLER_WINDOW_3
+	cover_npc.follow_route(_route_to_break(ScheduleManager.SLOT_TELLER_WINDOW_3), StaffNPC.State.ON_BREAK)
+	cover_npc.route_finished.connect(_dismiss_cover, CONNECT_ONE_SHOT)
+
+## Back in the break room, the cover teller goes (they aren't at a desk).
+func _dismiss_cover() -> void:
+	if cover_npc != null:
+		cover_npc.queue_free()
+	cover_npc = null
+	_cover_leaving = false
+
+## A promotion granted at Loan Desk 1 clock-out: Teller Window 3's own staff
+## member takes the window and its line over from the cover teller.
+func _end_cover_now() -> void:
+	if window3_line.wound_down.is_connected(_send_cover_to_break):
+		window3_line.wound_down.disconnect(_send_cover_to_break)
+	if cover_npc != null:
+		staff_layer.remove_child(cover_npc)
+		cover_npc.queue_free()
+	cover_npc = null
+	_cover_leaving = false
+	window3_line.slot_name = ScheduleManager.SLOT_TELLER_WINDOW_3
 
 func _desk_spot(slot_name: String) -> Vector2:
 	return (_desk_for_slot[slot_name].get_node("StaffSpot") as Node2D).global_position
@@ -655,6 +745,9 @@ func _on_teller_desk_interacted() -> void:
 		return
 	if XPManager.is_branch_manager_unlocked:
 		_show_desk_notice(ScheduleManager.SLOT_TELLER_WINDOW_3, WINDOW_STAFFED_TEXT)
+		return
+	if is_window_covered():
+		_show_notice(WINDOW_COVERED_TEXT % cover_npc.staff.staff_name)
 		return
 	_customer_being_served = customer_queue.get_front_customer()
 	teller_screen.show_screen(_customer_being_served)
@@ -795,7 +888,11 @@ func _staffed_desk_text(slot_name: String, template: String) -> String:
 ## Short notice naming whoever is assigned to `slot_name` (template has one
 ## %s for the name). Shown over the room for DESK_NOTICE_SECONDS.
 func _show_desk_notice(slot_name: String, template: String) -> void:
-	desk_notice_label.text = _staffed_desk_text(slot_name, template) + MANAGER_DESK_REMINDER
+	_show_notice(_staffed_desk_text(slot_name, template) + MANAGER_DESK_REMINDER)
+
+## `text` over the room for DESK_NOTICE_SECONDS.
+func _show_notice(text: String) -> void:
+	desk_notice_label.text = text
 	desk_notice.visible = true
 	_desk_notice_token += 1
 	get_tree().create_timer(DESK_NOTICE_SECONDS, false).timeout.connect(_hide_desk_notice.bind(_desk_notice_token))
@@ -836,6 +933,7 @@ func save_career() -> void:
 ## their desk for good (_on_player_clocked_in() no longer sends them away).
 ## Undone by CareerReset + the scene reload after "Apply for a new job".
 func _apply_branch_manager_desks() -> void:
+	_end_cover_now()
 	if not _staff_by_slot.has(ScheduleManager.SLOT_TELLER_WINDOW_3):
 		_place_slot_staff(ScheduleManager.SLOT_TELLER_WINDOW_3)
 	_assign_staff_to_work() # opens Window3Line when the desk is staffed

@@ -32,6 +32,8 @@ class_name NpcCustomerLine
 ## Window 3.
 
 signal customer_served(customer: CustomerNPC, staff: StaffMember, was_mistake: bool)
+## After wind_down(), once the customer at the window (if any) is served.
+signal wound_down
 
 ## Desk slot this line belongs to (ScheduleManager.SLOT_*), for logs.
 @export var slot_name: String = ""
@@ -49,6 +51,9 @@ var active: bool = false
 ## including any mistake fix — kept for tuning service speed; nothing reads
 ## it yet.
 var last_service_seconds: float = 0.0
+
+## Set by wind_down() until wound_down fires.
+var _winding_down: bool = false
 
 var _serving: CustomerNPC = null
 var _serving_staff: StaffNPC = null
@@ -71,6 +76,7 @@ const _MISTAKE_WRONG_TYPE_DEPOSIT: Array = ["I said deposit, not withdraw!", "di
 const _MISTAKE_WRONG_TYPE_WITHDRAW: Array = ["I asked to withdraw, not deposit!", "did a deposit instead of a withdrawal"]
 
 func activate() -> void:
+	_winding_down = false
 	active = true
 	spawn_timer.start(_next_spawn_interval())
 
@@ -88,6 +94,33 @@ func close_line() -> void:
 			var customer: CustomerNPC = entry
 			_departing.append(customer)
 			send_customer_off(customer, CLOSED_LINE_FAREWELL)
+
+## The window closes after its current customer (the Player Teller
+## Window's cover teller at Loan Desk clock-out, teller_room.gd): no new
+## arrivals; everyone still waiting moves to the first of `other_lines`
+## that's open with room, or walks out; wound_down fires once the customer
+## at the window (if any) has been served.
+func wind_down(other_lines: Array[NpcCustomerLine]) -> void:
+	active = false
+	spawn_timer.stop()
+	_winding_down = true
+	var waiting: Array[CustomerNPC] = []
+	for customer in queue:
+		if customer != _serving:
+			waiting.append(customer)
+	for customer in waiting:
+		queue.erase(customer)
+		var target: NpcCustomerLine = null
+		for line in other_lines:
+			if line.active and line.has_room():
+				target = line
+				break
+		if target != null:
+			target.take_customer(customer)
+		else:
+			_departing.append(customer)
+			send_customer_off(customer, CLOSED_LINE_FAREWELL)
+	_advance_queue()
 
 ## Going home early: whoever is being served goes too.
 func clear_lobby() -> void:
@@ -127,6 +160,10 @@ func _uses_staff_line_accounts() -> bool:
 	return true
 
 func _process(delta: float) -> void:
+	if _winding_down and _serving == null:
+		_winding_down = false
+		wound_down.emit()
+		return
 	if _serving != null:
 		if not is_instance_valid(_serving) or not is_instance_valid(_serving_staff) or _serving_staff.state != StaffNPC.State.AT_DESK:
 			_cancel_service()

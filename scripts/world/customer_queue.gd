@@ -419,6 +419,21 @@ func _spot_free(spot: int, mover: CustomerNPC) -> bool:
 				return false
 	return true
 
+## A customer from another line joins the back of this one (a staff window
+## closing after its current customer, NpcCustomerLine.wind_down()). They
+## walk over from where they stand; the old line has already let them go,
+## and its patience handler ignores customers no longer in its queue.
+func take_customer(customer: CustomerNPC) -> void:
+	customer.reparent(self)
+	customer.queue_spot = -1
+	customer.patience_expired.connect(_on_customer_patience_expired.bind(customer))
+	queue.append(customer)
+	_advance_queue()
+
+## Whether another customer can join the line now.
+func has_room() -> bool:
+	return queue.size() < queue_positions.size()
+
 ## Same "pop + advance" shape serve_front_customer() uses, except this can
 ## remove a customer from anywhere in the line (whoever's patience ran out
 ## first, which in practice is always whoever's been waiting longest, i.e.
