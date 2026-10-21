@@ -23,6 +23,7 @@ var cq: CustomerQueue
 func before_test() -> void:
 	seed(RNG_SEED)
 	use_test_save_path()
+	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
 	CareerReset.reset_all()
 	room = instantiate_room()
 	get_tree().root.add_child(room)
@@ -50,6 +51,7 @@ func after_test() -> void:
 	room = null
 	CareerReset.reset_all()
 	use_test_save_path()
+	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
 	# Let queue_free()'d nodes (rebuilt UI rows, re-placed staff) actually go
 	# before gdUnit's orphan check.
 	await get_tree().process_frame
@@ -64,6 +66,14 @@ func use_test_save_path() -> void:
 	for leftover: String in [TEST_SAVE_PATH, TEST_SAVE_PATH + ".tmp", TEST_SAVE_PATH + ".bad"]:
 		if FileAccess.file_exists(leftover):
 			DirAccess.remove_absolute(leftover)
+
+## Turns the hiring interview on or off for this test (the game reads
+## InterviewManager.interview_enabled; the INTERVIEW_ENABLED switch is its
+## default, restored before and after every test). Tests whose result
+## depends on the interview set it explicitly, so they pass whichever way
+## the switch is set.
+func use_interview_setting(enabled: bool) -> void:
+	InterviewManager.interview_enabled = enabled
 
 # --- desk -------------------------------------------------------------------
 

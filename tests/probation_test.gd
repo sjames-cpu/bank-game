@@ -1,9 +1,11 @@
 extends "res://tests/support/teller_room_suite.gd"
 
-## The interview is the opening scene, and "Hired on Probation" matters:
-## fired at InterviewManager.PROBATION_REPORTS_FOR_TERMINATION reports,
-## shown on the HUD and in letters, and ended by
-## PROBATION_CLEAN_SHIFTS completed teller shifts without a new report.
+## With the interview switched on (InterviewManager.interview_enabled) it is
+## the opening scene, and "Hired on Probation" matters: fired at
+## InterviewManager.PROBATION_REPORTS_FOR_TERMINATION reports, shown on the
+## HUD and in letters, and ended by PROBATION_CLEAN_SHIFTS completed teller
+## shifts without a new report. (With it off, a new game starts without a
+## probation: save_load_test.gd.)
 
 const INTERVIEW_SCENE := "res://scenes/ui/interview_screen.tscn"
 const START_SCREEN := "res://scenes/ui/start_screen.tscn"
@@ -50,8 +52,10 @@ func hud_text(label: Label) -> String:
 # --- opening scene ---------------------------------------------------------------
 
 func test_new_game_starts_at_the_interview_and_hiring_starts_the_career() -> void:
-	# The game opens on the start screen, which goes straight on to the
-	# interview when there's no save (save_load_test.gd covers the rest).
+	# With the interview on, the game opens on the start screen, which goes
+	# straight on to the interview when there's no save (save_load_test.gd
+	# covers the rest).
+	use_interview_setting(true)
 	assert_str(str(ProjectSettings.get_setting("application/run/main_scene"))).is_equal(START_SCREEN)
 	room.free()
 	var start: StartScreen = (load(START_SCREEN) as PackedScene).instantiate()

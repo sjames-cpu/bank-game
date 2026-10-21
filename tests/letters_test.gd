@@ -164,7 +164,7 @@ func test_every_letter_fits_the_window() -> void:
 		reports.append(report)
 	letters._on_termination_issued(reports)
 	await settle_letter()
-	assert_str(letters.action_button.text).is_equal("Apply for a new job")
+	assert_str(letters.action_button.text).is_equal(DisciplineLetterScreen.termination_button_text())
 	assert_letter_fits("termination")
 
 # --- the orientation letter ------------------------------------------------------------

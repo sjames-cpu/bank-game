@@ -430,11 +430,43 @@ func test_quitting_after_a_probation_hire_continues_on_probation() -> void:
 
 # --- start screen -----------------------------------------------------------------
 
-func test_no_save_goes_straight_to_the_interview() -> void:
+func test_no_save_goes_straight_to_the_interview_with_the_interview_on() -> void:
+	use_interview_setting(true)
 	assert_str(str(ProjectSettings.get_setting("application/run/main_scene"))).is_equal(START_SCREEN)
 	await open_start_screen()
 	var scene := await await_scene_change()
 	assert_str(scene.scene_file_path).is_equal(INTERVIEW_SCENE)
+
+## The interview switch off (InterviewManager.INTERVIEW_ENABLED): with no
+## save the start screen offers only New Game, and a new game starts in the
+## room as a regular hired Teller, with no probation, already saved.
+func test_new_game_with_the_interview_off_starts_as_a_teller_without_probation() -> void:
+	use_interview_setting(false)
+	# Left over from an earlier career; a new one must not inherit it.
+	InterviewManager.is_on_probation = true
+	var screen: StartScreen = await open_start_screen()
+	assert_bool(screen.menu_panel.visible).is_true()
+	assert_bool(screen.continue_button.visible).is_false()
+	assert_str(screen.summary_label.text).is_equal(StartScreen.NO_SAVE_TEXT)
+	# Nothing to lose without a save, so no confirmation.
+	screen.new_game_button.pressed.emit()
+	assert_bool(screen.confirm_panel.visible).is_false()
+	var scene := await await_scene_change()
+
+	assert_object(scene).is_instanceof(TellerRoom)
+	assert_str(Hud.role_name()).is_equal("Teller")
+	room.hud.refresh()
+	assert_str(room.hud.role_label.text).is_equal("Role: Teller")
+	assert_bool(XPManager.is_loan_officer_unlocked).is_false()
+	assert_bool(InterviewManager.is_on_probation).is_false()
+	assert_int(InterviewManager.report_limit()).is_equal(ReportManager.REPORTS_FOR_TERMINATION)
+	assert_bool(room.hud.probation_label.visible).is_false()
+	assert_str(room.describe_shift_status()).is_equal("Off shift")
+	# Saved straight away, like an interview hire.
+	assert_bool(SaveGame.exists()).is_true()
+	var career := SaveGame.read().career
+	assert_bool(SaveGame.dict_of(career, "interview")["is_on_probation"]).is_false()
+	assert_int(SaveGame.int_of(SaveGame.dict_of(career, "score"), "total_score", -1)).is_equal(0)
 
 func test_continue_lands_off_shift_in_the_room() -> void:
 	ScoreManager.add_shift_score(42)
@@ -510,6 +542,7 @@ func test_unreadable_saves_are_reported() -> void:
 	assert_int(SaveGame.read().status).is_equal(SaveGame.Status.MISSING)
 
 func test_corrupt_save_falls_back_to_a_new_game() -> void:
+	use_interview_setting(true)
 	write_save_text("{\"format_version\": 1, \"career\": {\"score\": ")
 	ScoreManager.add_shift_score(10)
 	var screen: StartScreen = await open_start_screen()
@@ -524,7 +557,22 @@ func test_corrupt_save_falls_back_to_a_new_game() -> void:
 	assert_bool(SaveGame.exists()).is_false()
 	assert_bool(FileAccess.file_exists(TEST_SAVE_PATH + ".bad")).is_true()
 
+## With the interview off the fallback new game starts in the room, and its
+## first save sits beside the set-aside bad file rather than overwriting it.
+func test_corrupt_save_with_the_interview_off_starts_a_new_teller() -> void:
+	use_interview_setting(false)
+	write_save_text("{\"format_version\": 1, \"career\": {\"score\": ")
+	var screen: StartScreen = await open_start_screen()
+	assert_bool(screen.message_panel.visible).is_true()
+	screen.message_ok_button.pressed.emit()
+	var scene := await await_scene_change()
+	assert_object(scene).is_instanceof(TellerRoom)
+	assert_bool(InterviewManager.is_on_probation).is_false()
+	assert_bool(FileAccess.file_exists(TEST_SAVE_PATH + ".bad")).is_true()
+	assert_int(SaveGame.read().status).is_equal(SaveGame.Status.OK)
+
 func test_wrong_version_falls_back_to_a_new_game() -> void:
+	use_interview_setting(true)
 	write_save_text(JSON.stringify({"format_version": SaveGame.FORMAT_VERSION + 1, "career": {"score": {"total_score": 99}}}))
 	var screen: StartScreen = await open_start_screen()
 	assert_str(screen.message_label.text).is_equal(StartScreen.WRONG_VERSION_MESSAGE)
@@ -566,7 +614,10 @@ func test_mistyped_values_load_as_new_game_defaults() -> void:
 
 # --- deleting the save --------------------------------------------------------------
 
+## With the interview on (the off case, game over to the start screen, is in
+## reports_test.gd; the save is deleted the same way).
 func test_termination_deletes_the_save() -> void:
+	use_interview_setting(true)
 	assert_bool(SaveGame.save()).is_true()
 	for i in ReportManager.MISTAKES_PER_REPORT * ReportManager.REPORTS_FOR_TERMINATION:
 		ReportManager.record_mistake(DecisionRecord.Role.TELLER, "Customer %d" % i)
@@ -585,7 +636,27 @@ func test_termination_deletes_the_save() -> void:
 	var scene := await await_scene_change()
 	assert_str(scene.scene_file_path).is_equal(INTERVIEW_SCENE)
 
+## With the interview off, New Game over a save still asks first, then
+## replaces the career with a fresh Teller's (saved at once).
+func test_new_game_over_a_save_with_the_interview_off_starts_a_fresh_teller() -> void:
+	use_interview_setting(false)
+	ScoreManager.add_shift_score(25)
+	XPManager.is_loan_officer_unlocked = true
+	assert_bool(SaveGame.save()).is_true()
+	var screen: StartScreen = await open_start_screen()
+	assert_bool(screen.continue_button.visible).is_true()
+	screen.new_game_button.pressed.emit()
+	assert_bool(screen.confirm_panel.visible).is_true()
+	screen.confirm_button.pressed.emit()
+	var scene := await await_scene_change()
+	assert_object(scene).is_instanceof(TellerRoom)
+	assert_int(ScoreManager.total_score).is_equal(0)
+	assert_bool(XPManager.is_loan_officer_unlocked).is_false()
+	assert_bool(InterviewManager.is_on_probation).is_false()
+	assert_int(SaveGame.int_of(SaveGame.dict_of(SaveGame.read().career, "score"), "total_score", -1)).is_equal(0)
+
 func test_new_game_asks_then_deletes_the_save() -> void:
+	use_interview_setting(true)
 	ScoreManager.add_shift_score(25)
 	assert_bool(SaveGame.save()).is_true()
 	var screen: StartScreen = await open_start_screen()
