@@ -297,7 +297,7 @@ func show_end_of_day() -> void:
 		save_career()
 		if letter_screen.visible:
 			return
-	end_of_day_screen.show_summary(BusinessDay.summary())
+	end_of_day_screen.show_summary(BusinessDay.summary(), BusinessDay.closures_before_next_day())
 	save_career()
 
 # --- the Regional Manager's visit (RegionalManager) --------------------------------

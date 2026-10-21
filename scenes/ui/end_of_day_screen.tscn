@@ -94,6 +94,7 @@ layout_mode = 2
 theme_type_variation = &"HeaderLabel"
 text = "End of Day 1"
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="SummaryLabel" type="Label" parent="SummaryPanel/VBox"]
 layout_mode = 2

@@ -161,6 +161,14 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Unchanged**: 4 customers a shift, patience and abandonment, opening hours.
 - **CI flake fixed** (separate commit): `hiring_test`'s save round trip failed on CI because the game clock's minutes (510.06136363636364) came back from JSON one bit off. Clock-driven floats are now saved snapped to 1/64 of a game minute, and a test round-trips 200 awkward values through a real save.
 
+## Session 18 — Oct 21, 2026: Weekends, holidays and the 2 PM cutoff
+*(the calendar commit)*
+
+- **Calendar** (`BankCalendar`): Day 1 is Monday 5 January 2026, and "Day N" is the Nth business day, so the HUD reads "Mon, Day 6 · 8:30 AM" on Monday 12 January. Records carry the date ("Day 6, Mon 12 Jan, 9:15 AM") and the End of Day summary opens with it.
+- **Weekends and holidays**: after Friday's End of Day, "Start Day N+1" shows "Weekend — the branch is closed" with the dates, then Monday 8:30 AM. Federal Reserve holidays are skipped the same way, named ("Weekend and Birthday of Martin Luther King, Jr. — the branch is closed"); Sunday holidays are observed Monday, Saturday ones aren't moved.
+- **2:00 PM cutoff**: teller transactions from 2 PM post on the next business day. The teller screen says so, the transaction records its posting day, and the End of Day summary lists them. Balances and grading don't change.
+- **Regional reviews** count business days (they always counted day numbers, which are now business days). The calendar's start date is saved with the clock.
+
 ---
 
 ## Notes for next session

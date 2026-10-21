@@ -231,7 +231,7 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_bool(HintManager.has_shown(HintManager.Hint.FIRST_CLOCK_OUT)).is_true()
 	assert_int(GameClock.day).is_equal(3)
 	assert_float(GameClock.minutes).is_equal(642.75)
-	assert_str(GameClock.hud_text()).is_equal("Day 3 · 10:42 AM")
+	assert_str(GameClock.hud_text()).is_equal("Wed, Day 3 · 10:42 AM")
 	assert_bool(HintManager.has_shown(HintManager.Hint.FIRST_CUSTOMER)).is_false()
 	assert_int(XPManager.repromotion_xp_target).is_equal(2100)
 	assert_int(RegionalManager.warnings).is_equal(2)

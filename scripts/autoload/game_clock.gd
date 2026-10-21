@@ -22,6 +22,12 @@ extends Node
 ## 8:30 AM the next morning. Rolling past midnight on its own (advance())
 ## is only a fallback for a day left running; BusinessDay still ends that
 ## day at its summary.
+##
+## Calendar (BankCalendar): "Day N" is the career's Nth business day. Day 1
+## is the career's start_date (BankCalendar.start_date(), a Monday), and each
+## day after it is the next business day, so weekends and bank holidays are
+## skipped (BusinessDay.closures_before_next_day() names them for the End of
+## Day screen). date_of_day() gives any day's date.
 
 const GAME_MINUTES_PER_SECOND: float = 1.5
 
@@ -33,6 +39,14 @@ const START_MINUTES: float = 8.0 * 60.0 + 30.0
 var day: int = START_DAY
 ## Minutes since midnight, 0 to MINUTES_PER_DAY.
 var minutes: float = START_MINUTES
+## The date of Day 1 (an epoch day, see BankCalendar), saved with the career.
+var start_date: int = BankCalendar.start_date()
+
+## date_of_day()'s last answer: dates are worked out by stepping business
+## days from start_date, and the HUD asks every frame.
+var _cached_day: int = 0
+var _cached_date: int = 0
+var _cached_start: int = 0
 
 func _process(delta: float) -> void:
 	advance(delta * GAME_MINUTES_PER_SECOND)
@@ -48,22 +62,37 @@ func advance(game_minutes: float) -> void:
 func reset() -> void:
 	day = START_DAY
 	minutes = START_MINUTES
+	start_date = BankCalendar.start_date()
+
+## The date (epoch day) of business day `number`: start_date for Day 1, then
+## each next business day.
+func date_of_day(number: int) -> int:
+	if number == _cached_day and start_date == _cached_start:
+		return _cached_date
+	_cached_day = number
+	_cached_start = start_date
+	_cached_date = BankCalendar.business_day_date(start_date, number)
+	return _cached_date
+
+## Today's date.
+func today_date() -> int:
+	return date_of_day(day)
 
 ## "10:42 AM", for the current time.
 func time_text() -> String:
 	return format_time(minutes)
 
-## "Day 3 · 10:42 AM", for the HUD.
+## "Wed, Day 3 · 10:42 AM", for the HUD.
 func hud_text() -> String:
-	return "Day %d · %s" % [day, time_text()]
+	return "%s, Day %d · %s" % [BankCalendar.weekday_short(today_date()), day, time_text()]
 
-## "Day 3, 10:42 AM": the time stamped on records, reports, review items and
-## shift summaries.
+## "Day 3, Wed 7 Jan, 10:42 AM": the time stamped on records, reports, review
+## items, transactions and shift summaries.
 func timestamp() -> String:
-	return "Day %d, %s" % [day, time_text()]
+	return "Day %d, %s, %s" % [day, BankCalendar.short_text(today_date()), time_text()]
 
-## The day number of a timestamp() ("Day 3, 10:42 AM" -> 3), or 0 if it
-## isn't one.
+## The day number of a timestamp() ("Day 3, Wed 7 Jan, 10:42 AM" -> 3, and
+## older saves' "Day 3, 10:42 AM" too), or 0 if it isn't one.
 func day_of(stamp: String) -> int:
 	if not stamp.begins_with("Day "):
 		return 0
@@ -82,8 +111,10 @@ func format_time(game_minutes: float) -> String:
 	return "%d:%02d %s" % [hour_12, minute, suffix]
 
 func save_data() -> Dictionary:
-	return {"day": day, "minutes": SaveGame.time_for_save(minutes)}
+	return {"day": day, "minutes": SaveGame.time_for_save(minutes), "start_date": BankCalendar.iso(start_date)}
 
+## A save from before the calendar starts on BankCalendar.start_date().
 func load_data(data: Dictionary) -> void:
+	start_date = BankCalendar.from_iso(SaveGame.string_of(data, "start_date", ""), BankCalendar.start_date())
 	day = maxi(START_DAY, SaveGame.int_of(data, "day", START_DAY))
 	minutes = clampf(SaveGame.float_of(data, "minutes", START_MINUTES), 0.0, MINUTES_PER_DAY - 0.001)

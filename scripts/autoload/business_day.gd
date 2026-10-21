@@ -18,10 +18,22 @@ extends Node
 ## (go_home_early()). "Start Day N+1" calls start_next_day(). GameClock's
 ## midnight rollover is only a fallback: a day still open at midnight ends
 ## as soon as the room can show the summary (is_day_over()).
+##
+## Calendar: days are business days (GameClock, BankCalendar). When the next
+## one is after a weekend or a bank holiday, the End of Day screen names the
+## closed days (closures_before_next_day(), BankCalendar.closure_title())
+## before "Start Day N+1" moves to its morning.
+##
+## Cutoff: a teller transaction from CUTOFF (2:00 PM) on posts on the next
+## business day (posting_day()); the teller screen says so, each
+## ShiftTransaction records it, and the End of Day summary lists them
+## (note_after_cutoff(), from the teller's clock-out). Balances still change
+## at once: posting is a record, not a delay.
 
 const OPEN_MINUTES: float = 9.0 * 60.0
 const CLOSE_MINUTES: float = 17.0 * 60.0
 const LAST_CLOCK_IN_MINUTES: float = 16.0 * 60.0 + 30.0
+const CUTOFF_MINUTES: float = 14.0 * 60.0
 
 const CLOCK_IN_REFUSED_TEXT: String = "The branch closes at 5:00 PM — too late to start a new shift."
 const DOORS_CLOSED_TEXT: String = "Branch closed — no more customers today"
@@ -37,6 +49,10 @@ var shifts_completed: int = 0
 var score_at_start: int = 0
 var reputation_at_start: int = 0
 var xp_at_start: int = 0
+## Today's teller transactions after the cutoff, oldest first: {"time",
+## "type" ("Deposit"/"Withdrawal"), "amount_cents", "account",
+## "posting_day"}.
+var after_cutoff: Array[Dictionary] = []
 
 ## Registered after GameClock and the Score/Reputation/XP managers, so a run
 ## that starts straight in the room (no start screen) has today's baseline.
@@ -54,6 +70,7 @@ func _start_totals() -> void:
 	score_at_start = ScoreManager.total_score
 	reputation_at_start = ReputationManager.reputation
 	xp_at_start = XPManager.total_xp
+	after_cutoff.clear()
 
 # --- hours ----------------------------------------------------------------------
 
@@ -74,6 +91,42 @@ func can_start_shift() -> bool:
 func is_day_over() -> bool:
 	return GameClock.day > stats_day or GameClock.minutes >= CLOSE_MINUTES
 
+# --- the cutoff -----------------------------------------------------------------
+
+## From 2:00 PM, transactions post on the next business day.
+func is_after_cutoff() -> bool:
+	return GameClock.minutes >= CUTOFF_MINUTES
+
+## The business day a transaction made now posts on.
+func posting_day() -> int:
+	return GameClock.day + 1 if is_after_cutoff() else GameClock.day
+
+## "After cutoff — posts Tue 6 Jan" for the teller screen ("" before 2 PM).
+func cutoff_text() -> String:
+	if not is_after_cutoff():
+		return ""
+	return "After cutoff — posts %s" % BankCalendar.short_text(GameClock.date_of_day(posting_day()))
+
+## A teller shift's transactions at clock-out: those posting on a later day
+## are listed in today's summary.
+func note_after_cutoff(transactions: Array[ShiftTransaction]) -> void:
+	for transaction in transactions:
+		if transaction.posting_day > stats_day:
+			after_cutoff.append({
+				"time": transaction.timestamp.get_slice(", ", 2),
+				"type": "Deposit" if transaction.type == ShiftTransaction.Type.DEPOSIT else "Withdrawal",
+				"amount_cents": transaction.amount_cents,
+				"account": transaction.account_name,
+				"posting_day": transaction.posting_day,
+			})
+
+# --- the calendar ---------------------------------------------------------------
+
+## The days the branch is closed between today and the next business day
+## (BankCalendar.closures_between()); empty on an ordinary weeknight.
+func closures_before_next_day() -> Array[Dictionary]:
+	return BankCalendar.closures_between(GameClock.date_of_day(stats_day), GameClock.date_of_day(stats_day + 1))
+
 # --- today's totals ---------------------------------------------------------------
 
 func note_customer_served_by_player() -> void:
@@ -89,6 +142,8 @@ func note_shift_completed() -> void:
 func summary() -> Dictionary:
 	return {
 		"day": stats_day,
+		"date": GameClock.date_of_day(stats_day),
+		"after_cutoff": after_cutoff.duplicate(),
 		"customers_by_player": customers_served_by_player,
 		"customers_by_staff": customers_served_by_staff,
 		"customers": customers_served_by_player + customers_served_by_staff,
@@ -125,6 +180,7 @@ func save_data() -> Dictionary:
 		"score_at_start": score_at_start,
 		"reputation_at_start": reputation_at_start,
 		"xp_at_start": xp_at_start,
+		"after_cutoff": after_cutoff.duplicate(true),
 	}
 
 ## Loaded after the other managers and GameClock. A save from before the
@@ -140,3 +196,12 @@ func load_data(data: Dictionary) -> void:
 	score_at_start = SaveGame.int_of(data, "score_at_start", ScoreManager.total_score)
 	reputation_at_start = SaveGame.int_of(data, "reputation_at_start", ReputationManager.reputation)
 	xp_at_start = SaveGame.int_of(data, "xp_at_start", XPManager.total_xp)
+	after_cutoff.clear()
+	for entry in SaveGame.dicts_of(SaveGame.array_of(data, "after_cutoff")):
+		after_cutoff.append({
+			"time": SaveGame.string_of(entry, "time", ""),
+			"type": SaveGame.string_of(entry, "type", "Deposit"),
+			"amount_cents": SaveGame.int_of(entry, "amount_cents", 0),
+			"account": SaveGame.string_of(entry, "account", ""),
+			"posting_day": SaveGame.int_of(entry, "posting_day", stats_day + 1),
+		})

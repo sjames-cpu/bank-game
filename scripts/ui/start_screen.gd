@@ -71,7 +71,9 @@ static func describe(result: SaveGame.ReadResult) -> String:
 	# Where the career's game clock stands, then when the file was written
 	# (real time: the one place the player sees the wall clock).
 	var clock := SaveGame.dict_of(result.career, "clock")
-	var game_time := "Day %d, %s" % [maxi(1, SaveGame.int_of(clock, "day", GameClock.START_DAY)), GameClock.format_time(SaveGame.float_of(clock, "minutes", GameClock.START_MINUTES))]
+	var day := maxi(GameClock.START_DAY, SaveGame.int_of(clock, "day", GameClock.START_DAY))
+	var start := BankCalendar.from_iso(SaveGame.string_of(clock, "start_date", ""), BankCalendar.start_date())
+	var game_time := "Day %d, %s, %s" % [day, BankCalendar.short_text(BankCalendar.business_day_date(start, day)), GameClock.format_time(SaveGame.float_of(clock, "minutes", GameClock.START_MINUTES))]
 	text += "\n%s" % game_time
 	if result.saved_at != "":
 		text += " · saved %s" % result.saved_at.replace("T", " ")

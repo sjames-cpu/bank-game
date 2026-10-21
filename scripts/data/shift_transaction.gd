@@ -22,3 +22,7 @@ enum PaymentMethod { CASH, CARD }
 @export var account_name: String = ""
 @export var timestamp: String = ""
 @export var payment_method: PaymentMethod = PaymentMethod.CASH
+## The business day (GameClock "Day N") it posts on: today, or the next
+## business day after the 2:00 PM cutoff (BusinessDay.posting_day()). The
+## account balance changes at once either way.
+@export var posting_day: int = 0

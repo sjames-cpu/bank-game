@@ -33,7 +33,7 @@ func test_a_new_career_starts_on_day_1_at_8_30() -> void:
 	CareerReset.reset_all()
 	assert_int(GameClock.day).is_equal(1)
 	assert_float(GameClock.minutes).is_equal(510.0)
-	assert_str(GameClock.timestamp()).is_equal("Day 1, 8:30 AM")
+	assert_str(GameClock.timestamp()).is_equal("Day 1, Mon 5 Jan, 8:30 AM")
 
 func test_time_runs_only_while_the_world_does() -> void:
 	set_clock(2, 9, 0)
@@ -79,7 +79,7 @@ func test_the_hud_shows_the_day_and_time_at_the_top() -> void:
 	set_clock(3, 10, 42)
 	get_tree().paused = true # hold the clock still
 	hud.refresh()
-	assert_str(hud.clock_label.text).is_equal("Day 3 · 10:42 AM")
+	assert_str(hud.clock_label.text).is_equal("Wed, Day 3 · 10:42 AM")
 	# The first line of the HUD column.
 	assert_object(hud.clock_label.get_parent().get_child(0)).is_same(hud.clock_label)
 	assert_bool(hud.clock_label.is_visible_in_tree()).is_true()
@@ -123,17 +123,17 @@ func test_summaries_and_records_use_game_time() -> void:
 	# Teller: clocked in at Day 2, 9:15 AM; out at 11:40 AM.
 	set_clock(2, 9, 15)
 	clock_in()
-	assert_str(ts.shift_start_time).is_equal("Day 2, 9:15 AM")
+	assert_str(ts.shift_start_time).is_equal("Day 2, Tue 6 Jan, 9:15 AM")
 	serve_correctly(spawn())
 	for i in CustomerQueue.CUSTOMERS_PER_SHIFT_CAP - 1:
 		abandon(spawn())
 	set_clock(2, 11, 40)
 	assert_bool(clock_out()).is_true()
-	assert_str(ts.shift_start_time_label.text).is_equal("Start Time: Day 2, 9:15 AM")
-	assert_str(ts.shift_end_time_label.text).is_equal("End Time: Day 2, 11:40 AM")
+	assert_str(ts.shift_start_time_label.text).is_equal("Start Time: Day 2, Tue 6 Jan, 9:15 AM")
+	assert_str(ts.shift_end_time_label.text).is_equal("End Time: Day 2, Tue 6 Jan, 11:40 AM")
 	var drawer_record: DecisionRecord = HistoryManager.records[-1]
 	assert_str(drawer_record.description).starts_with("Drawer count")
-	assert_str(drawer_record.timestamp).is_equal("Day 2, 11:40 AM")
+	assert_str(drawer_record.timestamp).is_equal("Day 2, Tue 6 Jan, 11:40 AM")
 	for record in HistoryManager.records:
 		assert_str(record.timestamp).starts_with("Day 2, ")
 	close_desk()
@@ -142,7 +142,7 @@ func test_summaries_and_records_use_game_time() -> void:
 	set_clock(2, 13, 5)
 	ReportManager.record_mistake(DecisionRecord.Role.TELLER, "Alex Rivera")
 	ReportManager.record_mistake(DecisionRecord.Role.TELLER, "Sam Chen")
-	assert_str(ReportManager.reports[-1].timestamp).is_equal("Day 2, 1:05 PM")
+	assert_str(ReportManager.reports[-1].timestamp).is_equal("Day 2, Tue 6 Jan, 1:05 PM")
 	while room.letter_screen.visible:
 		room.letter_screen.action_button.pressed.emit()
 
@@ -155,8 +155,8 @@ func test_summaries_and_records_use_game_time() -> void:
 	lo.applications_reviewed = LoanOfficerScreen.APPLICATIONS_PER_SHIFT
 	set_clock(3, 10, 30)
 	lo.clock_out_button.pressed.emit()
-	assert_str(lo.shift_start_time_label.text).is_equal("Start Time: Day 3, 9:00 AM")
-	assert_str(lo.shift_end_time_label.text).is_equal("End Time: Day 3, 10:30 AM")
+	assert_str(lo.shift_start_time_label.text).is_equal("Start Time: Day 3, Wed 7 Jan, 9:00 AM")
+	assert_str(lo.shift_end_time_label.text).is_equal("End Time: Day 3, Wed 7 Jan, 10:30 AM")
 	lo.close_button.pressed.emit()
 
 	# Branch Manager, and a staff review item shown with its game time.
@@ -172,19 +172,20 @@ func test_summaries_and_records_use_game_time() -> void:
 	var customer: CustomerNPC = auto_free(CustomerNPC.new())
 	customer.display_name = "Sam Chen"
 	var item := StaffReviewManager.add_teller_mistake(ScheduleManager.get_roster()[0], ScheduleManager.SLOT_TELLER_WINDOW_1, customer, StaffReviewItem.TellerMistake.WRONG_ACCOUNT, "used the wrong account")
-	assert_str(item.timestamp).is_equal("Day 4, 9:05 AM")
+	assert_str(item.timestamp).is_equal("Day 4, Thu 8 Jan, 9:05 AM")
 	bm.review_staff_button.pressed.emit()
-	assert_str(bm.staff_review_screen.staff_label.text).contains("Day 4, 9:05 AM")
+	assert_str(bm.staff_review_screen.staff_label.text).contains("Day 4, Thu 8 Jan, 9:05 AM")
 	bm.staff_review_screen.close_button.pressed.emit()
 	set_clock(4, 16, 20)
 	bm._prepare_shift_summary()
-	assert_str(bm.shift_start_time_label.text).is_equal("Start Time: Day 4, 9:05 AM")
-	assert_str(bm.shift_end_time_label.text).is_equal("End Time: Day 4, 4:20 PM")
+	assert_str(bm.shift_start_time_label.text).is_equal("Start Time: Day 4, Thu 8 Jan, 9:05 AM")
+	assert_str(bm.shift_end_time_label.text).is_equal("End Time: Day 4, Thu 8 Jan, 4:20 PM")
 
 	# Nothing the player sees carries a wall-clock date.
 	for record in HistoryManager.records:
 		assert_str(record.timestamp).starts_with("Day ")
-		assert_str(record.timestamp).not_contains("T")
+		# An ISO date ("2026-10-21T10:42:00") has hyphens; game timestamps don't.
+		assert_str(record.timestamp).not_contains("-")
 
 # --- saving ------------------------------------------------------------------------
 
@@ -200,10 +201,10 @@ func test_the_clock_is_saved_and_shown_on_the_start_screen() -> void:
 	assert_dict(SaveGame.capture()).is_equal(saved_career)
 	assert_int(GameClock.day).is_equal(5)
 	assert_float(GameClock.minutes).is_equal(14 * 60 + 7.5)
-	assert_str(StartScreen.describe(SaveGame.read())).contains("Day 5, 2:07 PM")
+	assert_str(StartScreen.describe(SaveGame.read())).contains("Day 5, Fri 9 Jan, 2:07 PM")
 	# A save from before the clock existed starts the career's clock afresh.
 	SaveGame.restore({})
-	assert_str(GameClock.timestamp()).is_equal("Day 1, 8:30 AM")
+	assert_str(GameClock.timestamp()).is_equal("Day 1, Mon 5 Jan, 8:30 AM")
 	# Out-of-range values are kept in range.
 	SaveGame.restore({"clock": {"day": -4, "minutes": 99999}})
 	assert_int(GameClock.day).is_equal(1)

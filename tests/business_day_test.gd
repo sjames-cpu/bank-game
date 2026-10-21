@@ -251,9 +251,9 @@ func test_start_the_next_day_at_8_30_and_save() -> void:
 	assert_bool(get_tree().paused).is_false()
 	assert_int(GameClock.day).is_equal(2)
 	assert_float(GameClock.minutes).is_equal(GameClock.START_MINUTES)
-	assert_str(GameClock.timestamp()).is_equal("Day 2, 8:30 AM")
+	assert_str(GameClock.timestamp()).is_equal("Day 2, Tue 6 Jan, 8:30 AM")
 	assert_int(BusinessDay.stats_day).is_equal(2)
-	assert_dict(BusinessDay.summary()).is_equal({"day": 2, "customers_by_player": 0, "customers_by_staff": 0, "customers": 0, "shifts": 0, "score": 0, "reputation": 0, "xp": 0})
+	assert_dict(BusinessDay.summary()).is_equal({"day": 2, "date": BankCalendar.epoch_day(2026, 1, 6), "after_cutoff": [], "customers_by_player": 0, "customers_by_staff": 0, "customers": 0, "shifts": 0, "score": 0, "reputation": 0, "xp": 0})
 	assert_bool(BusinessDay.is_open()).is_false()
 	assert_bool(BusinessDay.can_start_shift()).is_true()
 	# Saved at the start of the new day.
@@ -300,7 +300,7 @@ func test_going_home_early_skips_to_the_summary() -> void:
 	assert_str(eod.summary_label.text).contains("Your shifts today: 1")
 	assert_int(score_after_shift - score_before).is_equal(BusinessDay.summary()["score"])
 	eod.next_day_button.pressed.emit()
-	assert_str(GameClock.timestamp()).is_equal("Day 2, 8:30 AM")
+	assert_str(GameClock.timestamp()).is_equal("Day 2, Tue 6 Jan, 8:30 AM")
 
 func test_the_doormat_is_where_the_player_goes_home() -> void:
 	# On the entrance doormat (tiles 11-12, row 21), not at the spawn point.
@@ -329,7 +329,7 @@ func test_a_day_left_open_past_midnight_still_ends_at_its_summary() -> void:
 	assert_bool(eod.is_summary_shown()).is_true()
 	assert_str(eod.summary_title_label.text).is_equal("End of Day 1")
 	eod.next_day_button.pressed.emit()
-	assert_str(GameClock.timestamp()).is_equal("Day 2, 8:30 AM")
+	assert_str(GameClock.timestamp()).is_equal("Day 2, Tue 6 Jan, 8:30 AM")
 
 # --- saving ---------------------------------------------------------------------------
 
@@ -349,7 +349,7 @@ func test_save_and_load_mid_day_and_across_days() -> void:
 	assert_dict(SaveGame.capture()).is_equal(mid_day)
 	assert_dict(BusinessDay.summary()).is_equal(summary)
 	assert_int(summary["score"]).is_equal(12)
-	assert_str(GameClock.timestamp()).is_equal("Day 2, 11:15 AM")
+	assert_str(GameClock.timestamp()).is_equal("Day 2, Tue 6 Jan, 11:15 AM")
 
 	# Across days: end Day 2, start Day 3 (saved), load it.
 	get_tree().paused = false
@@ -361,7 +361,7 @@ func test_save_and_load_mid_day_and_across_days() -> void:
 	var next_morning := SaveGame.read().career
 	CareerReset.reset_all()
 	SaveGame.restore(next_morning)
-	assert_str(GameClock.timestamp()).is_equal("Day 3, 8:30 AM")
+	assert_str(GameClock.timestamp()).is_equal("Day 3, Wed 7 Jan, 8:30 AM")
 	assert_int(BusinessDay.stats_day).is_equal(3)
 	assert_int(BusinessDay.summary()["customers"]).is_equal(0)
 	assert_int(BusinessDay.summary()["score"]).is_equal(0)

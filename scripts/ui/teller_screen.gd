@@ -34,6 +34,8 @@ class_name TellerScreen
 @onready var customer_dialogue_label: Label = $Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel/CustomerDialogueLabel
 @onready var respond_complaint_button: Button = $Panel/VBox/ServingSection/ServingVBox/RespondComplaintButton
 @onready var feedback_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/FeedbackLabel
+## "After cutoff — posts Tue 6 Jan", from 2:00 PM (BusinessDay.cutoff_text()).
+@onready var cutoff_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/CutoffLabel
 @onready var reverse_transaction_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/TransactionButtonsHBox/ReverseTransactionButton
 ## Own full-width row under the transaction buttons: Deposit/Withdraw/Reverse
 ## already fill the 420px panel, and a fourth button there would squash all
@@ -750,6 +752,8 @@ func _current_payment_method() -> ShiftTransaction.PaymentMethod:
 	return ShiftTransaction.PaymentMethod.CASH
 
 func _refresh_display() -> void:
+	cutoff_label.text = BusinessDay.cutoff_text()
+	cutoff_label.visible = cutoff_label.text != ""
 	account_label.text = account.customer_name
 	balance_label.text = "Balance: %s" % MoneyMath.format(account.balance_cents)
 
@@ -905,6 +909,7 @@ func _record_transaction(type: ShiftTransaction.Type, amount_cents: int) -> Shif
 	transaction.account_name = account.customer_name
 	transaction.timestamp = GameClock.timestamp()
 	transaction.payment_method = _current_payment_method()
+	transaction.posting_day = BusinessDay.posting_day()
 	shift_transactions.append(transaction)
 	return transaction
 
@@ -1191,6 +1196,7 @@ func _prepare_shift_summary(ending_total_cents: int) -> void:
 	var discrepancy_label := _discrepancy_result_label(discrepancy_result)
 	HistoryManager.add_record(DecisionRecord.Role.TELLER, "Drawer count: %s (discrepancy %s)" % [discrepancy_label, MoneyMath.format(discrepancy_cents)], discrepancy_label)
 
+	BusinessDay.note_after_cutoff(shift_transactions)
 	shift_state = ShiftState.CLOCKED_OUT
 	awaiting_summary_reveal = true
 	_update_shift_controls()

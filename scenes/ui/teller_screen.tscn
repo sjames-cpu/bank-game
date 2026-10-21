@@ -112,6 +112,14 @@ max_value = 999999.0
 step = 1.0
 prefix = "$"
 
+[node name="CutoffLabel" type="Label" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+visible = false
+modulate = Color(1, 0.8, 0.3, 1)
+text = "After cutoff — posts Tue 6 Jan"
+horizontal_alignment = 1
+autowrap_mode = 2
+
 [node name="ErrorLabel" type="Label" parent="Panel/VBox/ActionsSection/ActionsVBox"]
 layout_mode = 2
 visible = false

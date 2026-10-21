@@ -103,7 +103,13 @@ func go_home_and_start_next_day() -> void:
 	acknowledge_letters()
 	await frames(2)
 	assert_bool(eod.is_summary_shown()).is_true()
+	start_next_day()
+
+## "Start Day N+1", through a weekend or holiday notice if one follows.
+func start_next_day() -> void:
 	eod.next_day_button.pressed.emit()
+	if eod.is_closure_shown():
+		eod.next_day_button.pressed.emit()
 
 ## A working day as Branch Manager: clock in at noon, do `work`, reconcile the
 ## vault (Perfect), clock out and go home.
@@ -151,7 +157,7 @@ func test_reviews_come_every_5_days_as_branch_manager() -> void:
 	await frames(2)
 	assert_bool(eod.is_summary_shown()).is_true()
 	assert_str(eod.summary_title_label.text).is_equal("End of Day 8")
-	eod.next_day_button.pressed.emit()
+	start_next_day()
 
 	# Then every 5 days.
 	assert_int(RegionalManager.next_review_day()).is_equal(13)
@@ -162,6 +168,10 @@ func test_reviews_come_every_5_days_as_branch_manager() -> void:
 	assert_int(reviews.size()).is_equal(2)
 	assert_int(reviews[1]["first_day"]).is_equal(9)
 	assert_int(reviews[1]["last_day"]).is_equal(13)
+	# Business days only: Days 9-13 run from Thursday 15 to Thursday 22
+	# January, past a weekend and the Birthday of Martin Luther King, Jr.
+	assert_str(BankCalendar.short_text(GameClock.date_of_day(9))).is_equal("Thu 15 Jan")
+	assert_str(BankCalendar.short_text(GameClock.date_of_day(13))).is_equal("Thu 22 Jan")
 	assert_int(RegionalManager.next_review_day()).is_equal(18)
 
 # --- ratings -------------------------------------------------------------------------

@@ -98,7 +98,7 @@ func _refresh() -> void:
 		queue_label.text = "No staff work waiting for review."
 	else:
 		queue_label.text = "Item %d of %d waiting for review" % [_index + 1, queue.size()]
-		staff_label.text = "%s — %s — %s" % [item.staff_name, item.staff_slot, item.timestamp.replace("T", " ")]
+		staff_label.text = "%s — %s — %s" % [item.staff_name, item.staff_slot, item.timestamp]
 		record_label.text = StaffReviewManager.record_text(item.staff_name)
 		details_label.text = details_text(item)
 	_refresh_terminations()

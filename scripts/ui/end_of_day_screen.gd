@@ -2,10 +2,13 @@ extends Control
 class_name EndOfDayScreen
 
 ## The end of the business day (BusinessDay): the "End of Day N" summary
-## (customers the whole branch served today, the player's shifts, and
-## today's Score, Reputation and XP changes) with its "Start Day N+1"
-## button, and the "Go home and end Day N?" question the entrance doormat
-## asks (ExitDoor). teller_room.gd decides when to show either and what the
+## (the date, customers the whole branch served today, the player's shifts,
+## today's Score, Reputation and XP changes, and transactions after the
+## 2:00 PM cutoff) with its "Start Day N+1" button, and the "Go home and end
+## Day N?" question the entrance doormat asks (ExitDoor). When the next
+## business day comes after a weekend or bank holiday, "Start Day N+1" first
+## shows the closure ("Weekend — the branch is closed") in the same panel,
+## and its button then starts the day. teller_room.gd decides when to show either and what the
 ## buttons do. Pauses the tree while up, like the letters; process_mode
 ## ALWAYS so its buttons work while paused.
 
@@ -23,6 +26,13 @@ signal next_day_requested
 @onready var next_day_button: Button = $SummaryPanel/VBox/NextDayButton
 
 var _paused_by_self: bool = false
+## The closed days still to show before the next day (show_summary()).
+var _closures: Array[Dictionary] = []
+var _closure_shown: bool = false
+var _next_day: int = 0
+
+## At most this many after-cutoff transactions are listed by line.
+const MAX_CUTOFF_LINES: int = 6
 
 func _ready() -> void:
 	visible = false
@@ -30,29 +40,71 @@ func _ready() -> void:
 	stay_button.pressed.connect(close)
 	next_day_button.pressed.connect(_on_next_day_pressed)
 
+## The summary, or the closure notice that follows it in the same panel.
 func is_summary_shown() -> bool:
 	return visible and summary_panel.visible
+
+## The weekend or holiday notice is up.
+func is_closure_shown() -> bool:
+	return is_summary_shown() and _closure_shown
 
 ## "Go home and end Day N?"
 func ask_go_home(day: int) -> void:
 	confirm_label.text = "Go home and end Day %d?" % day
 	_open(confirm_panel)
 
-## The summary for BusinessDay.summary()'s figures.
-func show_summary(figures: Dictionary) -> void:
+## The summary for BusinessDay.summary()'s figures. `closures`: the closed
+## days before the next business day (BusinessDay.closures_before_next_day()).
+func show_summary(figures: Dictionary, closures: Array[Dictionary] = []) -> void:
 	var day: int = figures["day"]
+	_closures = closures
+	_closure_shown = false
+	_next_day = day + 1
 	summary_title_label.text = "End of Day %d" % day
 	summary_label.text = summary_text(figures)
-	next_day_button.text = "Start Day %d" % (day + 1)
+	next_day_button.text = "Start Day %d" % _next_day
 	_open(summary_panel)
 
 static func summary_text(figures: Dictionary) -> String:
 	var shifts: int = figures["shifts"]
-	return "Customers served by the branch: %d (you %d, staff %d)\nYour shifts today: %d\n\nToday: Score %+d · Reputation %+d · XP %+d" % [
+	var date: int = figures["date"]
+	var text := "%s\n\nCustomers served by the branch: %d (you %d, staff %d)\nYour shifts today: %d\n\nToday: Score %+d · Reputation %+d · XP %+d" % [
+		BankCalendar.long_text(date),
 		figures["customers"], figures["customers_by_player"], figures["customers_by_staff"],
 		shifts,
 		figures["score"], figures["reputation"], figures["xp"],
 	]
+	var after_cutoff: Array = figures["after_cutoff"]
+	if not after_cutoff.is_empty():
+		text += "\n\n" + cutoff_text(after_cutoff)
+	return text
+
+## "After the 2:00 PM cutoff, posting Tue 6 Jan: 2" and a line each.
+static func cutoff_text(after_cutoff: Array) -> String:
+	var first: Dictionary = after_cutoff[0]
+	var posting_day: int = first["posting_day"]
+	var lines: Array[String] = ["After the 2:00 PM cutoff, posting %s: %d" % [BankCalendar.short_text(GameClock.date_of_day(posting_day)), after_cutoff.size()]]
+	for i in mini(after_cutoff.size(), MAX_CUTOFF_LINES):
+		var entry: Dictionary = after_cutoff[i]
+		var amount_cents: int = entry["amount_cents"]
+		lines.append("%s %s %s — %s" % [entry["time"], entry["type"], MoneyMath.format(amount_cents), entry["account"]])
+	if after_cutoff.size() > MAX_CUTOFF_LINES:
+		lines.append("… and %d more" % (after_cutoff.size() - MAX_CUTOFF_LINES))
+	return "\n".join(lines)
+
+## "Weekend — the branch is closed", the closed dates, and when it reopens.
+func _show_closure() -> void:
+	var lines: Array[String] = []
+	for closure in _closures:
+		var date: int = closure["date"]
+		var holiday: String = closure["holiday"]
+		lines.append("%s — %s" % [BankCalendar.short_text(date), holiday if holiday != "" else "weekend"])
+	lines.append("")
+	lines.append("The branch reopens on %s." % BankCalendar.long_text(GameClock.date_of_day(_next_day)))
+	summary_title_label.text = BankCalendar.closure_title(_closures)
+	summary_label.text = "\n".join(lines)
+	_closures = []
+	_closure_shown = true
 
 func close() -> void:
 	visible = false
@@ -72,5 +124,9 @@ func _on_go_home_pressed() -> void:
 	go_home_confirmed.emit()
 
 func _on_next_day_pressed() -> void:
+	if not _closures.is_empty():
+		_show_closure()
+		return
+	_closure_shown = false
 	close()
 	next_day_requested.emit()
