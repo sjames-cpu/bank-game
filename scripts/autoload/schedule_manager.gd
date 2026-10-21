@@ -23,7 +23,20 @@ signal schedule_confirmed(schedule: Dictionary)
 const SLOT_TELLER_WINDOW_1: String = "Teller Window 1"
 const SLOT_TELLER_WINDOW_2: String = "Teller Window 2"
 const SLOT_TELLER_WINDOW_3: String = "Teller Window 3"
-const SLOT_LOAN_DESK: String = "Loan Desk"
+## The three loan officer desks. Loan Desk 1 is the one the player works
+## as Loan Officer (its staff member steps away meanwhile); 2 and 3 are
+## always staffed.
+const SLOT_LOAN_DESK_1: String = "Loan Desk 1"
+const SLOT_LOAN_DESK_2: String = "Loan Desk 2"
+const SLOT_LOAN_DESK_3: String = "Loan Desk 3"
+const LOAN_DESK_SLOTS: Array[String] = [SLOT_LOAN_DESK_1, SLOT_LOAN_DESK_2, SLOT_LOAN_DESK_3]
+## The single loan desk's name before there were three: an old save's
+## assignment (and hiring vacancy) there becomes Loan Desk 1, and old staff
+## records under it still count as loan work (is_loan_slot()).
+const LEGACY_SLOT_LOAN_DESK: String = "Loan Desk"
+## Saved with the schedule. 1 (or none): a save from before the three loan
+## desks, whose Loan Desks 2 and 3 are filled from the roster on load.
+const SLOTS_VERSION: int = 2
 
 ## The Player Teller Window, staffed once the player is promoted to Branch
 ## Manager (see open_teller_window_3()). Not in DESK_SLOTS: it only exists
@@ -33,11 +46,14 @@ const TELLER_WINDOW_3_SLOT: Dictionary = {"name": SLOT_TELLER_WINDOW_3, "role": 
 ## One slot per staffed desk, with the StaffMember.role that can work it.
 ## (Previously four abstract "Teller/Loan Officer Shift 1/2" slots; now that
 ## staff physically sit at desks, the slots are the desks themselves — two
-## teller windows and one loan desk.)
+## teller windows and three loan desks.) StaffRosterData's six staff (three
+## tellers, three loan officers) fill all of them, Teller Window 3 included.
 const DESK_SLOTS: Array[Dictionary] = [
 	{"name": SLOT_TELLER_WINDOW_1, "role": "Teller"},
 	{"name": SLOT_TELLER_WINDOW_2, "role": "Teller"},
-	{"name": SLOT_LOAN_DESK, "role": "Loan Officer"},
+	{"name": SLOT_LOAN_DESK_1, "role": "Loan Officer"},
+	{"name": SLOT_LOAN_DESK_2, "role": "Loan Officer"},
+	{"name": SLOT_LOAN_DESK_3, "role": "Loan Officer"},
 ]
 
 ## slot name -> StaffMember. Only holds entries for slots that are actually
@@ -69,6 +85,14 @@ func _ready() -> void:
 
 func get_assigned(slot_name: String) -> StaffMember:
 	return schedule.get(slot_name, null)
+
+## Whether `slot_name` is a loan desk (an old save's "Loan Desk" included).
+func is_loan_slot(slot_name: String) -> bool:
+	return LOAN_DESK_SLOTS.has(slot_name) or slot_name == LEGACY_SLOT_LOAN_DESK
+
+## An old save's slot name as it is now ("Loan Desk" -> "Loan Desk 1").
+func current_slot_name(slot_name: String) -> String:
+	return SLOT_LOAN_DESK_1 if slot_name == LEGACY_SLOT_LOAN_DESK else slot_name
 
 ## Every desk that currently takes staff: DESK_SLOTS, plus Teller Window 3
 ## after promotion.
@@ -119,6 +143,7 @@ func save_data() -> Dictionary:
 	for member in hired_staff:
 		hired.append(SaveGame.resource_to_dict(member))
 	return {
+		"slots_version": SLOTS_VERSION,
 		"schedule": assignments,
 		"is_teller_window_3_open": is_teller_window_3_open,
 		"dismissed_staff": dismissed_staff.duplicate(),
@@ -132,7 +157,9 @@ func save_data() -> Dictionary:
 ## room isn't loaded yet, so schedule_confirmed isn't emitted: the room
 ## places staff from the schedule when it's ready. Hired staff load first,
 ## so the schedule can name them; a hired entry without a name, or reusing
-## a roster name, is dropped.
+## a roster name, is dropped. A save from before the three loan desks
+## (no "slots_version") has its "Loan Desk" assignment at Loan Desk 1, and
+## Loan Desks 2 and 3 filled with the first unassigned Loan Officers.
 func load_data(data: Dictionary) -> void:
 	is_teller_window_3_open = SaveGame.bool_of(data, "is_teller_window_3_open", false)
 	dismissed_staff.clear()
@@ -152,7 +179,12 @@ func load_data(data: Dictionary) -> void:
 	var slot_names: Array[String] = []
 	for slot in get_desk_slots():
 		slot_names.append(slot["name"])
-	var assignments := SaveGame.dict_of(data, "schedule")
+	var saved := SaveGame.dict_of(data, "schedule")
+	var assignments := {}
+	for key: Variant in saved:
+		if key is String:
+			var saved_slot: String = key
+			assignments[current_slot_name(saved_slot)] = saved[saved_slot]
 	schedule = {}
 	for slot_name in slot_names:
 		var staff_name := SaveGame.string_of(assignments, slot_name, "")
@@ -162,6 +194,12 @@ func load_data(data: Dictionary) -> void:
 			if member.staff_name == staff_name:
 				schedule[slot_name] = member
 				break
+	if SaveGame.int_of(data, "slots_version", 1) < SLOTS_VERSION:
+		for slot_name: String in [SLOT_LOAN_DESK_2, SLOT_LOAN_DESK_3]:
+			if not schedule.has(slot_name):
+				var member := _first_unassigned("Loan Officer")
+				if member != null:
+					schedule[slot_name] = member
 
 ## The branch's current staff: StaffRosterData plus anyone hired, minus
 ## anyone dismissed.

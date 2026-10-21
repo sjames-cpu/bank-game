@@ -91,7 +91,7 @@ func build_full_career() -> void:
 	ScheduleManager.confirm_schedule({
 		ScheduleManager.SLOT_TELLER_WINDOW_1: roster_member("Nina Ortiz"),
 		ScheduleManager.SLOT_TELLER_WINDOW_3: roster_member("Derek Voss"),
-		ScheduleManager.SLOT_LOAN_DESK: roster_member("Sana Malik"),
+		ScheduleManager.SLOT_LOAN_DESK_1: roster_member("Sana Malik"),
 	})
 
 	var teller_item := StaffReviewItem.new()
@@ -109,7 +109,7 @@ func build_full_career() -> void:
 	loan_item.kind = StaffReviewItem.Kind.LOAN
 	loan_item.severity = StaffReviewItem.Severity.ACCEPTABLE
 	loan_item.staff_name = "Sana Malik"
-	loan_item.staff_slot = ScheduleManager.SLOT_LOAN_DESK
+	loan_item.staff_slot = ScheduleManager.SLOT_LOAN_DESK_1
 	loan_item.timestamp = "Day 2, 9:31 AM"
 	loan_item.applicant_name = "Avery Stone"
 	loan_item.requested_amount = 25000.5
@@ -147,7 +147,7 @@ func build_full_career() -> void:
 	var waiting := HiringManager.generate_candidates("Loan Officer")
 	waiting[0].questions_asked = 3
 	waiting[2].questions_asked = 1
-	HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK] = waiting
+	HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK_1] = waiting
 	HiringManager.rejected_slots.append(ScheduleManager.SLOT_TELLER_WINDOW_1)
 
 	# The Regional Manager: warnings, a demotion's XP target and the review
@@ -218,7 +218,7 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	# Their uniform look, chosen when hired.
 	assert_str(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_2).look).is_equal(StaffLooks.HIRE_LOOKS[0])
 	assert_int(ScheduleManager.hired_staff.size()).is_equal(1)
-	var waiting: Array[StaffCandidate] = HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK]
+	var waiting: Array[StaffCandidate] = HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK_1]
 	assert_int(waiting.size()).is_equal(3)
 	assert_int(waiting[0].questions_asked).is_equal(3)
 	assert_int(waiting[2].questions_asked).is_equal(1)
@@ -471,7 +471,7 @@ func test_continue_restores_a_branch_managers_branch() -> void:
 	acknowledge_letters()
 	ScheduleManager.confirm_schedule({
 		ScheduleManager.SLOT_TELLER_WINDOW_1: roster_member("Nina Ortiz"),
-		ScheduleManager.SLOT_LOAN_DESK: roster_member("Marcus Chen"),
+		ScheduleManager.SLOT_LOAN_DESK_1: roster_member("Marcus Chen"),
 	})
 	assert_bool(SaveGame.save()).is_true()
 	CareerReset.reset_all()
@@ -483,7 +483,7 @@ func test_continue_restores_a_branch_managers_branch() -> void:
 
 	assert_bool(room.branch_manager_desk.visible).is_true()
 	assert_bool(ScheduleManager.is_dismissed("Derek Voss")).is_true()
-	assert_array(room._staff_by_slot.keys()).contains_exactly_in_any_order([ScheduleManager.SLOT_TELLER_WINDOW_1, ScheduleManager.SLOT_LOAN_DESK])
+	assert_array(room._staff_by_slot.keys()).contains_exactly_in_any_order([ScheduleManager.SLOT_TELLER_WINDOW_1, ScheduleManager.SLOT_LOAN_DESK_1])
 	assert_str(room._staff_by_slot[ScheduleManager.SLOT_TELLER_WINDOW_1].staff.staff_name).is_equal("Nina Ortiz")
 	# No promotion letter again: the career already had it.
 	assert_bool(room.letter_screen.visible).is_false()
@@ -559,8 +559,9 @@ func test_mistyped_values_load_as_new_game_defaults() -> void:
 	assert_str(AccountManager.get_accounts()[1].customer_name).is_equal("Rosa")
 	assert_int(AccountManager.get_accounts()[1].balance_cents).is_equal(0)
 
-	# An unknown desk or staff member in a schedule leaves that desk unassigned.
-	SaveGame.restore({"schedule": {"schedule": {ScheduleManager.SLOT_TELLER_WINDOW_1: 42, "Nowhere": "Derek Voss", ScheduleManager.SLOT_LOAN_DESK: "Nobody"}}})
+	# An unknown desk or staff member in a schedule leaves that desk unassigned
+	# (a current save: an older one also fills Loan Desks 2 and 3).
+	SaveGame.restore({"schedule": {"slots_version": ScheduleManager.SLOTS_VERSION, "schedule": {ScheduleManager.SLOT_TELLER_WINDOW_1: 42, "Nowhere": "Derek Voss", ScheduleManager.SLOT_LOAN_DESK_1: "Nobody"}}})
 	assert_dict(ScheduleManager.schedule).is_empty()
 
 # --- deleting the save --------------------------------------------------------------

@@ -51,7 +51,7 @@ func text_for(hint: Hint) -> String:
 		Hint.FIRST_CLOCK_OUT:
 			return "Count the drawer to finish your shift."
 		Hint.LOAN_OFFICER_UNLOCKED:
-			return "Loan Officer unlocked! The Loan Desk is left of the teller windows, between the two marketing desks. Walk up to it and press %s to clock in." % key
+			return "Loan Officer unlocked! Loan Desk 1 is the middle of the three loan desks, left of the teller windows. Walk up to it and press %s to clock in." % key
 		Hint.BRANCH_MANAGER_UNLOCKED:
 			return "Branch Manager unlocked! Your desk is in the Manager's Office at the back."
 		Hint.OPENING_HOURS:

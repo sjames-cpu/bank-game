@@ -411,7 +411,13 @@ func load_data(data: Dictionary) -> void:
 	var slot_names: Array[String] = []
 	for slot in ScheduleManager.get_desk_slots():
 		slot_names.append(slot["name"])
-	var saved := SaveGame.dict_of(data, "candidates")
+	# An old save's "Loan Desk" vacancy is Loan Desk 1's.
+	var saved := {}
+	var saved_candidates := SaveGame.dict_of(data, "candidates")
+	for key: Variant in saved_candidates:
+		if key is String:
+			var saved_slot: String = key
+			saved[ScheduleManager.current_slot_name(saved_slot)] = saved_candidates[saved_slot]
 	for slot_name in slot_names:
 		var list: Array[StaffCandidate] = []
 		for entry in SaveGame.dicts_of(SaveGame.array_of(saved, slot_name)):
@@ -421,7 +427,8 @@ func load_data(data: Dictionary) -> void:
 				list.append(candidate)
 		if list.size() == CANDIDATES_PER_VACANCY:
 			candidates[slot_name] = list
-	for slot_name in SaveGame.strings_of(SaveGame.array_of(data, "rejected_slots")):
+	for saved_slot in SaveGame.strings_of(SaveGame.array_of(data, "rejected_slots")):
+		var slot_name := ScheduleManager.current_slot_name(saved_slot)
 		if slot_names.has(slot_name) and not rejected_slots.has(slot_name):
 			rejected_slots.append(slot_name)
 	candidates_changed.emit()

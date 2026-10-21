@@ -44,7 +44,7 @@ func loan_item(grade: LoanApplication.Grade, staff_name: String = "Priya Anand")
 	var application := LoanApplicationsData.get_applications()[0]
 	application.decision = LoanApplication.DecisionType.APPROVE
 	application.decision_amount = application.requested_amount
-	return StaffReviewManager.add_loan_decision(staff(staff_name), ScheduleManager.SLOT_LOAN_DESK, application, grade)
+	return StaffReviewManager.add_loan_decision(staff(staff_name), ScheduleManager.SLOT_LOAN_DESK_1, application, grade)
 
 ## An item of each base severity (REPEATED_MINOR is set up by giving the
 ## staff member two feedbacks first).

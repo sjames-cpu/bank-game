@@ -389,7 +389,7 @@ func _prepare_shift_summary() -> void:
 
 ## The summary's "Branch" section — report only, no points. One line per
 ## (desk, staff member) in desk order: customers served and mistakes for a
-## teller window, decisions and how many were correct for the Loan Desk.
+## teller window, decisions and how many were correct for a loan desk.
 ## Whoever is assigned to a desk is listed even with no work this shift; a
 ## desk reassigned mid-shift gets a line per person who worked it. The
 ## totals line keeps teller mistakes and wrong loan decisions separate.
@@ -427,7 +427,7 @@ static func branch_summary_text(records: Array[DecisionRecord]) -> String:
 					done += 1
 					if record.grade_label == "Mistake":
 						mistakes += 1
-			if slot_name == ScheduleManager.SLOT_LOAN_DESK:
+			if ScheduleManager.is_loan_slot(slot_name):
 				wrong_loans += mistakes
 				lines.append("%s — %s: %d decision%s, %d correct" % [slot_name, staff_name, done, "" if done == 1 else "s", done - mistakes])
 			else:

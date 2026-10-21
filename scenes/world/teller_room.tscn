@@ -388,6 +388,15 @@ wait_time = 15.0
 
 [node name="LoanDeskWorker" type="Node" parent="."]
 script = ExtResource("npc_loan_desk_worker_script")
+slot_name = "Loan Desk 1"
+
+[node name="LoanDeskWorker2" type="Node" parent="."]
+script = ExtResource("npc_loan_desk_worker_script")
+slot_name = "Loan Desk 2"
+
+[node name="LoanDeskWorker3" type="Node" parent="."]
+script = ExtResource("npc_loan_desk_worker_script")
+slot_name = "Loan Desk 3"
 
 [node name="Decor" type="Node2D" parent="."]
 y_sort_enabled = true
@@ -444,31 +453,37 @@ collision_mask = 0
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/AccountingCabinet2/Footprint"]
 shape = SubResource("RectangleShape2D_footprint_22x10")
 
-[node name="MarketingDeskA" type="Sprite2D" parent="Decor"]
+[node name="LoanDesk2" type="Sprite2D" parent="Decor"]
 position = Vector2(112, 352)
 offset = Vector2(0, -16)
 texture = ExtResource("tex_officer_desk")
 
-[node name="Footprint" type="StaticBody2D" parent="Decor/MarketingDeskA"]
+[node name="Footprint" type="StaticBody2D" parent="Decor/LoanDesk2"]
 position = Vector2(0, -7)
 collision_layer = 16
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/MarketingDeskA/Footprint"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/LoanDesk2/Footprint"]
 shape = SubResource("RectangleShape2D_footprint_36x14")
 
-[node name="MarketingDeskB" type="Sprite2D" parent="Decor"]
+[node name="StaffSpot" type="Marker2D" parent="Decor/LoanDesk2"]
+position = Vector2(0, -38)
+
+[node name="LoanDesk3" type="Sprite2D" parent="Decor"]
 position = Vector2(304, 352)
 offset = Vector2(0, -16)
 texture = ExtResource("tex_officer_desk")
 
-[node name="Footprint" type="StaticBody2D" parent="Decor/MarketingDeskB"]
+[node name="Footprint" type="StaticBody2D" parent="Decor/LoanDesk3"]
 position = Vector2(0, -7)
 collision_layer = 16
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/MarketingDeskB/Footprint"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Decor/LoanDesk3/Footprint"]
 shape = SubResource("RectangleShape2D_footprint_36x14")
+
+[node name="StaffSpot" type="Marker2D" parent="Decor/LoanDesk3"]
+position = Vector2(0, -38)
 
 [node name="Couch1" type="Sprite2D" parent="Decor"]
 position = Vector2(160, 542)

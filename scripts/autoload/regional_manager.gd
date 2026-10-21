@@ -287,7 +287,7 @@ func _on_staff_record_added(record: DecisionRecord) -> void:
 	staff_work += 1
 	if record.grade_label == "Mistake":
 		staff_mistakes += 1
-	if record.staff_slot != ScheduleManager.SLOT_LOAN_DESK:
+	if not ScheduleManager.is_loan_slot(record.staff_slot):
 		staff_line_served += 1
 
 func _on_staff_hired(result: Dictionary) -> void:

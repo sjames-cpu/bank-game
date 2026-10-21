@@ -441,7 +441,7 @@ func test_three_warnings_demote_to_loan_officer() -> void:
 	assert_bool(room.branch_manager_desk.monitoring).is_false()
 	eod.next_day_button.pressed.emit()
 	assert_str(room.interaction_prompt_text(room.teller_desk)).is_equal("E — Clock in (Player Teller Window)")
-	assert_str(room.interaction_prompt_text(room.loan_officer_desk)).is_equal("E — Clock in (Loan Desk)")
+	assert_str(room.interaction_prompt_text(room.loan_officer_desk)).is_equal("E — Clock in (Loan Desk 1)")
 	room._on_teller_desk_interacted()
 	assert_bool(ts.visible).is_true()
 	close_desk()

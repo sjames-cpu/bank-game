@@ -54,6 +54,9 @@ class_name TellerRoom
 ## debug_cheats_enabled, i.e. OS.is_debug_build(), so it never works in an
 ## exported release) that maxes Reputation and adds XP, so the Loan Officer
 ## and Branch Manager loops can be played without grinding real shifts.
+## DEBUG_LOAN_OFFICER_KEY (F2, same guard) unlocks Loan Officer only: XP to
+## at least XP_UNLOCK_THRESHOLD (500) and Reputation to at least
+## DEBUG_LOAN_OFFICER_REPUTATION (50), below Branch Manager's 60.
 ##
 ## Phase 6a adds the customer queue: TellerScreen's clock-in/clock-out
 ## signals start/stop CustomerQueue's spawning, and the desk interaction
@@ -85,8 +88,10 @@ class_name TellerRoom
 ## everything here is built from the autoloads in _ready().
 
 const DEBUG_UNLOCK_KEY := KEY_F1
+const DEBUG_LOAN_OFFICER_KEY := KEY_F2
+const DEBUG_LOAN_OFFICER_REPUTATION: int = 50
 
-## Whether DEBUG_UNLOCK_KEY works — only in debug builds. A variable rather
+## Whether DEBUG_UNLOCK_KEY and DEBUG_LOAN_OFFICER_KEY work — only in debug builds. A variable rather
 ## than a direct OS.is_debug_build() call so tests (which always run in a
 ## debug build) can check the release-build behaviour (B7).
 var debug_cheats_enabled: bool = OS.is_debug_build()
@@ -121,7 +126,10 @@ const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 @onready var window1_npc_line: NpcCustomerLine = $Window1NpcLine
 @onready var window2_line: NpcCustomerLine = $Window2Line
 @onready var window3_line: NpcCustomerLine = $Window3Line
+## Loan Desk 1's worker, the desk the player works as Loan Officer.
 @onready var loan_desk_worker: NpcLoanDeskWorker = $LoanDeskWorker
+## One worker per loan desk (each knows its slot_name), Loan Desk 1's first.
+@onready var loan_desk_workers: Array[NpcLoanDeskWorker] = [$LoanDeskWorker, $LoanDeskWorker2, $LoanDeskWorker3]
 @onready var desk_notice: PanelContainer = $UI/DeskNotice
 @onready var player: PlayerMovement = $Player
 @onready var desk_notice_label: Label = $UI/DeskNotice/Label
@@ -139,7 +147,7 @@ var _desk_notice_token: int = 0
 ## What a staffed desk says after promotion (%s = the staff member), as the
 ## interaction prompt and, with MANAGER_DESK_REMINDER added, the desk notice.
 const WINDOW_STAFFED_TEXT: String = "%s is working this window."
-const LOAN_DESK_STAFFED_TEXT: String = "%s is working the Loan Desk."
+const LOAN_DESK_STAFFED_TEXT: String = "%s is working Loan Desk 1."
 const UNASSIGNED_DESK_TEXT: String = "No one is assigned here right now."
 const MANAGER_DESK_REMINDER: String = " As Branch Manager, your desk is in the office."
 
@@ -150,7 +158,9 @@ const STAFF_NPC_SCENE: PackedScene = preload("res://scenes/characters/staff_npc.
 	ScheduleManager.SLOT_TELLER_WINDOW_1: $TellerWindow1,
 	ScheduleManager.SLOT_TELLER_WINDOW_2: $TellerWindow2,
 	ScheduleManager.SLOT_TELLER_WINDOW_3: $TellerDesk, # the Player Teller Window, after promotion
-	ScheduleManager.SLOT_LOAN_DESK: $LoanOfficerDesk,
+	ScheduleManager.SLOT_LOAN_DESK_1: $LoanOfficerDesk,
+	ScheduleManager.SLOT_LOAN_DESK_2: $Decor/LoanDesk2,
+	ScheduleManager.SLOT_LOAN_DESK_3: $Decor/LoanDesk3,
 }
 
 ## slot name -> the StaffNPC currently placed at that desk.
@@ -215,17 +225,18 @@ func _ready() -> void:
 		line.customer_abandoned.connect(RegionalManager.note_staff_line_abandoned)
 	XPManager.branch_manager_demoted.connect(_on_branch_manager_demoted)
 
-	loan_officer_screen.shift_clocked_in.connect(_on_player_clocked_in.bind(ScheduleManager.SLOT_LOAN_DESK))
-	loan_officer_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_LOAN_DESK))
+	loan_officer_screen.shift_clocked_in.connect(_on_player_clocked_in.bind(ScheduleManager.SLOT_LOAN_DESK_1))
+	loan_officer_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_LOAN_DESK_1))
 	loan_officer_screen.shift_clocked_out.connect(_on_shift_completed)
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
 	_place_staff()
 
 	# Staff serve customers from the start: _place_staff() opened each
-	# staffed teller window's line (_update_staff_lines()). Only the loan
-	# worker pauses while the player works the Loan Desk (see
-	# _on_player_clocked_in/_out).
-	loan_desk_worker.active = true
+	# staffed teller window's line (_update_staff_lines()). Every loan desk
+	# decides applications; only Loan Desk 1's worker pauses while the
+	# player works it (see _on_player_clocked_in/_out).
+	for worker in loan_desk_workers:
+		worker.active = true
 	if XPManager.is_branch_manager_unlocked:
 		_apply_branch_manager_desks()
 
@@ -451,13 +462,13 @@ func interaction_prompt_text(desk: Interactable) -> String:
 		return "%s — %s (%s)" % [key, teller_action, PLAYER_TELLER_WINDOW]
 	if desk == loan_officer_desk:
 		if XPManager.is_branch_manager_unlocked:
-			return _staffed_desk_text(ScheduleManager.SLOT_LOAN_DESK, LOAN_DESK_STAFFED_TEXT)
+			return _staffed_desk_text(ScheduleManager.SLOT_LOAN_DESK_1, LOAN_DESK_STAFFED_TEXT)
 		if not XPManager.is_loan_officer_unlocked:
-			return "%s — unlocks at %d XP and %d Reputation" % [ScheduleManager.SLOT_LOAN_DESK, XPManager.XP_UNLOCK_THRESHOLD, XPManager.REPUTATION_UNLOCK_FLOOR]
+			return "%s — unlocks at %d XP and %d Reputation" % [ScheduleManager.SLOT_LOAN_DESK_1, XPManager.XP_UNLOCK_THRESHOLD, XPManager.REPUTATION_UNLOCK_FLOOR]
 		var loan_action := "Clock in"
 		if loan_officer_screen.is_clocked_in():
 			loan_action = "Clock out" if loan_officer_screen.applications_left() == 0 else "Review applications"
-		return "%s — %s (%s)" % [key, loan_action, ScheduleManager.SLOT_LOAN_DESK]
+		return "%s — %s (%s)" % [key, loan_action, ScheduleManager.SLOT_LOAN_DESK_1]
 	if desk == branch_manager_desk:
 		return "%s — Branch Manager desk" % key
 	if desk == exit_door:
@@ -481,7 +492,7 @@ func describe_shift_status() -> String:
 		parts.append(teller_part)
 	if loan_officer_screen.is_clocked_in():
 		var applications_left: int = loan_officer_screen.applications_left()
-		parts.append("%s · %d application%s left" % [ScheduleManager.SLOT_LOAN_DESK, applications_left, "" if applications_left == 1 else "s"])
+		parts.append("%s · %d application%s left" % [ScheduleManager.SLOT_LOAN_DESK_1, applications_left, "" if applications_left == 1 else "s"])
 	if branch_manager_screen.is_clocked_in():
 		parts.append("Branch Manager office · vault %s" % ("reconciled" if branch_manager_screen.is_vault_reconciled() else "not reconciled yet"))
 	if parts.is_empty():
@@ -526,7 +537,8 @@ func _assign_staff_to_work() -> void:
 	window1_npc_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_1)
 	window2_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_2)
 	window3_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_3)
-	loan_desk_worker.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_LOAN_DESK)
+	for worker in loan_desk_workers:
+		worker.staff_npc = _staff_by_slot.get(worker.slot_name)
 	_update_staff_lines()
 
 ## How busy the staff teller windows are for customers choosing a line, 0-1:
@@ -560,16 +572,16 @@ func _update_staff_lines() -> void:
 func _on_schedule_confirmed(_schedule: Dictionary) -> void:
 	_place_staff()
 
-## Only the Loan Desk is shared with staff (the player's teller window is
-## their own): its worker stops deciding and walks to the break room while
-## the player works it.
+## Only Loan Desk 1 is shared with staff (the player's teller window is
+## their own; Loan Desks 2 and 3 are never the player's): its worker stops
+## deciding and walks to the break room while the player works it.
 func _on_player_clocked_in(slot_name: String) -> void:
 	XPManager.begin_player_shift(slot_name)
 	# Can't normally happen (the desk is locked after promotion), but a
-	# Branch Manager's Loan Desk staff never steps away.
+	# Branch Manager's loan desk staff never step away.
 	if XPManager.is_branch_manager_unlocked:
 		return
-	if slot_name == ScheduleManager.SLOT_LOAN_DESK:
+	if slot_name == ScheduleManager.SLOT_LOAN_DESK_1:
 		loan_desk_worker.active = false
 	if not _player_desk_slots.has(slot_name):
 		_player_desk_slots.append(slot_name)
@@ -582,7 +594,7 @@ func _on_player_clocked_in(slot_name: String) -> void:
 ## A promotion held back during this shift is granted here (XPManager), after
 ## which the walk back below leaves the staff member at the desk for good.
 func _on_player_clocked_out(slot_name: String) -> void:
-	if slot_name == ScheduleManager.SLOT_LOAN_DESK:
+	if slot_name == ScheduleManager.SLOT_LOAN_DESK_1:
 		loan_desk_worker.active = true
 	_player_desk_slots.erase(slot_name)
 	XPManager.end_player_shift(slot_name)
@@ -763,7 +775,7 @@ func _on_loan_officer_desk_interacted() -> void:
 	if loan_officer_screen.visible:
 		return
 	if XPManager.is_branch_manager_unlocked:
-		_show_desk_notice(ScheduleManager.SLOT_LOAN_DESK, LOAN_DESK_STAFFED_TEXT)
+		_show_desk_notice(ScheduleManager.SLOT_LOAN_DESK_1, LOAN_DESK_STAFFED_TEXT)
 		return
 	if not XPManager.is_loan_officer_unlocked:
 		return
@@ -820,14 +832,15 @@ func save_career() -> void:
 ## the Player Teller Window becomes Teller Window 3, staffed (ScheduleManager
 ## has already filled the slot) and served from the player's lane by its own
 ## NpcCustomerLine; the player's own line is never started again since the
-## desk no longer opens TellerScreen. The Loan Desk's staff member stays at
-## the desk for good (_on_player_clocked_in() no longer sends them away).
+## desk no longer opens TellerScreen. Every loan desk's staff member stays at
+## their desk for good (_on_player_clocked_in() no longer sends them away).
 ## Undone by CareerReset + the scene reload after "Apply for a new job".
 func _apply_branch_manager_desks() -> void:
 	if not _staff_by_slot.has(ScheduleManager.SLOT_TELLER_WINDOW_3):
 		_place_slot_staff(ScheduleManager.SLOT_TELLER_WINDOW_3)
 	_assign_staff_to_work() # opens Window3Line when the desk is staffed
-	loan_desk_worker.active = true
+	for worker in loan_desk_workers:
+		worker.active = true
 
 func _update_branch_manager_desk_availability() -> void:
 	var unlocked := XPManager.is_branch_manager_unlocked
@@ -846,8 +859,8 @@ func _on_atm_interacted() -> void:
 		return
 	atm_screen.show_screen()
 
-## The F1 debug shortcut — see DEBUG_UNLOCK_KEY doc comment above. Reputation is
-## bumped first so it's already at its clamped max by the time
+## The F1 and F2 debug shortcuts — see the DEBUG_UNLOCK_KEY doc comment
+## above. For F1: Reputation is bumped first so it's already at its clamped max by the time
 ## XPManager's unlock check (triggered by the XP change right after) reads
 ## ReputationManager.reputation — both thresholds clear in one keypress
 ## regardless of current progress. Because it goes through XPManager's
@@ -861,6 +874,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not debug_cheats_enabled:
 		return
 	var key_event := event as InputEventKey
-	if key_event != null and key_event.pressed and not key_event.echo and key_event.keycode == DEBUG_UNLOCK_KEY:
+	if key_event == null or not key_event.pressed or key_event.echo:
+		return
+	if key_event.keycode == DEBUG_UNLOCK_KEY:
 		ReputationManager.add_reputation(100)
 		XPManager.add_shift_xp(200)
+	elif key_event.keycode == DEBUG_LOAN_OFFICER_KEY:
+		# Raised only up to the Loan Officer thresholds, never down, through
+		# the normal unlock checks; Reputation 50 stays under Branch Manager's.
+		var xp_short := XPManager.XP_UNLOCK_THRESHOLD - XPManager.total_xp
+		if xp_short > 0:
+			XPManager.add_shift_xp(ceili(float(xp_short) / XPManager.XP_PER_SCORE_POINT))
+		if ReputationManager.reputation < DEBUG_LOAN_OFFICER_REPUTATION:
+			ReputationManager.add_reputation(DEBUG_LOAN_OFFICER_REPUTATION - ReputationManager.reputation)

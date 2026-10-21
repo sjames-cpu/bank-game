@@ -177,6 +177,13 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Vault**: $200,000 instead of $500,000, a small branch's scale.
 - **Thresholds**: Minor is within $50 for a drawer (half the largest note, as $500 was half a $1,000 bill) and $500 for the vault (10×, as before). The piece tolerances (4 and 15 over the plausible count; 40 and 150 for the vault) are unchanged: they count swaps, not dollars. Customer requests ($20–$500), starting balances ($200–$2,000), staff-line requests and the ATM ($500 limit) didn't depend on the float and are unchanged.
 
+## Session 20 — Oct 21, 2026: Three loan desks and an F2 shortcut
+*(the loan desks commit)*
+
+- **Three staffed loan desks**: the two desks either side of the Loan Desk, decor until now, are Loan Desks 2 and 3, each a ScheduleManager slot with its own staff member and background loan decisions. The player works Loan Desk 1 (its officer steps away to the break room and back); 2 and 3 work throughout. After promotion all three are staffed for good. The six starting staff fill every desk (three tellers for Teller Windows 1-3, three loan officers), so the roster and looks are unchanged.
+- **Everything per desk**: the schedule screen, Branch summary, staff review, hiring vacancies and the Regional review's vacant-desk hours pick the desks up from the slots. An old save's "Loan Desk" assignment and vacancy become Loan Desk 1, and its Loan Desks 2 and 3 get the unassigned loan officers.
+- **F2** (debug builds only): Loan Officer without Branch Manager (XP at least 500, Reputation at least 50). F1 is unchanged.
+
 ---
 
 ## Notes for next session

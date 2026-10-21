@@ -241,7 +241,7 @@ func test_player_draws_behind_a_desk_above_it_and_in_front_below_it() -> void:
 	assert_bool(player_rect(player.global_position).intersects(Rect2(atm.global_position + atm.get_rect().position, atm.get_rect().size))).is_true() # close behind it
 
 func test_staff_draw_behind_their_counter_and_customers_in_front() -> void:
-	for slot_name: String in [ScheduleManager.SLOT_TELLER_WINDOW_1, ScheduleManager.SLOT_TELLER_WINDOW_2, ScheduleManager.SLOT_LOAN_DESK]:
+	for slot_name: String in [ScheduleManager.SLOT_TELLER_WINDOW_1, ScheduleManager.SLOT_TELLER_WINDOW_2, ScheduleManager.SLOT_LOAN_DESK_1]:
 		var npc: StaffNPC = room._staff_by_slot[slot_name]
 		var desk: Node2D = room._desk_for_slot[slot_name]
 		var desk_sprite: Sprite2D = desk.get_node("Sprite2D")
@@ -283,7 +283,7 @@ func test_customer_walks_through_a_player_standing_in_the_lane() -> void:
 ## and back with furniture in the way of nothing.
 func test_staff_break_walk_still_completes() -> void:
 	XPManager.add_shift_xp(50)
-	var npc: StaffNPC = room._staff_by_slot[ScheduleManager.SLOT_LOAN_DESK]
+	var npc: StaffNPC = room._staff_by_slot[ScheduleManager.SLOT_LOAN_DESK_1]
 	var desk_spot := npc.global_position
 	var loan: LoanOfficerScreen = room.loan_officer_screen
 	loan.show_screen()
@@ -295,10 +295,10 @@ func test_staff_break_walk_still_completes() -> void:
 		if npc.state == StaffNPC.State.ON_BREAK:
 			break
 	assert_int(npc.state).is_equal(StaffNPC.State.ON_BREAK)
-	assert_vector(npc.global_position).is_equal(room._break_spot_for(ScheduleManager.SLOT_LOAN_DESK))
+	assert_vector(npc.global_position).is_equal(room._break_spot_for(ScheduleManager.SLOT_LOAN_DESK_1))
 
 	# Clock-out via the shift's three decisions isn't needed: send them back.
-	room._on_player_clocked_out(ScheduleManager.SLOT_LOAN_DESK)
+	room._on_player_clocked_out(ScheduleManager.SLOT_LOAN_DESK_1)
 	for i in 900:
 		await get_tree().physics_frame
 		if npc.state == StaffNPC.State.AT_DESK:

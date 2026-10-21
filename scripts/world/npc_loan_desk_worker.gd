@@ -1,9 +1,10 @@
 extends Node
 class_name NpcLoanDeskWorker
 
-## The Loan Desk's staff member deciding loan applications in the
-## background while the player isn't working the desk (teller_room.gd turns
-## `active` off while the player is clocked in at the Loan Desk). No walking
+## A loan desk's staff member deciding loan applications in the background
+## (one worker per ScheduleManager.LOAN_DESK_SLOTS desk, `slot_name`).
+## teller_room.gd turns Loan Desk 1's `active` off while the player is
+## clocked in there; Loan Desks 2 and 3 always work. No walking
 ## loan customers — one application from its own copy of
 ## LoanApplicationsData is decided every StaffMember.loan_decision_seconds()
 ## of unpaused time while the staff member is at the desk.
@@ -20,6 +21,9 @@ signal decision_made(application: LoanApplication, staff: StaffMember, correct: 
 
 ## Fraction of the requested amount offered on a Counter-Offer.
 const COUNTER_OFFER_FRACTION: float = 0.6
+
+## The desk (ScheduleManager.SLOT_LOAN_DESK_*) this worker decides for.
+@export var slot_name: String = ScheduleManager.SLOT_LOAN_DESK_1
 
 var staff_npc: StaffNPC = null
 var active: bool = true
@@ -60,11 +64,11 @@ func decide_next() -> void:
 	var action := _action_text(application, decision)
 	HistoryManager.add_staff_record(
 		staff.staff_name,
-		ScheduleManager.SLOT_LOAN_DESK,
-		"%s (Loan Desk) %s %s's $%.0f %s loan — %s" % [staff.staff_name, action, application.applicant_name, application.requested_amount, application.loan_purpose.to_lower(), LoanApplication.grade_description(grade)],
+		slot_name,
+		"%s (%s) %s %s's $%.0f %s loan — %s" % [staff.staff_name, slot_name, action, application.applicant_name, application.requested_amount, application.loan_purpose.to_lower(), LoanApplication.grade_description(grade)],
 		"Correct" if correct else "Mistake"
 	)
-	StaffReviewManager.add_loan_decision(staff, ScheduleManager.SLOT_LOAN_DESK, application, grade)
+	StaffReviewManager.add_loan_decision(staff, slot_name, application, grade)
 	staff_npc.say("%s: %s" % [LoanApplication.decision_type_label(decision), application.applicant_name], 3.0)
 	decision_made.emit(application, staff, correct)
 

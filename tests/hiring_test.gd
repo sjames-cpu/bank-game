@@ -91,11 +91,11 @@ func test_hire_button_appears_only_with_a_vacancy() -> void:
 	assert_bool(bm.hire_staff_button.visible).is_false()
 
 	vacate(ScheduleManager.SLOT_TELLER_WINDOW_2)
-	vacate(ScheduleManager.SLOT_LOAN_DESK)
+	vacate(ScheduleManager.SLOT_LOAN_DESK_1)
 	bm._show_main_panel()
 	assert_bool(bm.hire_staff_button.visible).is_true()
 	assert_bool(bm.hire_staff_button.disabled).is_false()
-	assert_str(bm.hire_staff_button.text).is_equal("Hire Staff — Teller Window 2, Loan Desk")
+	assert_str(bm.hire_staff_button.text).is_equal("Hire Staff — Teller Window 2, Loan Desk 1")
 
 	# Off shift it shows, but can't be used.
 	bm._prepare_shift_summary()
@@ -117,13 +117,13 @@ func test_a_terminated_staff_members_desk_is_a_vacancy() -> void:
 func test_candidates_match_the_role_and_differ() -> void:
 	promote_and_clock_in()
 	vacate(ScheduleManager.SLOT_TELLER_WINDOW_2)
-	vacate(ScheduleManager.SLOT_LOAN_DESK)
+	vacate(ScheduleManager.SLOT_LOAN_DESK_1)
 	var taken: Array[String] = []
-	for slot_name: String in [ScheduleManager.SLOT_TELLER_WINDOW_2, ScheduleManager.SLOT_LOAN_DESK]:
+	for slot_name: String in [ScheduleManager.SLOT_TELLER_WINDOW_2, ScheduleManager.SLOT_LOAN_DESK_1]:
 		var field := HiringManager.candidates_for(slot_name)
 		assert_int(field.size()).is_equal(HiringManager.CANDIDATES_PER_VACANCY)
 		var ratings: Array[float] = []
-		var lending := slot_name == ScheduleManager.SLOT_LOAN_DESK
+		var lending := slot_name == ScheduleManager.SLOT_LOAN_DESK_1
 		for each in field:
 			assert_str(each.role).is_equal(ScheduleManager.role_for_slot(slot_name))
 			assert_bool(StaffCandidatesData.CANDIDATE_NAMES.has(each.staff_name)).is_true()
@@ -298,10 +298,10 @@ func test_a_weak_loan_hire_makes_worse_loan_decisions() -> void:
 	bm.hide_screen()
 	var rates := {}
 	for verdict: Verdict in [Verdict.WEAKEST, Verdict.BEST]:
-		vacate(ScheduleManager.SLOT_LOAN_DESK)
-		var pick := candidate_with(ScheduleManager.SLOT_LOAN_DESK, verdict)
+		vacate(ScheduleManager.SLOT_LOAN_DESK_1)
+		var pick := candidate_with(ScheduleManager.SLOT_LOAN_DESK_1, verdict)
 		assert_object(pick).is_not_null()
-		var result := HiringManager.hire(ScheduleManager.SLOT_LOAN_DESK, pick)
+		var result := HiringManager.hire(ScheduleManager.SLOT_LOAN_DESK_1, pick)
 		assert_int(result["verdict"]).is_equal(verdict)
 		# The feedback speaks to the Loan Desk.
 		assert_str(result["feedback"]).contains("loan decisions")
@@ -328,10 +328,10 @@ func test_a_weak_loan_hire_makes_worse_loan_decisions() -> void:
 
 func test_a_loan_desk_hire_works_the_loan_desk() -> void:
 	promote_and_clock_in()
-	vacate(ScheduleManager.SLOT_LOAN_DESK)
-	var hired := HiringManager.candidates_for(ScheduleManager.SLOT_LOAN_DESK)[0]
+	vacate(ScheduleManager.SLOT_LOAN_DESK_1)
+	var hired := HiringManager.candidates_for(ScheduleManager.SLOT_LOAN_DESK_1)[0]
 	assert_str(hired.role).is_equal("Loan Officer")
-	assert_dict(HiringManager.hire(ScheduleManager.SLOT_LOAN_DESK, hired)).is_not_empty()
+	assert_dict(HiringManager.hire(ScheduleManager.SLOT_LOAN_DESK_1, hired)).is_not_empty()
 	assert_str(room.loan_desk_worker.staff_npc.staff.staff_name).is_equal(hired.staff_name)
 
 # --- scoring ----------------------------------------------------------------------
@@ -494,8 +494,8 @@ func test_career_reset_restores_the_original_roster() -> void:
 	promote_and_clock_in()
 	vacate(ScheduleManager.SLOT_TELLER_WINDOW_2)
 	HiringManager.hire(ScheduleManager.SLOT_TELLER_WINDOW_2, HiringManager.candidates_for(ScheduleManager.SLOT_TELLER_WINDOW_2)[0])
-	vacate(ScheduleManager.SLOT_LOAN_DESK)
-	HiringManager.candidates_for(ScheduleManager.SLOT_LOAN_DESK)
+	vacate(ScheduleManager.SLOT_LOAN_DESK_1)
+	HiringManager.candidates_for(ScheduleManager.SLOT_LOAN_DESK_1)
 	CareerReset.reset_all()
 	assert_int(ScheduleManager.hired_staff.size()).is_equal(0)
 	assert_int(ScheduleManager.get_roster().size()).is_equal(StaffRosterData.get_staff().size())
@@ -509,8 +509,8 @@ func test_hiring_round_trips_through_a_save() -> void:
 	vacate(ScheduleManager.SLOT_TELLER_WINDOW_2)
 	var hired := HiringManager.candidates_for(ScheduleManager.SLOT_TELLER_WINDOW_2)[2]
 	HiringManager.hire(ScheduleManager.SLOT_TELLER_WINDOW_2, hired)
-	vacate(ScheduleManager.SLOT_LOAN_DESK)
-	var field := HiringManager.candidates_for(ScheduleManager.SLOT_LOAN_DESK)
+	vacate(ScheduleManager.SLOT_LOAN_DESK_1)
+	var field := HiringManager.candidates_for(ScheduleManager.SLOT_LOAN_DESK_1)
 	HiringManager.ask_next_question(field[0])
 	HiringManager.ask_next_question(field[0])
 	HiringManager.ask_next_question(field[1])
@@ -526,7 +526,7 @@ func test_hiring_round_trips_through_a_save() -> void:
 
 	assert_str(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_2).staff_name).is_equal(hired.staff_name)
 	assert_int(ScheduleManager.get_assigned(ScheduleManager.SLOT_TELLER_WINDOW_2).speed).is_equal(hired.speed)
-	var loaded: Array[StaffCandidate] = HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK]
+	var loaded: Array[StaffCandidate] = HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK_1]
 	assert_int(loaded.size()).is_equal(3)
 	assert_str(loaded[0].staff_name).is_equal(field[0].staff_name)
 	assert_int(loaded[0].questions_asked).is_equal(2)
@@ -563,7 +563,7 @@ func test_damaged_candidates_are_dropped_on_load() -> void:
 func test_hiring_screen_fits_the_window() -> void:
 	promote_and_clock_in()
 	vacate(ScheduleManager.SLOT_TELLER_WINDOW_2)
-	vacate(ScheduleManager.SLOT_LOAN_DESK)
+	vacate(ScheduleManager.SLOT_LOAN_DESK_1)
 	bm._show_main_panel()
 	assert_float(await settled_height(bm.main_panel)).is_less_equal(648.0)
 	open_hiring()
@@ -577,6 +577,6 @@ func test_hiring_screen_fits_the_window() -> void:
 	assert_bool(hiring.candidate_section.visible).is_false()
 	hiring.continue_button.pressed.emit()
 	assert_bool(hiring.hired_card.visible).is_false()
-	assert_str(hiring.current_vacancy()).is_equal(ScheduleManager.SLOT_LOAN_DESK)
+	assert_str(hiring.current_vacancy()).is_equal(ScheduleManager.SLOT_LOAN_DESK_1)
 	assert_bool(hiring.candidate_section.visible).is_true()
 	assert_float(await settled_height(panel)).is_less_equal(648.0)

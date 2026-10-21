@@ -118,7 +118,7 @@ func test_hud_shift_status_for_loan_desk_and_branch_manager_office() -> void:
 	loan.show_screen()
 	loan.clock_in_button.pressed.emit()
 	await settle()
-	assert_str(hud.shift_label.text).is_equal("On shift — Loan Desk · 3 applications left")
+	assert_str(hud.shift_label.text).is_equal("On shift — Loan Desk 1 · 3 applications left")
 	loan.hide_screen()
 
 	promote()
@@ -381,19 +381,19 @@ func test_prompt_at_the_player_teller_window_follows_the_shift() -> void:
 
 func test_prompt_explains_the_locked_loan_desk() -> void:
 	await stand_at(room.loan_officer_desk)
-	assert_str(prompt()).is_equal("Loan Desk — unlocks at 500 XP and 40 Reputation")
+	assert_str(prompt()).is_equal("Loan Desk 1 — unlocks at 500 XP and 40 Reputation")
 	press_interact(room.loan_officer_desk)
 	assert_bool(room.loan_officer_screen.visible).is_false()
 
 	unlock_loan_officer()
 	await settle()
-	assert_str(prompt()).is_equal("E — Clock in (Loan Desk)")
+	assert_str(prompt()).is_equal("E — Clock in (Loan Desk 1)")
 	press_interact(room.loan_officer_desk)
 	assert_bool(room.loan_officer_screen.visible).is_true()
 	room.loan_officer_screen.clock_in_button.pressed.emit()
 	room.loan_officer_screen.hide_screen()
 	await settle()
-	assert_str(prompt()).is_equal("E — Review applications (Loan Desk)")
+	assert_str(prompt()).is_equal("E — Review applications (Loan Desk 1)")
 
 func test_prompt_after_promotion_names_the_staff_and_the_office() -> void:
 	await stand_at(room.branch_manager_desk)
@@ -412,7 +412,7 @@ func test_prompt_after_promotion_names_the_staff_and_the_office() -> void:
 	assert_str(room.desk_notice_label.text).is_equal("%s is working this window. As Branch Manager, your desk is in the office." % window_staff)
 
 	await stand_at(room.loan_officer_desk)
-	assert_str(prompt()).is_equal("%s is working the Loan Desk." % staff_name(ScheduleManager.SLOT_LOAN_DESK))
+	assert_str(prompt()).is_equal("%s is working Loan Desk 1." % staff_name(ScheduleManager.SLOT_LOAN_DESK_1))
 
 func test_prompt_at_the_atm() -> void:
 	await stand_at(room.atm)
