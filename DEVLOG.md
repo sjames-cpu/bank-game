@@ -207,6 +207,15 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Being fired is game over**: the termination letter says the career has ended, and its button, "Back to Start Screen", wipes the career and opens the start screen, where New Game starts again. (With the interview on it's "Apply for a new job" into the interview, as before.)
 - **Tests** cover both settings: the suite base restores the switch around every test, and interview-dependent tests set it themselves, so the suite passes whichever way it's set.
 
+## Session 24 — Oct 21, 2026: Main menu, three save slots and a pause menu (demo)
+*(branch `demo-menu-and-saves`)*
+
+- **Main menu**: the game opens on "Play" and "Quit". Play shows three save slots: a filled one shows the role, the in-game day and date and when it was last played, and loads that career; an empty one says "New Game" and starts one; "Back" returns to the menu. There's no delete or overwrite. A damaged slot says so and offers a fresh game there, keeping the bad file beside it.
+- **One file per slot** (`user://career_slot_1.json` to `_3.json`): everything saves to the slot being played, never the others. The old single save (`user://career.json`) moves into Slot 1 the first time the menu opens, if Slot 1 is empty.
+- **Esc pause menu** in the room: Resume, or Back to Main Menu, which saves first when off shift. A career is never saved mid-shift, so when clocked in it asks first and warns that the shift will be lost.
+- **Fired = this slot cleared**: the termination letter explains why, then "Back to Save Slots" lands on the slot screen, where that slot shows New Game; the other slots are untouched.
+- **No leftovers**: the menu resets the whole career and unpauses whenever it opens, and tests check that loading or starting another slot after a full career (or mid-shift) leaves nothing behind.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.
