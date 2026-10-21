@@ -39,6 +39,7 @@
 [ext_resource type="Script" path="res://scripts/world/npc_loan_desk_worker.gd" id="npc_loan_desk_worker_script"]
 [ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="hud_scene"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="pause_menu_scene"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_room"]
 texture = ExtResource("tiles_tex")
@@ -702,3 +703,5 @@ autowrap_mode = 2
 layout_mode = 3
 
 [node name="HUD" parent="." instance=ExtResource("hud_scene")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("pause_menu_scene")]

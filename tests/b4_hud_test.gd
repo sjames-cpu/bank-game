@@ -168,7 +168,7 @@ func test_controls_line_names_the_keys_and_overlaps_nothing() -> void:
 	var window_before := get_tree().root.size
 	get_tree().root.size = Vector2i(1152, 648)
 	await settle()
-	assert_str(hud.controls_label.text).is_equal("E — interact · Z — zoom")
+	assert_str(hud.controls_label.text).is_equal("E — interact · Z — zoom · Esc — menu")
 	assert_str(hud.controls_label.text).is_equal(Hud.controls_text())
 	assert_bool(hud.controls_panel.is_visible_in_tree()).is_true()
 

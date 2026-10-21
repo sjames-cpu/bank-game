@@ -10,9 +10,12 @@ const INTERACT: StringName = &"interact"
 ## Switches the camera between the close follow view and the overview
 ## (RoomCamera).
 const OVERVIEW: StringName = &"toggle_overview"
+## Opens the pause menu (PauseMenu).
+const PAUSE_MENU: StringName = &"pause_menu"
 
-## Display name of the first key bound to `action`, e.g. "E". Empty if the
-## action has no key.
+## Display name of the first key bound to `action`, e.g. "E" ("Esc" for
+## Escape, the way keyboards label it, which also keeps the HUD's controls
+## line short). Empty if the action has no key.
 static func key_for(action: StringName) -> String:
 	if not InputMap.has_action(action):
 		return ""
@@ -21,5 +24,7 @@ static func key_for(action: StringName) -> String:
 		if key_event == null:
 			continue
 		var keycode := key_event.keycode if key_event.keycode != KEY_NONE else key_event.physical_keycode
+		if keycode == KEY_ESCAPE:
+			return "Esc"
 		return OS.get_keycode_string(keycode)
 	return ""

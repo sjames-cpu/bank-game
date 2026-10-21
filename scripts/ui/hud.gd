@@ -49,7 +49,7 @@ class_name Hud
 @onready var hint_label: Label = $RightColumn/HintPanel/VBox/HintLabel
 @onready var hint_dismiss_button: Button = $RightColumn/HintPanel/VBox/DismissButton
 
-## Always-on reminder of the keys, e.g. "E — interact · Z — zoom", in the
+## Always-on reminder of the keys, e.g. "E — interact · Z — zoom · Esc — menu", in the
 ## bottom-left corner (clear of the right column and every centred screen).
 @onready var controls_panel: PanelContainer = $ControlsPanel
 @onready var controls_label: Label = $ControlsPanel/ControlsLabel
@@ -127,7 +127,7 @@ func refresh() -> void:
 ## The controls line, with key names from the InputMap (InputPrompts), so
 ## it can't drift from the keys that actually work.
 static func controls_text() -> String:
-	return "%s — interact · %s — zoom" % [InputPrompts.key_for(InputPrompts.INTERACT), InputPrompts.key_for(InputPrompts.OVERVIEW)]
+	return "%s — interact · %s — zoom · %s — menu" % [InputPrompts.key_for(InputPrompts.INTERACT), InputPrompts.key_for(InputPrompts.OVERVIEW), InputPrompts.key_for(InputPrompts.PAUSE_MENU)]
 
 ## The highest role the career has reached.
 static func role_name() -> String:

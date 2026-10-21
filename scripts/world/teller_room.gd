@@ -135,6 +135,8 @@ const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 @onready var desk_notice_label: Label = $UI/DeskNotice/Label
 @onready var letter_screen: DisciplineLetterScreen = $UI/DisciplineLetterScreen
 @onready var hud: Hud = $HUD
+## Esc: Resume / Back to Main Menu (pause_menu.gd). It finds this room itself.
+@onready var pause_menu: PauseMenu = $PauseMenu
 @onready var camera: RoomCamera = $Player/Camera2D
 @onready var room_layer: TileMapLayer = $Room
 @onready var exit_door: ExitDoor = $ExitDoor
