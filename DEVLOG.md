@@ -199,7 +199,17 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 
 ---
 
+## Session 23 — Oct 21, 2026: The interview behind a switch (demo)
+*(branch `demo-menu-and-saves`)*
+
+- **Interview off for now**, by agreement, while its place in the game is redesigned. One constant, `InterviewManager.INTERVIEW_ENABLED` (false), turns it off; nothing was deleted, and setting it to true restores the old flow.
+- **New game without it**: the start screen with no save shows its menu with just New Game. A new game hires the player straight away as a regular Teller, with no probation, saves, and walks into the room.
+- **Being fired is game over**: the termination letter says the career has ended, and its button, "Back to Start Screen", wipes the career and opens the start screen, where New Game starts again. (With the interview on it's "Apply for a new job" into the interview, as before.)
+- **Tests** cover both settings: the suite base restores the switch around every test, and interview-dependent tests set it themselves, so the suite passes whichever way it's set.
+
 ## Notes for next session
+
+- The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.
 
 - No `.csproj`/`.sln` yet: everything is still GDScript despite the project being configured for .NET.
 - The save has one slot and no autosave mid-shift: quitting mid-shift loses that shift's work.
