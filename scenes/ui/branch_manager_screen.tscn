@@ -125,6 +125,7 @@ grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="ShiftSummaryPanel"]
 layout_mode = 2
+theme_override_constants/separation = 4
 
 [node name="TitleLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2

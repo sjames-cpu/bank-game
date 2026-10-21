@@ -90,7 +90,7 @@ horizontal_alignment = 1
 autowrap_mode = 2
 
 [node name="TranscriptScroll" type="ScrollContainer" parent="Panel/VBox/CandidateSection/CandidateVBox"]
-custom_minimum_size = Vector2(0, 220)
+custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
 horizontal_scroll_mode = 0
 

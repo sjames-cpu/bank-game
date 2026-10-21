@@ -32,20 +32,28 @@ class_name StaffSchedulingScreen
 ## set_item_metadata() rather than kept in a parallel lookup array, so
 ## reading the current selection back is a single get_item_metadata()
 ## call away.
+##
+## Layout: everything sits in one auto-sizing PanelContainer, like the other
+## screens, so the panel always covers its content. The roster scrolls in a
+## fixed-height area with wrapping entries, and the desks are laid out in two
+## columns, teller windows left and loan desks right, so even a Branch
+## Manager's six desks keep the panel inside the 648px window and clear of
+## the HUD column (screen_fit_test.gd).
 
 signal closed
 
 ## The slots are the branch's staffed desks (ScheduleManager.DESK_SLOTS:
-## two teller windows, one loan desk), so the current 6-person roster
-## always leaves someone of each role off the floor — which ones to pick is
-## an actual choice rather than "assign everyone." Each slot starts on its
+## two teller windows, three loan desks), so the six-person roster leaves a
+## teller off the floor until Teller Window 3 opens. Each slot starts on its
 ## current assignment so confirming without changes keeps the desks as
 ## they are. Rebuilt every time the screen opens, since Teller Window 3
 ## only exists after promotion (ScheduleManager.get_desk_slots()).
 var _shift_slots: Array[Dictionary] = []
 
 @onready var roster_vbox: VBoxContainer = $Panel/VBox/RosterScrollContainer/RosterVBox
-@onready var slots_grid: GridContainer = $Panel/VBox/SlotsGrid
+## Teller windows' rows (left) and loan desks' rows (right).
+@onready var teller_grid: GridContainer = $Panel/VBox/SlotsColumns/TellerGrid
+@onready var loan_grid: GridContainer = $Panel/VBox/SlotsColumns/LoanGrid
 @onready var status_label: Label = $Panel/VBox/StatusLabel
 @onready var confirm_button: Button = $Panel/VBox/ConfirmButton
 @onready var close_button: Button = $Panel/VBox/CloseButton
@@ -92,6 +100,8 @@ func _populate_roster() -> void:
 		child.queue_free()
 	for staff in ScheduleManager.get_roster():
 		var entry := Label.new()
+		entry.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		entry.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		entry.text = "%s (%s) — Reports: %d / %d\nSkill %d | Reliability %d | Speed %d | Customer Service %d\n\"%s\"" % [
 			staff.staff_name, staff.role,
 			StaffReviewManager.reports_for(staff.staff_name), StaffReviewManager.STAFF_REPORTS_FOR_TERMINATION,
@@ -101,17 +111,19 @@ func _populate_roster() -> void:
 		roster_vbox.add_child(HSeparator.new())
 
 func _populate_slots() -> void:
-	for child in slots_grid.get_children():
-		slots_grid.remove_child(child)
-		child.queue_free()
+	for grid: GridContainer in [teller_grid, loan_grid]:
+		for child in grid.get_children():
+			grid.remove_child(child)
+			child.queue_free()
 	_slot_option_buttons.clear()
 	_shift_slots = ScheduleManager.get_desk_slots()
 	var all_staff := ScheduleManager.get_roster()
 
 	for slot in _shift_slots:
+		var grid := loan_grid if slot["role"] == "Loan Officer" else teller_grid
 		var slot_label := Label.new()
 		slot_label.text = slot["name"]
-		slots_grid.add_child(slot_label)
+		grid.add_child(slot_label)
 
 		var option_button := OptionButton.new()
 		option_button.add_item("Unassigned")
@@ -133,7 +145,7 @@ func _populate_slots() -> void:
 		var slot_index := _slot_option_buttons.size()
 		option_button.item_selected.connect(_on_slot_option_selected.bind(slot_index))
 
-		slots_grid.add_child(option_button)
+		grid.add_child(option_button)
 		_slot_option_buttons.append(option_button)
 
 ## Same-role slots share the same staff list (e.g. both Teller slots), so
@@ -157,7 +169,7 @@ func _on_slot_option_selected(_item_index: int, changed_slot_index: int) -> void
 
 func _on_confirm_button_pressed() -> void:
 	var new_schedule: Dictionary = {}
-	var assigned_names: Array[String] = []
+	var unassigned: Array[String] = []
 
 	for i in _shift_slots.size():
 		var option_button := _slot_option_buttons[i]
@@ -165,12 +177,13 @@ func _on_confirm_button_pressed() -> void:
 		if selected_staff != null:
 			var slot_name: String = _shift_slots[i]["name"]
 			new_schedule[slot_name] = selected_staff
-			assigned_names.append("%s: %s" % [slot_name, selected_staff.staff_name])
+		else:
+			unassigned.append(_shift_slots[i]["name"])
 
 	ScheduleManager.confirm_schedule(new_schedule)
 
+	# One short line: the desks are listed just above.
 	status_label.visible = true
-	if assigned_names.is_empty():
-		status_label.text = "Schedule confirmed — no shifts assigned."
-	else:
-		status_label.text = "Schedule confirmed —\n%s" % "\n".join(assigned_names)
+	status_label.text = "Schedule confirmed — %d of %d desks staffed." % [new_schedule.size(), _shift_slots.size()]
+	if not unassigned.is_empty():
+		status_label.text += " Unassigned: %s." % ", ".join(unassigned)

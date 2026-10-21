@@ -184,6 +184,12 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Everything per desk**: the schedule screen, Branch summary, staff review, hiring vacancies and the Regional review's vacant-desk hours pick the desks up from the slots. An old save's "Loan Desk" assignment and vacancy become Loan Desk 1, and its Loan Desks 2 and 3 get the unassigned loan officers.
 - **F2** (debug builds only): Loan Officer without Branch Manager (XP at least 500, Reputation at least 50). F1 is unchanged.
 
+## Session 21 — Oct 21, 2026: Staff Scheduling fits again
+*(the screen-fit commit)*
+
+- **Staff Scheduling** broke with six desks: it was a fixed 440x560 `Panel` whose contents overflowed it (the title above the window, Close below it, the roster under the HUD, a confirmation line per desk). It's now one auto-sizing `PanelContainer` like the other screens, with a scrolling, wrapping roster, desks in two columns (teller windows, loan desks) and a one-line confirmation.
+- **Fit tests that look inside**: `layout_problems()` checks every visible control of a screen against its panel, the window (with an 8 px margin) and the HUD column, not just the panel's rect. It failed on the old Staff Scheduling screen. Run on every screen that lists desks or staff, it also caught the Branch shift summary and the Hiring screen within a few pixels of the window's edge: the summary's lines are now closer together, and the interview transcript scrolls in 180 px instead of 220.
+
 ---
 
 ## Notes for next session

@@ -174,6 +174,47 @@ func settled_height(panel: Control) -> float:
 		last = panel.size.y
 	return panel.size.y
 
+## The HUD column's left edge at 1152x648: screens stay left of it.
+const HUD_COLUMN_LEFT: float = 952.0
+## Room screens keep from the window's edges, so they never just scrape in.
+const WINDOW_MARGIN: float = 8.0
+
+## `panel` (a screen's content panel), laid out, sits inside the 1152x648
+## window with a WINDOW_MARGIN to spare and left of the HUD column, and so does every visible control in
+## it, each also inside the panel. Controls inside a ScrollContainer scroll
+## within it, so the container stands for them. Returns the problems found
+## (one line each), so a test can assert there are none.
+func layout_problems(panel: Control) -> Array[String]:
+	var window := Rect2(0, 0, 1152, 648).grow(-WINDOW_MARGIN)
+	var problems: Array[String] = []
+	var panel_rect := panel.get_global_rect()
+	var checked: Array[Control] = [panel]
+	for node in panel.find_children("*", "Control", true, false):
+		checked.append(node as Control)
+	for control in checked:
+		if not control.is_visible_in_tree() or control.size.x <= 0.0 or control.size.y <= 0.0:
+			continue
+		if _scrolls_inside(control, panel):
+			continue
+		# Half a pixel of rounding either way.
+		var rect := control.get_global_rect().grow(-0.5)
+		var label := str(panel.get_path_to(control)) if control != panel else str(panel.name)
+		if control != panel and not panel_rect.encloses(rect):
+			problems.append("%s %s leaves the panel %s" % [label, rect, panel_rect])
+		if not window.encloses(rect):
+			problems.append("%s %s comes within %d px of the 1152x648 window's edge" % [label, rect, WINDOW_MARGIN])
+		if rect.end.x > HUD_COLUMN_LEFT:
+			problems.append("%s %s runs under the HUD column (x >= %d)" % [label, rect, HUD_COLUMN_LEFT])
+	return problems
+
+func _scrolls_inside(control: Control, panel: Control) -> bool:
+	var node := control.get_parent()
+	while node != null and node != panel:
+		if node is ScrollContainer:
+			return true
+		node = node.get_parent()
+	return false
+
 ## Career totals, for before/after deltas.
 func totals() -> Vector3i:
 	return Vector3i(ScoreManager.total_score, ReputationManager.reputation, XPManager.total_xp)
