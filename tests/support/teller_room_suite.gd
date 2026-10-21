@@ -14,7 +14,12 @@ extends GdUnitTestSuite
 
 const TELLER_ROOM_SCENE := "res://scenes/world/teller_room.tscn"
 const RNG_SEED := 20261012
-const TEST_SAVE_PATH := "user://test_career.json"
+## Test save files are named from this instead of SaveGame.REAL_PREFIX:
+## "user://test_career_slot_<n>.json", and the old single save
+## "user://test_career.json". Every test plays in Slot 1 (TEST_SAVE_PATH)
+## unless it picks another.
+const TEST_PREFIX := "user://test_career"
+const TEST_SAVE_PATH := "user://test_career_slot_1.json"
 
 var room: TellerRoom
 var ts: TellerScreen
@@ -32,6 +37,14 @@ func before_test() -> void:
 	ts = room.get_node("UI/TellerScreen")
 	cq = room.get_node("CustomerQueue")
 	# Customers in these tests are spawned explicitly (spawn()).
+	cq.spawn_timer.stop()
+
+## Makes `new_room` (one a scene change loaded, e.g. from the slot screen)
+## the room the helpers below drive, as before_test() does for the first.
+func adopt_room(new_room: TellerRoom) -> void:
+	room = new_room
+	ts = room.get_node("UI/TellerScreen")
+	cq = room.get_node("CustomerQueue")
 	cq.spawn_timer.stop()
 
 ## A fresh, not yet added, teller room.
@@ -56,16 +69,23 @@ func after_test() -> void:
 	# before gdUnit's orphan check.
 	await get_tree().process_frame
 
-## Points SaveGame at TEST_SAVE_PATH and removes any test save (and the
-## files SaveGame writes beside it).
+## Points SaveGame at the test save files (TEST_PREFIX), plays Slot 1
+## (TEST_SAVE_PATH), and removes every test save (all slots, the old single
+## save, and the files SaveGame writes beside them).
 func use_test_save_path() -> void:
-	SaveGame.path = TEST_SAVE_PATH
-	# Opening the start screen allows the real save; tests start without it.
-	SaveGame.real_path = SaveGame.DEFAULT_PATH
+	SaveGame.prefix = TEST_PREFIX
+	# Opening the start screen allows the real saves; tests start without it.
+	SaveGame.real_prefix = SaveGame.REAL_PREFIX
 	SaveGame.real_save_allowed = false
-	for leftover: String in [TEST_SAVE_PATH, TEST_SAVE_PATH + ".tmp", TEST_SAVE_PATH + ".bad"]:
-		if FileAccess.file_exists(leftover):
-			DirAccess.remove_absolute(leftover)
+	SaveGame.use_slot(1)
+	StartScreen.next_view = StartScreen.View.MAIN_MENU
+	var files: Array[String] = [SaveGame.legacy_path()]
+	for slot in range(1, SaveGame.SLOT_COUNT + 1):
+		files.append(SaveGame.slot_path(slot))
+	for file in files:
+		for leftover: String in [file, file + ".tmp", file + ".bad"]:
+			if FileAccess.file_exists(leftover):
+				DirAccess.remove_absolute(leftover)
 
 ## Turns the hiring interview on or off for this test (the game reads
 ## InterviewManager.interview_enabled; the INTERVIEW_ENABLED switch is its

@@ -74,8 +74,8 @@ func _assert_career_wiped() -> void:
 	assert_bool(get_tree().paused).is_false()
 
 ## With the interview off, being fired is game over: the letter says so, and
-## its button wipes the career and opens the start screen, which (with no
-## save left) offers only New Game.
+## its button wipes the career and opens the save slot screen, where the
+## slot just played (Slot 1 here) offers New Game.
 func test_termination_with_the_interview_off_is_game_over() -> void:
 	use_interview_setting(false)
 	var letters: DisciplineLetterScreen = room.get_node("UI/DisciplineLetterScreen")
@@ -90,10 +90,10 @@ func test_termination_with_the_interview_off_is_game_over() -> void:
 	_assert_career_wiped()
 	var start := get_tree().current_scene as StartScreen
 	assert_object(start).is_not_null()
-	assert_bool(start.menu_panel.visible).is_true()
-	assert_bool(start.continue_button.visible).is_false()
-	assert_bool(start.new_game_button.visible).is_true()
-	assert_str(start.summary_label.text).is_equal(StartScreen.NO_SAVE_TEXT)
+	assert_bool(start.slot_panel.visible).is_true()
+	assert_bool(start.menu_panel.visible).is_false()
+	assert_str(start.slot_buttons[0].text).is_equal("Slot 1\nNew Game")
+	assert_int(SaveGame.current_slot).is_equal(0)
 
 ## With the interview on, "Apply for a new job" wipes the career and loads
 ## the interview, as before the switch existed.

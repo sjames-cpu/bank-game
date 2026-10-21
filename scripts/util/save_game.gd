@@ -4,6 +4,15 @@ class_name SaveGame
 ## Saves and loads a career (HANDOFF.md design flaw: no persistence) as one
 ## JSON file at `path`, with a FORMAT_VERSION number.
 ##
+## Save slots: there are SLOT_COUNT careers, one file each
+## (slot_path(): "<prefix>_slot_<n>.json"). The player picks one on the slot
+## screen (start_screen.gd), which calls use_slot(): from then on `path` is
+## that slot's file, so every save(), delete() and read() below works on the
+## current slot only and never touches the others. Back at the menu,
+## leave_slot() clears it. The single save from before slots existed
+## ("<prefix>.json", legacy_path()) is moved into Slot 1 the first time the
+## menu opens (migrate_legacy_save()), unless Slot 1 is already in use.
+##
 ## What's saved is everything the autoloads hold for the career: each one
 ## has save_data() (a JSON-ready Dictionary) and load_data() next to its
 ## reset(), and capture()/restore() below call them all. Mid-shift state
@@ -24,36 +33,106 @@ class_name SaveGame
 ## wrong type falls back to its fresh-career default instead of erroring.
 
 const FORMAT_VERSION: int = 1
-const DEFAULT_PATH: String = "user://career.json"
 
-## Where the save lives. Tests point this at their own file
-## (tests/support/teller_room_suite.gd) so they never touch a real save, and
-## so do the scratch/ screenshot scripts.
-static var path: String = DEFAULT_PATH
+## How many save slots the slot screen offers.
+const SLOT_COUNT: int = 3
 
-## The player's real save. Only the real game flow may write, move or delete
-## it: the start screen (the main scene) calls allow_real_save(). Anything
-## else that still points at it (a test, a screenshot script, a scene run on
-## its own from the editor) is refused with a warning (_may_write()), so a
-## forgotten `path` can never overwrite someone's career. A variable only so
-## the guard's own test can stand in a file of its own.
-static var real_path: String = DEFAULT_PATH
+## The player's real save files: "user://career_slot_<n>.json", and the old
+## single save "user://career.json".
+const REAL_PREFIX: String = "user://career"
 
-## Set by allow_real_save(); see real_path.
+## What save files are named from (slot_path(), legacy_path()). Tests point
+## this at their own (tests/support/teller_room_suite.gd) so they never
+## touch a real save, and so do the scratch/ screenshot scripts.
+static var prefix: String = REAL_PREFIX
+
+## The slot being played (1 to SLOT_COUNT), or 0 for none: at the menu, or a
+## scene run on its own from the editor.
+static var current_slot: int = 0
+
+## The current slot's file (use_slot()), which save(), read() and delete()
+## work on; empty while no slot is chosen. Tests may also point it at a file
+## of their own.
+static var path: String = ""
+
+## The player's real saves are the files named from this (see REAL_PREFIX).
+## Only the real game flow may write, move or delete them: the start screen
+## (the main scene) calls allow_real_save(). Anything else that still points
+## at one (a test, a screenshot script, a scene run on its own from the
+## editor) is refused with a warning (_may_write()), so a forgotten `path`
+## can never overwrite someone's career. The old single save is never
+## written at all, only moved into Slot 1 (migrate_legacy_save()). A
+## variable only so the guard's own test can stand in files of its own.
+static var real_prefix: String = REAL_PREFIX
+
+## Set by allow_real_save(); see real_prefix.
 static var real_save_allowed: bool = false
 
 ## Called by the start screen (start_screen.gd): from here on this is the
-## real game, and it may write the real save.
+## real game, and it may write the real saves.
 static func allow_real_save() -> void:
 	real_save_allowed = true
 
-## Whether `path` may be written, moved or deleted (see real_path). Warns
+## Slot `slot`'s file.
+static func slot_path(slot: int) -> String:
+	return "%s_slot_%d.json" % [prefix, slot]
+
+## The old single save, from before slots existed.
+static func legacy_path() -> String:
+	return prefix + ".json"
+
+## Plays slot `slot` from now on: saves go to its file only.
+static func use_slot(slot: int) -> void:
+	current_slot = clampi(slot, 1, SLOT_COUNT)
+	path = slot_path(current_slot)
+
+## Back at the menu: no slot is being played, so nothing can be saved.
+static func leave_slot() -> void:
+	current_slot = 0
+	path = ""
+
+## Whether `file_path` is one of the player's real saves (see real_prefix).
+static func _is_real(file_path: String) -> bool:
+	if file_path == real_prefix + ".json":
+		return true
+	for slot in range(1, SLOT_COUNT + 1):
+		if file_path == "%s_slot_%d.json" % [real_prefix, slot]:
+			return true
+	return false
+
+## Whether `path` may be written, moved or deleted (see real_prefix). Warns
 ## when it may not.
 static func _may_write(action: String) -> bool:
-	if path != real_path or real_save_allowed:
+	if path == "":
+		push_warning("SaveGame: refused to %s: no save slot is being played." % action)
+		return false
+	if not _is_real(path):
 		return true
-	push_warning("SaveGame: refused to %s the real save (%s) outside the real game flow. Point SaveGame.path at a test or scratch file." % [action, real_path])
+	if path == real_prefix + ".json":
+		push_warning("SaveGame: refused to %s the old single save (%s); it's only ever moved into Slot 1." % [action, path])
+		return false
+	if real_save_allowed:
+		return true
+	push_warning("SaveGame: refused to %s the real save (%s) outside the real game flow. Point SaveGame.path at a test or scratch file." % [action, path])
 	return false
+
+## Moves the old single save (legacy_path()) into Slot 1, once: only if it
+## exists and Slot 1 is empty, so no slot is ever overwritten (with Slot 1 in
+## use the old file is left where it is). The real one is only moved in the
+## real game flow. Returns whether it was moved.
+static func migrate_legacy_save() -> bool:
+	var legacy := legacy_path()
+	var target := slot_path(1)
+	if not FileAccess.file_exists(legacy) or FileAccess.file_exists(target):
+		return false
+	if _is_real(legacy) and not real_save_allowed:
+		push_warning("SaveGame: refused to move the old single save (%s) outside the real game flow." % legacy)
+		return false
+	return DirAccess.rename_absolute(legacy, target) == OK
+
+## Reads slot `slot` without choosing it or changing the career.
+static func read_slot(slot: int) -> ReadResult:
+	return read_file(slot_path(slot))
 
 enum Status { MISSING, OK, CORRUPT, WRONG_VERSION }
 
@@ -65,7 +144,7 @@ class ReadResult:
 	var saved_at: String = ""
 
 static func exists() -> bool:
-	return FileAccess.file_exists(path)
+	return path != "" and FileAccess.file_exists(path)
 
 ## The whole career, as JSON-ready data.
 static func capture() -> Dictionary:
@@ -143,11 +222,15 @@ static func save() -> bool:
 
 ## Reads `path` without changing the career. See the class doc for statuses.
 static func read() -> ReadResult:
+	return read_file(path)
+
+## Reads `file_path` without changing the career.
+static func read_file(file_path: String) -> ReadResult:
 	var result := ReadResult.new()
-	if not exists():
+	if file_path == "" or not FileAccess.file_exists(file_path):
 		return result
 	result.status = Status.CORRUPT
-	var file := FileAccess.open(path, FileAccess.READ)
+	var file := FileAccess.open(file_path, FileAccess.READ)
 	if file == null:
 		return result
 	var json := JSON.new()

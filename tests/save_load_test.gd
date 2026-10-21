@@ -2,9 +2,12 @@ extends "res://tests/support/teller_room_suite.gd"
 
 ## Save and load (SaveGame, start_screen.gd): a round trip restores every
 ## saved value, a hire saves, the room saves at clock-outs, promotions and
-## the orientation letter, Continue lands off shift in the room, unreadable saves fall back
-## to a new game, and termination and New Game delete the save. Every test
-## uses TEST_SAVE_PATH (see teller_room_suite.gd), never the real save.
+## the orientation letter; the main menu and its three save slots (each
+## saved and loaded on its own, with nothing of one career left in the
+## next), the old single save moving into Slot 1, unreadable slots, and
+## termination clearing only the slot being played. Every test uses the
+## test save files (TEST_PREFIX, see teller_room_suite.gd), never the real
+## saves.
 
 const START_SCREEN := "res://scenes/ui/start_screen.tscn"
 const INTERVIEW_SCENE := "res://scenes/ui/interview_screen.tscn"
@@ -44,7 +47,7 @@ func await_scene_change() -> Node:
 	await get_tree().process_frame
 	var scene := get_tree().current_scene
 	if scene is TellerRoom:
-		room = scene
+		adopt_room(scene as TellerRoom)
 	return scene
 
 func write_save_text(text: String) -> void:
@@ -293,45 +296,72 @@ func test_save_file_is_versioned_json() -> void:
 # --- the real save is the real game's only -----------------------------------------
 
 func test_only_the_real_game_writes_the_real_save() -> void:
-	# The real save path is a stand-in here, so even a broken guard can't touch
-	# the player's career; the real one is user://career.json.
-	assert_str(SaveGame.real_path).is_equal("user://career.json")
-	var stand_in := "user://test_real_career_guard.json"
-	SaveGame.real_path = stand_in
-	SaveGame.path = stand_in
-	for leftover: String in [stand_in, stand_in + ".tmp", stand_in + ".bad"]:
-		if FileAccess.file_exists(leftover):
-			DirAccess.remove_absolute(leftover)
+	# The real save files are stand-ins here, so even a broken guard can't
+	# touch the player's careers; the real ones are user://career_slot_<n>.json
+	# and the old single save user://career.json.
+	assert_str(SaveGame.real_prefix).is_equal("user://career")
+	var stand_in := "user://test_real_career_guard"
+	SaveGame.real_prefix = stand_in
+	SaveGame.prefix = stand_in
+	var stand_in_files: Array[String] = [SaveGame.legacy_path()]
+	for slot in range(1, SaveGame.SLOT_COUNT + 1):
+		stand_in_files.append(SaveGame.slot_path(slot))
+	for file in stand_in_files:
+		for leftover: String in [file, file + ".tmp", file + ".bad"]:
+			if FileAccess.file_exists(leftover):
+				DirAccess.remove_absolute(leftover)
+	SaveGame.use_slot(2)
+	var slot_2 := SaveGame.slot_path(2)
 
-	# Outside the real game flow, nothing writes, deletes or moves it.
+	# Outside the real game flow, nothing writes, deletes or moves a real slot.
 	assert_bool(SaveGame.real_save_allowed).is_false()
 	assert_bool(SaveGame.save()).is_false()
-	assert_bool(FileAccess.file_exists(stand_in)).is_false()
+	assert_bool(FileAccess.file_exists(slot_2)).is_false()
 	write_save_text("{\"format_version\": 1, \"career\": {}}")
 	SaveGame.delete()
-	assert_bool(FileAccess.file_exists(stand_in)).is_true()
+	assert_bool(FileAccess.file_exists(slot_2)).is_true()
 	SaveGame.set_aside()
-	assert_bool(FileAccess.file_exists(stand_in)).is_true()
-	assert_bool(FileAccess.file_exists(stand_in + ".bad")).is_false()
+	assert_bool(FileAccess.file_exists(slot_2)).is_true()
+	assert_bool(FileAccess.file_exists(slot_2 + ".bad")).is_false()
 	# A clock-out in the room doesn't write it either.
 	clock_in()
 	for i in CustomerQueue.CUSTOMERS_PER_SHIFT_CAP:
 		abandon(spawn())
 	assert_bool(clock_out()).is_true()
-	assert_str(FileAccess.get_file_as_string(stand_in)).is_equal("{\"format_version\": 1, \"career\": {}}")
+	assert_str(FileAccess.get_file_as_string(slot_2)).is_equal("{\"format_version\": 1, \"career\": {}}")
+	# Nor is the old single save moved into Slot 1.
+	SaveGame.path = SaveGame.legacy_path()
+	write_save_text("{\"format_version\": 1, \"career\": {}}")
+	assert_bool(SaveGame.migrate_legacy_save()).is_false()
+	assert_bool(FileAccess.file_exists(SaveGame.legacy_path())).is_true()
+	# No slot chosen: nothing is written anywhere.
+	SaveGame.leave_slot()
+	assert_bool(SaveGame.save()).is_false()
 
 	# Any other path is fine (the tests' own, a scratch script's).
 	SaveGame.path = TEST_SAVE_PATH
 	assert_bool(SaveGame.save()).is_true()
 
-	# The start screen starts the real game: from then on it may.
-	SaveGame.path = stand_in
+	# The start screen starts the real game: from then on it may, and the old
+	# single save moves into Slot 1 there.
 	await open_start_screen()
 	assert_bool(SaveGame.real_save_allowed).is_true()
+	assert_bool(FileAccess.file_exists(SaveGame.legacy_path())).is_false()
+	assert_bool(FileAccess.file_exists(SaveGame.slot_path(1))).is_true()
+	SaveGame.use_slot(2)
 	assert_bool(SaveGame.save()).is_true()
 	assert_bool(SaveGame.read().status == SaveGame.Status.OK).is_true()
 	SaveGame.delete()
-	assert_bool(FileAccess.file_exists(stand_in)).is_false()
+	assert_bool(FileAccess.file_exists(slot_2)).is_false()
+	# The old single save itself is never written, even in the real game.
+	SaveGame.path = SaveGame.legacy_path()
+	assert_bool(SaveGame.save()).is_false()
+	assert_bool(FileAccess.file_exists(SaveGame.legacy_path())).is_false()
+
+	for file in stand_in_files:
+		for leftover: String in [file, file + ".tmp", file + ".bad"]:
+			if FileAccess.file_exists(leftover):
+				DirAccess.remove_absolute(leftover)
 
 # --- when the room saves -------------------------------------------------------------
 
@@ -411,47 +441,131 @@ func test_being_hired_saves() -> void:
 func test_quitting_after_a_probation_hire_continues_on_probation() -> void:
 	var interview: InterviewScreen = await finish_interview(InterviewManager.PROBATION_THRESHOLD)
 	assert_int(interview.last_outcome).is_equal(InterviewManager.Outcome.HIRED_ON_PROBATION)
-	# Saved before "Start Shift" is even pressed: quit right here.
+	# Saved (into the slot being played) before "Start Shift" is even
+	# pressed: quit right here.
 	assert_bool(SaveGame.exists()).is_true()
 	CareerReset.reset_all()
 
-	# Relaunch: the start screen continues the career rather than offering the
+	# Relaunch: the slot continues the career rather than offering the
 	# interview again, and the probation comes with it.
 	interview.free()
-	var screen: StartScreen = await open_start_screen()
-	assert_bool(screen.menu_panel.visible).is_true()
-	screen.continue_button.pressed.emit()
-	var scene := await await_scene_change()
+	var screen: StartScreen = await open_slots()
+	assert_str(screen.slot_buttons[0].text).contains("Slot 1 — Teller")
+	var scene := await press_slot(screen, 1)
 	assert_object(scene).is_instanceof(TellerRoom)
 	assert_bool(InterviewManager.is_on_probation).is_true()
 	assert_int(InterviewManager.probation_clean_shifts).is_equal(0)
 	assert_int(InterviewManager.report_limit()).is_equal(InterviewManager.PROBATION_REPORTS_FOR_TERMINATION)
 	assert_str(room.describe_shift_status()).is_equal("Off shift")
 
-# --- start screen -----------------------------------------------------------------
+# --- main menu and save slots -----------------------------------------------------
 
-func test_no_save_goes_straight_to_the_interview_with_the_interview_on() -> void:
-	use_interview_setting(true)
+## Saves the current career into slot `slot` (which is then the one played).
+func save_in_slot(slot: int) -> void:
+	SaveGame.use_slot(slot)
+	assert_bool(SaveGame.save()).override_failure_message("save in slot %d" % slot).is_true()
+
+## Opens the start screen (as launching the game would) and presses Play.
+func open_slots() -> StartScreen:
+	var screen: StartScreen = await open_start_screen()
+	screen.play_button.pressed.emit()
+	return screen
+
+## Clicks slot `slot` and waits for the scene it leads to.
+func press_slot(screen: StartScreen, slot: int) -> Node:
+	screen.slot_buttons[slot - 1].pressed.emit()
+	return await await_scene_change()
+
+func slot_file_text(slot: int) -> String:
+	return FileAccess.get_file_as_string(SaveGame.slot_path(slot))
+
+## A fresh career's saved data, without the clock (the room runs it on) and
+## hints (the room shows its arrival hint), which tests check on their own.
+func fresh_career_without_clock() -> Dictionary:
+	CareerReset.reset_all()
+	var fresh := SaveGame.capture()
+	fresh.erase("clock")
+	fresh.erase("hints")
+	return fresh
+
+func current_career_without_clock() -> Dictionary:
+	var career := SaveGame.capture()
+	career.erase("clock")
+	career.erase("hints")
+	return career
+
+## Nothing of an earlier career (build_full_career()) or its room is left.
+func assert_nothing_left_over(fresh: Dictionary) -> void:
+	assert_dict(current_career_without_clock()).is_equal(fresh)
+	assert_int(ScoreManager.total_score).is_equal(0)
+	assert_int(ReputationManager.reputation).is_equal(ReputationManager.STARTING_REPUTATION)
+	assert_int(XPManager.total_xp).is_equal(0)
+	assert_bool(XPManager.is_loan_officer_unlocked).is_false()
+	assert_bool(XPManager.is_branch_manager_promotion_pending).is_false()
+	assert_array(XPManager._desks_on_shift).is_empty()
+	assert_int(ReportManager.get_report_count()).is_equal(0)
+	assert_bool(ReportManager.is_terminated).is_false()
+	assert_bool(InterviewManager.is_on_probation).is_false()
+	assert_int(RegionalManager.warnings).is_equal(0)
+	assert_int(AccountManager.get_accounts().size()).is_equal(1)
+	assert_int(StaffReviewManager.queue.size()).is_equal(0)
+	assert_bool(ScheduleManager.is_dismissed("Walter Higgins")).is_false()
+	assert_bool(HintManager.has_shown(HintManager.Hint.FIRST_CLOCK_OUT)).is_false()
+	assert_int(GameClock.day).is_equal(GameClock.START_DAY)
+	assert_float(GameClock.minutes).is_less(GameClock.START_MINUTES + 5.0)
+	assert_bool(get_tree().paused).is_false()
+	assert_str(room.describe_shift_status()).is_equal("Off shift")
+	assert_int(room.customer_queue.queue.size()).is_equal(0)
+
+func test_launch_shows_the_main_menu_and_play_shows_the_slots() -> void:
 	assert_str(str(ProjectSettings.get_setting("application/run/main_scene"))).is_equal(START_SCREEN)
-	await open_start_screen()
-	var scene := await await_scene_change()
-	assert_str(scene.scene_file_path).is_equal(INTERVIEW_SCENE)
+	var screen: StartScreen = await open_start_screen()
+	assert_bool(screen.menu_panel.visible).is_true()
+	assert_bool(screen.slot_panel.visible).is_false()
+	assert_str(screen.play_button.text).is_equal("Play")
+	assert_str(screen.quit_button.text).is_equal("Quit")
+	# Nothing was chosen or started just by opening the menu.
+	assert_int(SaveGame.current_slot).is_equal(0)
+	assert_object(get_tree().current_scene).is_same(screen)
 
-## The interview switch off (InterviewManager.INTERVIEW_ENABLED): with no
-## save the start screen offers only New Game, and a new game starts in the
-## room as a regular hired Teller, with no probation, already saved.
+	screen.play_button.pressed.emit()
+	assert_bool(screen.slot_panel.visible).is_true()
+	assert_bool(screen.menu_panel.visible).is_false()
+	assert_int(screen.slot_buttons.size()).is_equal(SaveGame.SLOT_COUNT)
+	assert_int(SaveGame.SLOT_COUNT).is_equal(3)
+	screen.back_button.pressed.emit()
+	assert_bool(screen.menu_panel.visible).is_true()
+	assert_bool(screen.slot_panel.visible).is_false()
+
+func test_empty_slots_show_new_game() -> void:
+	var screen: StartScreen = await open_slots()
+	for slot in range(1, SaveGame.SLOT_COUNT + 1):
+		assert_str(screen.slot_buttons[slot - 1].text).is_equal("Slot %d\nNew Game" % slot)
+
+func test_a_filled_slot_shows_its_role_date_and_last_played() -> void:
+	XPManager.is_loan_officer_unlocked = true
+	GameClock.day = 3
+	GameClock.minutes = 642.0 # 10:42 AM
+	save_in_slot(2)
+	var screen: StartScreen = await open_slots()
+	var text := screen.slot_buttons[1].text
+	assert_str(text).starts_with("Slot 2 — Loan Officer\n")
+	assert_str(text).contains("Day 3 · Wednesday 7 January 2026 · 10:42 AM")
+	assert_str(text).contains("\nLast played ")
+	assert_str(StartScreen.last_played_text("2026-10-21T14:05:33")).is_equal("2026-10-21 14:05")
+	# The other slots are still empty.
+	assert_str(screen.slot_buttons[0].text).is_equal("Slot 1\nNew Game")
+	assert_str(screen.slot_buttons[2].text).is_equal("Slot 3\nNew Game")
+
+## The interview switch off (InterviewManager.INTERVIEW_ENABLED): a new game
+## in an empty slot starts in the room as a regular hired Teller, with no
+## probation, already saved in that slot (and only there).
 func test_new_game_with_the_interview_off_starts_as_a_teller_without_probation() -> void:
 	use_interview_setting(false)
 	# Left over from an earlier career; a new one must not inherit it.
 	InterviewManager.is_on_probation = true
-	var screen: StartScreen = await open_start_screen()
-	assert_bool(screen.menu_panel.visible).is_true()
-	assert_bool(screen.continue_button.visible).is_false()
-	assert_str(screen.summary_label.text).is_equal(StartScreen.NO_SAVE_TEXT)
-	# Nothing to lose without a save, so no confirmation.
-	screen.new_game_button.pressed.emit()
-	assert_bool(screen.confirm_panel.visible).is_false()
-	var scene := await await_scene_change()
+	var screen: StartScreen = await open_slots()
+	var scene := await press_slot(screen, 2)
 
 	assert_object(scene).is_instanceof(TellerRoom)
 	assert_str(Hud.role_name()).is_equal("Teller")
@@ -462,64 +576,183 @@ func test_new_game_with_the_interview_off_starts_as_a_teller_without_probation()
 	assert_int(InterviewManager.report_limit()).is_equal(ReportManager.REPORTS_FOR_TERMINATION)
 	assert_bool(room.hud.probation_label.visible).is_false()
 	assert_str(room.describe_shift_status()).is_equal("Off shift")
-	# Saved straight away, like an interview hire.
-	assert_bool(SaveGame.exists()).is_true()
-	var career := SaveGame.read().career
+	# Saved straight away, like an interview hire, in slot 2 only.
+	assert_int(SaveGame.current_slot).is_equal(2)
+	assert_int(SaveGame.read_slot(2).status).is_equal(SaveGame.Status.OK)
+	assert_int(SaveGame.read_slot(1).status).is_equal(SaveGame.Status.MISSING)
+	assert_int(SaveGame.read_slot(3).status).is_equal(SaveGame.Status.MISSING)
+	var career := SaveGame.read_slot(2).career
 	assert_bool(SaveGame.dict_of(career, "interview")["is_on_probation"]).is_false()
 	assert_int(SaveGame.int_of(SaveGame.dict_of(career, "score"), "total_score", -1)).is_equal(0)
 
-func test_continue_lands_off_shift_in_the_room() -> void:
-	ScoreManager.add_shift_score(42)
+func test_new_game_with_the_interview_on_goes_to_the_interview() -> void:
+	use_interview_setting(true)
+	var screen: StartScreen = await open_slots()
+	var scene := await press_slot(screen, 3)
+	assert_str(scene.scene_file_path).is_equal(INTERVIEW_SCENE)
+	# The interview's hire will save into the slot chosen.
+	assert_int(SaveGame.current_slot).is_equal(3)
+	assert_str(SaveGame.path).is_equal(SaveGame.slot_path(3))
+	assert_bool(SaveGame.exists()).is_false()
+
+func test_each_slot_saves_and_loads_independently() -> void:
+	ScoreManager.add_shift_score(11)
+	save_in_slot(1)
+	CareerReset.reset_all()
+	ScoreManager.add_shift_score(22)
 	XPManager.is_loan_officer_unlocked = true
-	HintManager.mark_shown(HintManager.Hint.FIRST_CUSTOMER)
-	assert_bool(SaveGame.save()).is_true()
+	save_in_slot(2)
 	CareerReset.reset_all()
 
-	var screen: StartScreen = await open_start_screen()
-	assert_bool(screen.menu_panel.visible).is_true()
-	assert_bool(screen.continue_button.visible).is_true()
-	assert_str(screen.summary_label.text).contains("Loan Officer · Score 42")
-	screen.continue_button.pressed.emit()
+	var screen: StartScreen = await open_slots()
+	assert_str(screen.slot_buttons[0].text).contains("Slot 1 — Teller")
+	assert_str(screen.slot_buttons[1].text).contains("Slot 2 — Loan Officer")
+	assert_str(screen.slot_buttons[2].text).is_equal("Slot 3\nNew Game")
+	var slot_1_text := slot_file_text(1)
+
+	await press_slot(screen, 2)
+	assert_int(SaveGame.current_slot).is_equal(2)
+	assert_int(ScoreManager.total_score).is_equal(22)
+	assert_bool(XPManager.is_loan_officer_unlocked).is_true()
+	# Playing slot 2 saves to slot 2 only.
+	ScoreManager.add_shift_score(5)
+	room.save_career()
+	assert_int(SaveGame.int_of(SaveGame.dict_of(SaveGame.read_slot(2).career, "score"), "total_score", -1)).is_equal(27)
+	assert_str(slot_file_text(1)).is_equal(slot_1_text)
+	assert_int(SaveGame.read_slot(3).status).is_equal(SaveGame.Status.MISSING)
+
+	# And slot 1 still loads as it was.
+	room.pause_menu.go_to_main_menu(false)
+	var menu := await await_scene_change() as StartScreen
+	menu.play_button.pressed.emit()
+	await press_slot(menu, 1)
+	assert_int(SaveGame.current_slot).is_equal(1)
+	assert_int(ScoreManager.total_score).is_equal(11)
+	assert_bool(XPManager.is_loan_officer_unlocked).is_false()
+
+## Slot 1 holds a career with something in everything, and is played mid-
+## shift; then, via the pause menu, slot 2 (a fresh career) is loaded: none
+## of slot 1's career, nor its room's shift, may be left.
+func test_loading_slot_2_after_slot_1_leaves_no_leftover_state() -> void:
+	var fresh := fresh_career_without_clock()
+	save_in_slot(2) # a fresh career
+	build_full_career()
+	# The business day on the career's day (build_full_career() moves the
+	# clock only), so the loaded room doesn't end the day straight away.
+	BusinessDay.stats_day = GameClock.day
+	save_in_slot(1)
+	CareerReset.reset_all()
+
+	var screen: StartScreen = await open_slots()
+	await press_slot(screen, 1)
+	assert_int(ScoreManager.total_score).is_equal(137)
+	assert_bool(get_tree().paused).is_false()
+	# Mid-shift: clocked in at Loan Desk 1 (this career has Teller Window 3
+	# staffed, so the teller window isn't the player's), with customers in
+	# the staff lines and the cover teller's.
+	room._on_loan_officer_desk_interacted()
+	room.loan_officer_screen.clock_in_button.pressed.emit()
+	room.loan_officer_screen.close_button.pressed.emit()
+	assert_bool(room.is_player_on_shift()).is_true()
+	assert_array(XPManager._desks_on_shift).is_not_empty()
+
+	# Esc -> Back to Main Menu -> (on shift: confirm) -> slot 2.
+	room.pause_menu.open()
+	room.pause_menu.main_menu_button.pressed.emit()
+	room.pause_menu.confirm_button.pressed.emit()
+	var menu := await await_scene_change() as StartScreen
+	assert_object(menu).is_not_null()
+	assert_int(SaveGame.current_slot).is_equal(0)
+	menu.play_button.pressed.emit()
+	await press_slot(menu, 2)
+
+	assert_int(SaveGame.current_slot).is_equal(2)
+	assert_nothing_left_over(fresh)
+	# Slot 1 kept its last save (the shift was never saved).
+	assert_int(SaveGame.int_of(SaveGame.dict_of(SaveGame.read_slot(1).career, "score"), "total_score", -1)).is_equal(137)
+
+func test_a_new_game_after_another_slot_leaves_no_leftover_state() -> void:
+	var fresh := fresh_career_without_clock()
+	build_full_career()
+	save_in_slot(1)
+	CareerReset.reset_all()
+	use_interview_setting(false)
+
+	var screen: StartScreen = await open_slots()
+	await press_slot(screen, 1)
+	assert_int(ScoreManager.total_score).is_equal(137)
+	room.pause_menu.go_to_main_menu(true)
+	var menu := await await_scene_change() as StartScreen
+	menu.play_button.pressed.emit()
+	await press_slot(menu, 3)
+
+	assert_int(SaveGame.current_slot).is_equal(3)
+	assert_nothing_left_over(fresh)
+
+# --- the old single save --------------------------------------------------------------
+
+func test_the_old_single_save_moves_into_slot_1() -> void:
+	ScoreManager.add_shift_score(64)
+	XPManager.is_loan_officer_unlocked = true
+	SaveGame.path = SaveGame.legacy_path()
+	assert_bool(SaveGame.save()).is_true()
+	var old_text := FileAccess.get_file_as_string(SaveGame.legacy_path())
+	CareerReset.reset_all()
+
+	var screen: StartScreen = await open_slots()
+	assert_bool(FileAccess.file_exists(SaveGame.legacy_path())).is_false()
+	assert_str(slot_file_text(1)).is_equal(old_text)
+	assert_str(screen.slot_buttons[0].text).contains("Slot 1 — Loan Officer")
+	assert_str(screen.slot_buttons[1].text).is_equal("Slot 2\nNew Game")
+	assert_str(screen.slot_buttons[2].text).is_equal("Slot 3\nNew Game")
+	await press_slot(screen, 1)
+	assert_int(ScoreManager.total_score).is_equal(64)
+
+	# Only once: with no old save left, nothing more happens.
+	assert_bool(SaveGame.migrate_legacy_save()).is_false()
+
+func test_the_old_single_save_never_overwrites_slot_1() -> void:
+	ScoreManager.add_shift_score(1)
+	save_in_slot(1)
+	var slot_1_text := slot_file_text(1)
+	ScoreManager.add_shift_score(1)
+	SaveGame.path = SaveGame.legacy_path()
+	assert_bool(SaveGame.save()).is_true()
+
+	assert_bool(SaveGame.migrate_legacy_save()).is_false()
+	assert_str(slot_file_text(1)).is_equal(slot_1_text)
+	assert_bool(FileAccess.file_exists(SaveGame.legacy_path())).is_true()
+
+# --- unreadable slots ------------------------------------------------------------------
+
+func write_slot_text(slot: int, text: String) -> void:
+	var file := FileAccess.open(SaveGame.slot_path(slot), FileAccess.WRITE)
+	file.store_string(text)
+	file.close()
+
+func test_a_damaged_slot_offers_a_new_game_and_keeps_the_file() -> void:
+	use_interview_setting(false)
+	write_slot_text(2, "{\"format_version\": 1, \"career\": {\"score\": ")
+	write_slot_text(3, JSON.stringify({"format_version": SaveGame.FORMAT_VERSION + 1, "career": {}}))
+	var screen: StartScreen = await open_slots()
+	assert_str(screen.slot_buttons[1].text).is_equal("Slot 2\nDamaged save (can't be loaded)")
+	assert_str(screen.slot_buttons[2].text).is_equal("Slot 3\nSaved by another version of BankSim (can't be loaded)")
+
+	screen.slot_buttons[2].pressed.emit()
+	assert_bool(screen.message_panel.visible).is_true()
+	assert_str(screen.message_label.text).is_equal(StartScreen.WRONG_VERSION_MESSAGE % 3)
+	screen.message_back_button.pressed.emit()
+	assert_bool(screen.slot_panel.visible).is_true()
+
+	screen.slot_buttons[1].pressed.emit()
+	assert_str(screen.message_label.text).is_equal(StartScreen.DAMAGED_MESSAGE % 2)
+	screen.message_new_game_button.pressed.emit()
 	var scene := await await_scene_change()
 	assert_object(scene).is_instanceof(TellerRoom)
-
-	assert_int(ScoreManager.total_score).is_equal(42)
-	assert_bool(XPManager.is_loan_officer_unlocked).is_true()
-	assert_str(room.describe_shift_status()).is_equal("Off shift")
-	assert_int(room.teller_screen.shift_state).is_equal(TellerScreen.ShiftState.CLOCKED_OUT)
-	assert_bool(room.loan_officer_screen.is_clocked_in()).is_false()
-	assert_array(XPManager._desks_on_shift).is_empty()
-	assert_bool(get_tree().paused).is_false()
-	# The arrival hint was seen in the saved career, so it isn't shown again.
-	assert_int(room.hud.current_hint).is_equal(-1)
-	# Continue doesn't save by itself; the next clock-out will.
-	assert_bool(SaveGame.exists()).is_true()
-
-func test_continue_restores_a_branch_managers_branch() -> void:
-	XPManager._grant_branch_manager()
-	acknowledge_letters()
-	StaffReviewManager.staff_reports["Derek Voss"] = PackedStringArray(["a", "b", "c"])
-	assert_bool(StaffReviewManager.terminate("Derek Voss")).is_true()
-	acknowledge_letters()
-	ScheduleManager.confirm_schedule({
-		ScheduleManager.SLOT_TELLER_WINDOW_1: roster_member("Nina Ortiz"),
-		ScheduleManager.SLOT_LOAN_DESK_1: roster_member("Marcus Chen"),
-	})
-	assert_bool(SaveGame.save()).is_true()
-	CareerReset.reset_all()
-
-	var screen: StartScreen = await open_start_screen()
-	assert_str(screen.summary_label.text).contains("Branch Manager")
-	screen.continue_button.pressed.emit()
-	await await_scene_change()
-
-	assert_bool(room.branch_manager_desk.visible).is_true()
-	assert_bool(ScheduleManager.is_dismissed("Derek Voss")).is_true()
-	assert_array(room._staff_by_slot.keys()).contains_exactly_in_any_order([ScheduleManager.SLOT_TELLER_WINDOW_1, ScheduleManager.SLOT_LOAN_DESK_1])
-	assert_str(room._staff_by_slot[ScheduleManager.SLOT_TELLER_WINDOW_1].staff.staff_name).is_equal("Nina Ortiz")
-	# No promotion letter again: the career already had it.
-	assert_bool(room.letter_screen.visible).is_false()
-	assert_str(room.interaction_prompt_text(room.teller_desk)).is_equal(TellerRoom.UNASSIGNED_DESK_TEXT)
+	assert_int(SaveGame.current_slot).is_equal(2)
+	assert_bool(FileAccess.file_exists(SaveGame.slot_path(2) + ".bad")).is_true()
+	assert_int(SaveGame.read_slot(2).status).is_equal(SaveGame.Status.OK)
+	assert_int(SaveGame.read_slot(3).status).is_equal(SaveGame.Status.WRONG_VERSION)
 
 # --- unreadable saves -------------------------------------------------------------
 
@@ -540,47 +773,6 @@ func test_unreadable_saves_are_reported() -> void:
 		assert_int(SaveGame.read().status).override_failure_message("read of %s" % text).is_equal(cases[text])
 	SaveGame.delete()
 	assert_int(SaveGame.read().status).is_equal(SaveGame.Status.MISSING)
-
-func test_corrupt_save_falls_back_to_a_new_game() -> void:
-	use_interview_setting(true)
-	write_save_text("{\"format_version\": 1, \"career\": {\"score\": ")
-	ScoreManager.add_shift_score(10)
-	var screen: StartScreen = await open_start_screen()
-	assert_bool(screen.message_panel.visible).is_true()
-	assert_bool(screen.menu_panel.visible).is_false()
-	assert_str(screen.message_label.text).is_equal(StartScreen.CORRUPT_MESSAGE)
-	screen.message_ok_button.pressed.emit()
-	var scene := await await_scene_change()
-	assert_str(scene.scene_file_path).is_equal(INTERVIEW_SCENE)
-	assert_int(ScoreManager.total_score).is_equal(0)
-	# Set aside, so the new career's first save doesn't overwrite it.
-	assert_bool(SaveGame.exists()).is_false()
-	assert_bool(FileAccess.file_exists(TEST_SAVE_PATH + ".bad")).is_true()
-
-## With the interview off the fallback new game starts in the room, and its
-## first save sits beside the set-aside bad file rather than overwriting it.
-func test_corrupt_save_with_the_interview_off_starts_a_new_teller() -> void:
-	use_interview_setting(false)
-	write_save_text("{\"format_version\": 1, \"career\": {\"score\": ")
-	var screen: StartScreen = await open_start_screen()
-	assert_bool(screen.message_panel.visible).is_true()
-	screen.message_ok_button.pressed.emit()
-	var scene := await await_scene_change()
-	assert_object(scene).is_instanceof(TellerRoom)
-	assert_bool(InterviewManager.is_on_probation).is_false()
-	assert_bool(FileAccess.file_exists(TEST_SAVE_PATH + ".bad")).is_true()
-	assert_int(SaveGame.read().status).is_equal(SaveGame.Status.OK)
-
-func test_wrong_version_falls_back_to_a_new_game() -> void:
-	use_interview_setting(true)
-	write_save_text(JSON.stringify({"format_version": SaveGame.FORMAT_VERSION + 1, "career": {"score": {"total_score": 99}}}))
-	var screen: StartScreen = await open_start_screen()
-	assert_str(screen.message_label.text).is_equal(StartScreen.WRONG_VERSION_MESSAGE)
-	screen.message_ok_button.pressed.emit()
-	var scene := await await_scene_change()
-	assert_str(scene.scene_file_path).is_equal(INTERVIEW_SCENE)
-	assert_int(ScoreManager.total_score).is_equal(0)
-	assert_bool(SaveGame.exists()).is_false()
 
 func test_mistyped_values_load_as_new_game_defaults() -> void:
 	CareerReset.reset_all()
@@ -636,41 +828,59 @@ func test_termination_deletes_the_save() -> void:
 	var scene := await await_scene_change()
 	assert_str(scene.scene_file_path).is_equal(INTERVIEW_SCENE)
 
-## With the interview off, New Game over a save still asks first, then
-## replaces the career with a fresh Teller's (saved at once).
-func test_new_game_over_a_save_with_the_interview_off_starts_a_fresh_teller() -> void:
+## With the interview off: fired while playing slot 2, the letter clears
+## slot 2 only; its button wipes the career and lands on the slot screen,
+## where slot 2 offers New Game and slots 1 and 3 are exactly as they were.
+## Starting slot 2 again begins a career with nothing of the fired one.
+func test_firing_in_slot_2_clears_only_slot_2() -> void:
 	use_interview_setting(false)
-	ScoreManager.add_shift_score(25)
+	var fresh := fresh_career_without_clock()
+	ScoreManager.add_shift_score(11)
+	save_in_slot(1)
+	CareerReset.reset_all()
+	ScoreManager.add_shift_score(33)
 	XPManager.is_loan_officer_unlocked = true
-	assert_bool(SaveGame.save()).is_true()
-	var screen: StartScreen = await open_start_screen()
-	assert_bool(screen.continue_button.visible).is_true()
-	screen.new_game_button.pressed.emit()
-	assert_bool(screen.confirm_panel.visible).is_true()
-	screen.confirm_button.pressed.emit()
-	var scene := await await_scene_change()
-	assert_object(scene).is_instanceof(TellerRoom)
+	save_in_slot(3)
+	CareerReset.reset_all()
+	var slot_1_text := slot_file_text(1)
+	var slot_3_text := slot_file_text(3)
+
+	# Play slot 2: a career with progress, saved, then fired.
+	var screen: StartScreen = await open_slots()
+	await press_slot(screen, 2)
+	letters = room.get_node("UI/DisciplineLetterScreen")
+	ScoreManager.add_shift_score(77)
+	room.save_career()
+	assert_int(SaveGame.read_slot(2).status).is_equal(SaveGame.Status.OK)
+	for i in ReportManager.MISTAKES_PER_REPORT * ReportManager.REPORTS_FOR_TERMINATION:
+		ReportManager.record_mistake(DecisionRecord.Role.TELLER, "Customer %d" % i)
+		acknowledge_letters()
+	assert_bool(ReportManager.is_terminated).is_true()
+	assert_str(letters.title_label.text).is_equal("Notice of Termination")
+	assert_str(letters.action_button.text).is_equal(DisciplineLetterScreen.GAME_OVER_BUTTON_TEXT)
+	# Cleared as soon as the letter is up (quitting here can't undo it), and
+	# only slot 2.
+	assert_int(SaveGame.read_slot(2).status).is_equal(SaveGame.Status.MISSING)
+	assert_str(slot_file_text(1)).is_equal(slot_1_text)
+	assert_str(slot_file_text(3)).is_equal(slot_3_text)
+
+	letters.action_button.pressed.emit()
+	var menu := await await_scene_change() as StartScreen
+	assert_object(menu).is_not_null()
+	assert_bool(menu.slot_panel.visible).is_true()
+	assert_str(menu.slot_buttons[1].text).is_equal("Slot 2\nNew Game")
+	assert_str(menu.slot_buttons[0].text).contains("Slot 1 — Teller")
+	assert_str(menu.slot_buttons[2].text).contains("Slot 3 — Loan Officer")
+	assert_str(slot_file_text(1)).is_equal(slot_1_text)
+	assert_str(slot_file_text(3)).is_equal(slot_3_text)
+	assert_int(SaveGame.read_slot(2).status).is_equal(SaveGame.Status.MISSING)
+	assert_int(SaveGame.current_slot).is_equal(0)
+	assert_bool(ReportManager.is_terminated).is_false()
 	assert_int(ScoreManager.total_score).is_equal(0)
-	assert_bool(XPManager.is_loan_officer_unlocked).is_false()
-	assert_bool(InterviewManager.is_on_probation).is_false()
-	assert_int(SaveGame.int_of(SaveGame.dict_of(SaveGame.read().career, "score"), "total_score", -1)).is_equal(0)
 
-func test_new_game_asks_then_deletes_the_save() -> void:
-	use_interview_setting(true)
-	ScoreManager.add_shift_score(25)
-	assert_bool(SaveGame.save()).is_true()
-	var screen: StartScreen = await open_start_screen()
-
-	screen.new_game_button.pressed.emit()
-	assert_bool(screen.confirm_panel.visible).is_true()
-	assert_bool(screen.menu_panel.visible).is_false()
-	screen.cancel_button.pressed.emit()
-	assert_bool(screen.menu_panel.visible).is_true()
-	assert_bool(SaveGame.exists()).is_true()
-
-	screen.new_game_button.pressed.emit()
-	screen.confirm_button.pressed.emit()
-	assert_bool(SaveGame.exists()).is_false()
-	var scene := await await_scene_change()
-	assert_str(scene.scene_file_path).is_equal(INTERVIEW_SCENE)
-	assert_int(ScoreManager.total_score).is_equal(0)
+	# A new career in slot 2 starts clean.
+	await press_slot(menu, 2)
+	assert_int(SaveGame.current_slot).is_equal(2)
+	assert_nothing_left_over(fresh)
+	assert_str(slot_file_text(1)).is_equal(slot_1_text)
+	assert_str(slot_file_text(3)).is_equal(slot_3_text)

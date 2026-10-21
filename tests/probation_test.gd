@@ -52,15 +52,18 @@ func hud_text(label: Label) -> String:
 # --- opening scene ---------------------------------------------------------------
 
 func test_new_game_starts_at_the_interview_and_hiring_starts_the_career() -> void:
-	# With the interview on, the game opens on the start screen, which goes
-	# straight on to the interview when there's no save (save_load_test.gd
-	# covers the rest).
+	# With the interview on, the game opens on the main menu, and a new game
+	# in an empty slot goes on to the interview (save_load_test.gd covers the
+	# rest).
 	use_interview_setting(true)
 	assert_str(str(ProjectSettings.get_setting("application/run/main_scene"))).is_equal(START_SCREEN)
 	room.free()
 	var start: StartScreen = (load(START_SCREEN) as PackedScene).instantiate()
 	get_tree().root.add_child(start)
 	get_tree().current_scene = start
+	await get_tree().process_frame
+	start.play_button.pressed.emit()
+	start.slot_buttons[0].pressed.emit()
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var interview := get_tree().current_scene as InterviewScreen

@@ -201,7 +201,7 @@ func test_the_clock_is_saved_and_shown_on_the_start_screen() -> void:
 	assert_dict(SaveGame.capture()).is_equal(saved_career)
 	assert_int(GameClock.day).is_equal(5)
 	assert_float(GameClock.minutes).is_equal(14 * 60 + 7.5)
-	assert_str(StartScreen.describe(SaveGame.read())).contains("Day 5, Fri 9 Jan, 2:07 PM")
+	assert_str(StartScreen.slot_text(1, SaveGame.read())).contains("Day 5 · Friday 9 January 2026 · 2:07 PM")
 	# A save from before the clock existed starts the career's clock afresh.
 	SaveGame.restore({})
 	assert_str(GameClock.timestamp()).is_equal("Day 1, Mon 5 Jan, 8:30 AM")

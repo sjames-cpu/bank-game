@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/start_screen.gd" id="screen_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
 
 [node name="StartScreen" type="Control"]
 layout_mode = 3
@@ -9,6 +10,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("banking_theme")
 script = ExtResource("screen_script")
 
 [node name="Backdrop" type="ColorRect" parent="."]
@@ -27,38 +29,43 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -110.0
-offset_right = 220.0
-offset_bottom = 110.0
+offset_left = -180.0
+offset_top = -120.0
+offset_right = 180.0
+offset_bottom = 120.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="MenuPanel"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="TitleLabel" type="Label" parent="MenuPanel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 36
 text = "BankSim"
 horizontal_alignment = 1
 
-[node name="SummaryLabel" type="Label" parent="MenuPanel/VBox"]
+[node name="SubtitleLabel" type="Label" parent="MenuPanel/VBox"]
 layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "A day at the branch"
 horizontal_alignment = 1
-autowrap_mode = 3
 
-[node name="ContinueButton" type="Button" parent="MenuPanel/VBox"]
+[node name="PlayButton" type="Button" parent="MenuPanel/VBox"]
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-text = "Continue"
+theme_type_variation = &"PrimaryButton"
+theme_override_font_sizes/font_size = 20
+text = "Play"
 
-[node name="NewGameButton" type="Button" parent="MenuPanel/VBox"]
+[node name="QuitButton" type="Button" parent="MenuPanel/VBox"]
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
-text = "New Game"
+text = "Quit"
 
-[node name="ConfirmPanel" type="PanelContainer" parent="."]
+[node name="SlotPanel" type="PanelContainer" parent="."]
 visible = false
 layout_mode = 1
 anchors_preset = 8
@@ -66,31 +73,47 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -90.0
-offset_right = 220.0
-offset_bottom = 90.0
+offset_left = -280.0
+offset_top = -250.0
+offset_right = 280.0
+offset_bottom = 250.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBox" type="VBoxContainer" parent="ConfirmPanel"]
+[node name="VBox" type="VBoxContainer" parent="SlotPanel"]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="QuestionLabel" type="Label" parent="ConfirmPanel/VBox"]
+[node name="TitleLabel" type="Label" parent="SlotPanel/VBox"]
 layout_mode = 2
-text = "Start a new game? Your saved career will be deleted. This can't be undone."
+theme_type_variation = &"HeaderLabel"
+theme_override_font_sizes/font_size = 24
+text = "Choose a Save Slot"
 horizontal_alignment = 1
-autowrap_mode = 3
 
-[node name="ConfirmButton" type="Button" parent="ConfirmPanel/VBox"]
+[node name="Slot1Button" type="Button" parent="SlotPanel/VBox"]
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
-text = "Delete Save and Start Over"
+text = "Slot 1
+New Game"
 
-[node name="CancelButton" type="Button" parent="ConfirmPanel/VBox"]
+[node name="Slot2Button" type="Button" parent="SlotPanel/VBox"]
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
-text = "Cancel"
+text = "Slot 2
+New Game"
+
+[node name="Slot3Button" type="Button" parent="SlotPanel/VBox"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+text = "Slot 3
+New Game"
+
+[node name="BackButton" type="Button" parent="SlotPanel/VBox"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "Back"
 
 [node name="MessagePanel" type="PanelContainer" parent="."]
 visible = false
@@ -100,10 +123,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -90.0
-offset_right = 220.0
-offset_bottom = 90.0
+offset_left = -240.0
+offset_top = -110.0
+offset_right = 240.0
+offset_bottom = 110.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -117,6 +140,11 @@ layout_mode = 2
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="OkButton" type="Button" parent="MessagePanel/VBox"]
+[node name="NewGameButton" type="Button" parent="MessagePanel/VBox"]
 layout_mode = 2
-text = "OK"
+theme_type_variation = &"PrimaryButton"
+text = "Start a New Game Here"
+
+[node name="BackButton" type="Button" parent="MessagePanel/VBox"]
+layout_mode = 2
+text = "Back"

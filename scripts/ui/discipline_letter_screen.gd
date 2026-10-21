@@ -23,21 +23,24 @@ class_name DisciplineLetterScreen
 ## or dragging) while the title, sender and button stay visible, and a short
 ## letter shrinks to its text.
 ##
-## The termination letter's only button wipes all career progress
-## (CareerReset) and its save (SaveGame, already deleted when the letter came
-## up). Where it goes depends on InterviewManager.interview_enabled: with the
-## interview on it reads "Apply for a new job" and loads the interview, whose
-## hire starts a new career in teller_room (interview_screen.gd); with it off
-## the letter adds that this is game over, and "Back to Start Screen" opens
-## the start screen, which offers New Game (there's no save any more).
+## Termination deletes the current save slot's file (SaveGame.delete(): that
+## slot only, never the other slots) as soon as the letter comes up, so
+## quitting at the letter can't bring the career back, and again when its
+## only button is pressed, which also wipes all career progress
+## (CareerReset). Where the button goes depends on
+## InterviewManager.interview_enabled: with the interview off the letter adds
+## that this is game over, and "Back to Save Slots" opens the slot screen
+## (start_screen.gd), where that slot now offers "New Game"; with it on it
+## reads "Apply for a new job" and loads the interview, whose hire starts a
+## new career in the same slot (interview_screen.gd).
 
 const INTERVIEW_SCENE: String = "res://scenes/ui/interview_screen.tscn"
 const START_SCREEN: String = "res://scenes/ui/start_screen.tscn"
 
 ## The termination letter's button and last paragraph, by interview setting.
 const NEW_JOB_BUTTON_TEXT: String = "Apply for a new job"
-const GAME_OVER_BUTTON_TEXT: String = "Back to Start Screen"
-const GAME_OVER_TEXT: String = "Game over: your career at the branch has ended, and your saved career has been deleted. You can start a new game from the start screen."
+const GAME_OVER_BUTTON_TEXT: String = "Back to Save Slots"
+const GAME_OVER_TEXT: String = "Game over: your career at the branch has ended, and this save slot has been cleared. Your other save slots are untouched. You can start a new game in this slot from the save slots."
 
 const WARNING_BACKDROP: Color = Color(0, 0, 0, 0.6)
 const TERMINATION_BACKDROP: Color = Color(0.08, 0.08, 0.1, 1)
@@ -251,15 +254,22 @@ func _on_body_scroll_input(event: InputEvent) -> void:
 		body_scroll.accept_event()
 
 ## The termination letter's button: "Apply for a new job" with the interview
-## on, "Back to Start Screen" (game over) with it off.
+## on, "Back to Save Slots" (game over) with it off.
 static func termination_button_text() -> String:
 	return NEW_JOB_BUTTON_TEXT if InterviewManager.interview_enabled else GAME_OVER_BUTTON_TEXT
 
+## Clears the current slot only, wipes the career, and moves on (see the
+## class doc). The start screen resets the career again when it opens.
 func _end_career() -> void:
 	get_tree().paused = false
 	SaveGame.delete()
 	CareerReset.reset_all()
-	get_tree().change_scene_to_file(INTERVIEW_SCENE if InterviewManager.interview_enabled else START_SCREEN)
+	if InterviewManager.interview_enabled:
+		get_tree().change_scene_to_file(INTERVIEW_SCENE)
+		return
+	SaveGame.leave_slot()
+	StartScreen.next_view = StartScreen.View.SLOTS
+	get_tree().change_scene_to_file(START_SCREEN)
 
 func _bullets(items: PackedStringArray) -> String:
 	var lines: PackedStringArray = []

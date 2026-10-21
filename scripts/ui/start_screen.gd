@@ -1,129 +1,191 @@
 extends Control
 class_name StartScreen
 
-## The game's main scene. With a save it offers "Continue" (restore the
-## career, SaveGame.restore(), and walk into teller_room off shift) and "New
-## Game" (after a confirmation, delete the save and start a new career). A
-## save that can't be read (damaged, or another version) never stops the
-## game: a short message, then a new game, with the bad file set aside
-## (SaveGame.set_aside()).
+## The game's main scene: the main menu ("Play", "Quit") and the save slot
+## screen behind Play (SaveGame.SLOT_COUNT slots, and "Back").
+##
+## A slot with a career shows its role, its in-game day and date, and when
+## it was last played (saved); clicking it loads that career
+## (SaveGame.restore()) and walks into teller_room off shift. An empty slot
+## shows "New Game" and starts a new career in it. A slot whose save can't
+## be read (damaged, or another version) says so; clicking it offers a new
+## game there, with the bad file set aside beside it (SaveGame.set_aside()).
+## There's no delete or overwrite of a working save.
+##
+## Every slot is its own file: choosing one calls SaveGame.use_slot(), so the
+## career saves to that slot only.
 ##
 ## How a new career starts depends on InterviewManager.interview_enabled
-## (the INTERVIEW_ENABLED switch). With the interview on, it starts at the
-## interview, and with no save this screen goes straight there. With it
-## off, the player is hired at once as a regular Teller (no probation),
-## saved, and walks into teller_room; with no save this screen shows its
-## menu with only "New Game" (also where a termination's game over lands).
+## (the INTERVIEW_ENABLED switch): with the interview off the player is hired
+## at once as a regular Teller (no probation), saved, and walks into the
+## room; with it on, the new career starts at the interview.
+##
+## No leftover state: whenever this screen opens (at launch, "Back to Main
+## Menu" from the pause menu, or after a termination) it unpauses the game,
+## leaves the slot and resets the whole career (CareerReset), so nothing of
+## the career just left can reach the next one.
 
 const INTERVIEW_SCENE: String = "res://scenes/ui/interview_screen.tscn"
 const TELLER_ROOM_SCENE: String = "res://scenes/world/teller_room.tscn"
 
-## The menu's summary when there's no saved career (interview off).
-const NO_SAVE_TEXT: String = "No saved career. Start a new game as a teller at the branch."
+enum View { MAIN_MENU, SLOTS }
 
-const CORRUPT_MESSAGE: String = "Your saved career couldn't be loaded: the save file is damaged.\n\nStarting a new game."
-const WRONG_VERSION_MESSAGE: String = "Your saved career is from a different version of BankSim and can't be loaded.\n\nStarting a new game."
+## The view the next start screen opens on, consumed when it opens:
+## termination sets SLOTS (discipline_letter_screen.gd), so the player lands
+## on the slot screen, where that slot now offers "New Game".
+static var next_view: View = View.MAIN_MENU
+
+const DAMAGED_MESSAGE: String = "The save in Slot %d is damaged and can't be loaded.\n\nStart a new game in this slot? The damaged file is kept beside it, renamed to end in .bad."
+const WRONG_VERSION_MESSAGE: String = "The save in Slot %d is from a different version of BankSim and can't be loaded.\n\nStart a new game in this slot? The old file is kept beside it, renamed to end in .bad."
 
 @onready var menu_panel: PanelContainer = $MenuPanel
-@onready var summary_label: Label = $MenuPanel/VBox/SummaryLabel
-@onready var continue_button: Button = $MenuPanel/VBox/ContinueButton
-@onready var new_game_button: Button = $MenuPanel/VBox/NewGameButton
+@onready var play_button: Button = $MenuPanel/VBox/PlayButton
+@onready var quit_button: Button = $MenuPanel/VBox/QuitButton
 
-@onready var confirm_panel: PanelContainer = $ConfirmPanel
-@onready var confirm_button: Button = $ConfirmPanel/VBox/ConfirmButton
-@onready var cancel_button: Button = $ConfirmPanel/VBox/CancelButton
+@onready var slot_panel: PanelContainer = $SlotPanel
+@onready var slot_buttons: Array[Button] = [
+	$SlotPanel/VBox/Slot1Button,
+	$SlotPanel/VBox/Slot2Button,
+	$SlotPanel/VBox/Slot3Button,
+]
+@onready var back_button: Button = $SlotPanel/VBox/BackButton
 
 @onready var message_panel: PanelContainer = $MessagePanel
 @onready var message_label: Label = $MessagePanel/VBox/MessageLabel
-@onready var message_ok_button: Button = $MessagePanel/VBox/OkButton
+@onready var message_new_game_button: Button = $MessagePanel/VBox/NewGameButton
+@onready var message_back_button: Button = $MessagePanel/VBox/BackButton
 
-## What SaveGame.read() found at startup.
-var saved: SaveGame.ReadResult
+## What SaveGame.read_slot() found for each slot (index slot - 1), as shown.
+var slot_results: Array[SaveGame.ReadResult] = []
+
+## The unreadable slot the message panel is asking about.
+var _message_slot: int = 0
 
 func _ready() -> void:
-	# The real game starts here, so from now on it may write the real save
-	# (SaveGame.real_path). Nothing else turns this on.
+	# The real game starts here, so from now on it may write the real saves
+	# (SaveGame.real_prefix). Nothing else turns this on.
 	SaveGame.allow_real_save()
-	continue_button.pressed.connect(_on_continue_pressed)
-	new_game_button.pressed.connect(_on_new_game_pressed)
-	confirm_button.pressed.connect(_on_confirm_new_game_pressed)
-	cancel_button.pressed.connect(_show_only.bind(menu_panel))
-	message_ok_button.pressed.connect(_on_message_ok_pressed)
-	_show_only(null)
+	# Nothing of a previous career survives the menu.
+	get_tree().paused = false
+	SaveGame.leave_slot()
+	CareerReset.reset_all()
+	# The single save from before slots becomes Slot 1 (only if Slot 1 is free).
+	SaveGame.migrate_legacy_save()
 
-	saved = SaveGame.read()
-	match saved.status:
+	play_button.pressed.connect(show_slots)
+	quit_button.pressed.connect(_on_quit_pressed)
+	for i in slot_buttons.size():
+		slot_buttons[i].pressed.connect(_on_slot_pressed.bind(i + 1))
+	back_button.pressed.connect(show_main_menu)
+	message_new_game_button.pressed.connect(_on_message_new_game_pressed)
+	message_back_button.pressed.connect(show_slots)
+
+	var view := next_view
+	next_view = View.MAIN_MENU
+	if view == View.SLOTS:
+		show_slots()
+	else:
+		show_main_menu()
+
+func show_main_menu() -> void:
+	_show_only(menu_panel)
+	play_button.grab_focus()
+
+## Reads every slot afresh and shows them.
+func show_slots() -> void:
+	slot_results.clear()
+	for slot in range(1, SaveGame.SLOT_COUNT + 1):
+		var result := SaveGame.read_slot(slot)
+		slot_results.append(result)
+		slot_buttons[slot - 1].text = slot_text(slot, result)
+	_show_only(slot_panel)
+	slot_buttons[0].grab_focus()
+
+## A slot button's text: "Slot 1 — Loan Officer" with the in-game day and
+## date and when it was last played, or "New Game" for an empty slot.
+static func slot_text(slot: int, result: SaveGame.ReadResult) -> String:
+	match result.status:
 		SaveGame.Status.MISSING:
-			if InterviewManager.interview_enabled:
-				# Deferred: the tree is still adding this scene.
-				_start_new_career.call_deferred()
-			else:
-				summary_label.text = NO_SAVE_TEXT
-				continue_button.visible = false
-				_show_only(menu_panel)
+			return "Slot %d\nNew Game" % slot
 		SaveGame.Status.OK:
-			summary_label.text = describe(saved)
-			_show_only(menu_panel)
+			var text := "Slot %d — %s\n%s" % [slot, role_of(result.career), game_date_of(result.career)]
+			if result.saved_at != "":
+				text += "\nLast played %s" % last_played_text(result.saved_at)
+			return text
 		SaveGame.Status.WRONG_VERSION:
-			message_label.text = WRONG_VERSION_MESSAGE
-			_show_only(message_panel)
+			return "Slot %d\nSaved by another version of BankSim (can't be loaded)" % slot
 		_:
-			message_label.text = CORRUPT_MESSAGE
-			_show_only(message_panel)
+			return "Slot %d\nDamaged save (can't be loaded)" % slot
 
-## "Saved career: Loan Officer · Score 120 · Reputation 55", plus when.
-static func describe(result: SaveGame.ReadResult) -> String:
-	var xp := SaveGame.dict_of(result.career, "xp")
-	var role := "Teller"
+## The saved career's highest role.
+static func role_of(career: Dictionary) -> String:
+	var xp := SaveGame.dict_of(career, "xp")
 	if SaveGame.bool_of(xp, "is_branch_manager_unlocked", false):
-		role = "Branch Manager"
-	elif SaveGame.bool_of(xp, "is_loan_officer_unlocked", false):
-		role = "Loan Officer"
-	var score := SaveGame.int_of(SaveGame.dict_of(result.career, "score"), "total_score", 0)
-	var reputation := SaveGame.int_of(SaveGame.dict_of(result.career, "reputation"), "reputation", ReputationManager.STARTING_REPUTATION)
-	var text := "Saved career: %s · Score %d · Reputation %d" % [role, score, reputation]
-	# Where the career's game clock stands, then when the file was written
-	# (real time: the one place the player sees the wall clock).
-	var clock := SaveGame.dict_of(result.career, "clock")
+		return "Branch Manager"
+	if SaveGame.bool_of(xp, "is_loan_officer_unlocked", false):
+		return "Loan Officer"
+	return "Teller"
+
+## "Day 3 · Wednesday 7 January 2026 · 10:42 AM": where the career's game
+## clock stands.
+static func game_date_of(career: Dictionary) -> String:
+	var clock := SaveGame.dict_of(career, "clock")
 	var day := maxi(GameClock.START_DAY, SaveGame.int_of(clock, "day", GameClock.START_DAY))
 	var start := BankCalendar.from_iso(SaveGame.string_of(clock, "start_date", ""), BankCalendar.start_date())
-	var game_time := "Day %d, %s, %s" % [day, BankCalendar.short_text(BankCalendar.business_day_date(start, day)), GameClock.format_time(SaveGame.float_of(clock, "minutes", GameClock.START_MINUTES))]
-	text += "\n%s" % game_time
-	if result.saved_at != "":
-		text += " · saved %s" % result.saved_at.replace("T", " ")
+	var minutes := SaveGame.float_of(clock, "minutes", GameClock.START_MINUTES)
+	return "Day %d · %s · %s" % [day, BankCalendar.long_text(BankCalendar.business_day_date(start, day)), GameClock.format_time(minutes)]
+
+## The save's real-world time ("2026-10-21T14:05:33") as "2026-10-21 14:05":
+## the one place the player sees the wall clock.
+static func last_played_text(saved_at: String) -> String:
+	var text := saved_at.replace("T", " ")
+	# Drop the seconds.
+	if text.length() >= 16:
+		text = text.substr(0, 16)
 	return text
 
 func _show_only(panel: Control) -> void:
-	for each: Control in [menu_panel, confirm_panel, message_panel]:
+	for each: Control in [menu_panel, slot_panel, message_panel]:
 		each.visible = each == panel
 
-func _on_continue_pressed() -> void:
-	SaveGame.restore(saved.career)
+func _on_slot_pressed(slot: int) -> void:
+	var result := slot_results[slot - 1]
+	match result.status:
+		SaveGame.Status.MISSING:
+			start_new_career(slot)
+		SaveGame.Status.OK:
+			continue_career(slot, result.career)
+		_:
+			_message_slot = slot
+			message_label.text = (WRONG_VERSION_MESSAGE if result.status == SaveGame.Status.WRONG_VERSION else DAMAGED_MESSAGE) % slot
+			_show_only(message_panel)
+			message_back_button.grab_focus()
+
+## Loads slot `slot`'s career and walks into the room off shift.
+func continue_career(slot: int, career: Dictionary) -> void:
+	SaveGame.use_slot(slot)
+	SaveGame.restore(career)
 	get_tree().change_scene_to_file(TELLER_ROOM_SCENE)
 
-## With no save there's nothing to lose, so no confirmation.
-func _on_new_game_pressed() -> void:
-	if saved.status == SaveGame.Status.MISSING:
-		_start_new_career()
-		return
-	_show_only(confirm_panel)
-
-func _on_confirm_new_game_pressed() -> void:
-	SaveGame.delete()
-	_start_new_career()
-
-func _on_message_ok_pressed() -> void:
-	SaveGame.set_aside()
-	_start_new_career()
-
-func _start_new_career() -> void:
+## Starts a new career in slot `slot` (empty, or its bad file just set aside).
+func start_new_career(slot: int) -> void:
+	SaveGame.use_slot(slot)
 	CareerReset.reset_all()
 	if InterviewManager.interview_enabled:
+		# The interview's hire saves the career into this slot.
 		get_tree().change_scene_to_file(INTERVIEW_SCENE)
 		return
 	# Interview off: hired straight away as a regular Teller, and saved at
-	# once, the way an interview hire is (interview_screen.gd), so quitting
-	# before the first clock-out still continues the career.
+	# once, the way an interview hire is (interview_screen.gd), so the slot
+	# shows the career even if the player quits before the first clock-out.
 	InterviewManager.hire_without_interview()
 	SaveGame.save()
 	get_tree().change_scene_to_file(TELLER_ROOM_SCENE)
+
+func _on_message_new_game_pressed() -> void:
+	SaveGame.use_slot(_message_slot)
+	SaveGame.set_aside()
+	start_new_career(_message_slot)
+
+func _on_quit_pressed() -> void:
+	get_tree().quit()
