@@ -14,6 +14,10 @@ const HIRE_LOOKS: Array[String] = ["staff_07", "staff_08", "staff_09", "staff_10
 ## Worn by anyone whose look isn't known (e.g. from a damaged save).
 const FALLBACK_LOOK: String = "staff_01"
 
+## The Regional Manager who visits on review days (RegionalManager): a grey
+## suit, not the uniform, so not one of all_looks() (nobody on staff wears it).
+const REGIONAL_MANAGER_LOOK: String = "regional_manager"
+
 static func all_looks() -> Array[String]:
 	var looks: Array[String] = []
 	looks.append_array(ROSTER_LOOKS)
@@ -24,7 +28,8 @@ static func frames_path(look: String) -> String:
 	return "res://assets/sprites/%s_frames.tres" % look
 
 static func frames_for(look: String) -> SpriteFrames:
-	return load(frames_path(look if all_looks().has(look) else FALLBACK_LOOK)) as SpriteFrames
+	var known := all_looks().has(look) or look == REGIONAL_MANAGER_LOOK
+	return load(frames_path(look if known else FALLBACK_LOOK)) as SpriteFrames
 
 ## A hire look nobody on `roster` wears yet, in HIRE_LOOKS order; once all
 ## are taken, they repeat in turn.

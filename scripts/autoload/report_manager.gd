@@ -17,7 +17,10 @@ extends Node
 ##
 ## Once the Branch Manager role is unlocked the player IS the manager, so
 ## the Branch Manager can no longer discipline them: reports stop and the
-## existing record is cleared (see _on_branch_manager_unlocked()).
+## existing record is cleared (see _on_branch_manager_unlocked()). Managers
+## answer to the Regional Manager instead (RegionalManager's reviews); a
+## demotion to Loan Officer makes reports apply again, from none
+## (_on_branch_manager_demoted()).
 ##
 ## Saved with the career (save_data()/load_data(), see SaveGame). A
 ## terminated career has no save, so is_terminated never is.
@@ -58,6 +61,7 @@ var _pending_mistakes: Dictionary = {}
 func _ready() -> void:
 	# XPManager is registered before ReportManager in project.godot.
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
+	XPManager.branch_manager_demoted.connect(_on_branch_manager_demoted)
 	is_exempt = XPManager.is_branch_manager_unlocked
 
 func record_mistake(role: DecisionRecord.Role, description: String) -> void:
@@ -114,9 +118,9 @@ func _issue_report(role: DecisionRecord.Role, items: PackedStringArray) -> void:
 	else:
 		report_issued.emit(report)
 
-## TODO: managers are outside the Branch Manager's authority, so discipline
-## for them belongs to a future Regional Manager review system — until that
-## exists, a Branch Manager simply can't receive reports.
+## Managers are outside the Branch Manager's authority: their discipline is
+## the Regional Manager's review (RegionalManager), so a Branch Manager can't
+## receive reports.
 func _on_branch_manager_unlocked() -> void:
 	if is_terminated or is_exempt:
 		return
@@ -129,6 +133,21 @@ func _on_branch_manager_unlocked() -> void:
 		DecisionRecord.Role.DISCIPLINARY,
 		"Disciplinary record cleared on promotion to Branch Manager (%d report%s removed)" % [cleared, "" if cleared == 1 else "s"],
 		"Cleared"
+	)
+	reports_changed.emit(0)
+
+## Demoted to Loan Officer: the branch's reports apply again, starting from
+## none (the record was cleared at promotion).
+func _on_branch_manager_demoted() -> void:
+	if is_terminated:
+		return
+	reports.clear()
+	_pending_mistakes.clear()
+	is_exempt = false
+	HistoryManager.add_record(
+		DecisionRecord.Role.DISCIPLINARY,
+		"Disciplinary reports apply again after the demotion to Loan Officer (0 / %d)" % report_limit(),
+		"Reports apply"
 	)
 	reports_changed.emit(0)
 

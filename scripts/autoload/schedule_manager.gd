@@ -65,6 +65,7 @@ func _ready() -> void:
 	# connecting here (before any scene) means the slot is already filled
 	# when teller_room.gd reacts to the same signal and places its staff.
 	XPManager.branch_manager_unlocked.connect(open_teller_window_3)
+	XPManager.branch_manager_demoted.connect(close_teller_window_3)
 
 func get_assigned(slot_name: String) -> StaffMember:
 	return schedule.get(slot_name, null)
@@ -88,6 +89,17 @@ func open_teller_window_3() -> void:
 		member = _first_unassigned("")
 	if member != null:
 		schedule[SLOT_TELLER_WINDOW_3] = member
+
+## A demotion back to Loan Officer: the player's window is theirs again, so
+## the Teller Window 3 slot goes, and whoever worked it is unassigned (they
+## stay on the roster). The schedule is re-announced so the room re-places
+## its staff.
+func close_teller_window_3() -> void:
+	if not is_teller_window_3_open:
+		return
+	is_teller_window_3_open = false
+	schedule.erase(SLOT_TELLER_WINDOW_3)
+	schedule_confirmed.emit(schedule)
 
 ## New career after termination — see CareerReset. Back to the default
 ## desk assignment, not an empty branch, and no Teller Window 3.

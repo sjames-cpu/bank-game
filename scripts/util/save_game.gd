@@ -83,6 +83,7 @@ static func capture() -> Dictionary:
 		"hints": HintManager.save_data(),
 		"clock": GameClock.save_data(),
 		"business_day": BusinessDay.save_data(),
+		"regional": RegionalManager.save_data(),
 	}
 
 ## Replaces the current career with `career` (from capture() or read()).
@@ -106,8 +107,10 @@ static func restore(career: Dictionary) -> void:
 	HiringManager.load_data(dict_of(career, "hiring"))
 	HintManager.load_data(dict_of(career, "hints"))
 	GameClock.load_data(dict_of(career, "clock"))
-	# Last: today's totals are measured against the loaded career and clock.
+	# Today's totals are measured against the loaded career and clock.
 	BusinessDay.load_data(dict_of(career, "business_day"))
+	# After XPManager and the business day: the review window is the manager's.
+	RegionalManager.load_data(dict_of(career, "regional"))
 
 ## Writes the current career to `path`. Refused once the player has been
 ## terminated (that career is over), and for the real save outside the real

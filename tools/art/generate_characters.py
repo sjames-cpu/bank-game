@@ -16,6 +16,9 @@ Outputs, all in assets/sprites/:
     short cut, and customer A's ponytail. Each look has its own hair and
     skin colours. staff_01-06 belong to the starting roster
     (StaffRosterData); staff_07-10 are the looks new hires are given.
+  - regional_manager: the Regional Manager who visits on review days, the
+    player's body and suit recoloured (light grey suit, burgundy tie,
+    silver hair).
   - customer_{a,b,c}2 .. 4: recolours of each customer design (hair, skin,
     clothing), nine new looks alongside the three originals.
 
@@ -211,6 +214,19 @@ STAFF_LOOKS = {
     "staff_10": ("ponytail", "#bdbdbd", "#e0ac85"),
 }
 
+# --- the Regional Manager ------------------------------------------------------
+
+# The Regional Manager who visits on review days (RegionalManager): the
+# player's suit, but light grey with a burgundy tie, silver hair and a
+# deeper skin tone. No bank uniform or name tag: a visitor from head office,
+# told apart from the staff (blue blazers) and the player (near-black suit).
+REGIONAL_MANAGER_COLOURS = {
+    PLAYER_SUIT: "#6b717e",
+    PLAYER_TIE: "#8e2236",
+    PLAYER_HAIR: "#d4d4d4",
+    PLAYER_SKIN: "#c68c62",
+}
+
 # --- customer variants ---------------------------------------------------------
 
 # Each design's colours by role, and the recolours: three per design, for 12
@@ -257,6 +273,7 @@ def outputs():
     bases = {"short": short, "ponytail": uniform_ponytail(short)}
     for look, (style, hair, skin) in STAFF_LOOKS.items():
         add(look, recolour(bases[style], {PLAYER_HAIR: hair, PLAYER_SKIN: skin}))
+    add("regional_manager", recolour(load_sheet("player"), REGIONAL_MANAGER_COLOURS))
     for name, (design, colours) in CUSTOMER_VARIANTS.items():
         roles = CUSTOMER_ROLES[design]
         add(name, recolour(load_sheet(design), {roles[role]: colour for role, colour in colours.items()}))

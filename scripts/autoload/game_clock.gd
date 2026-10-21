@@ -62,6 +62,14 @@ func hud_text() -> String:
 func timestamp() -> String:
 	return "Day %d, %s" % [day, time_text()]
 
+## The day number of a timestamp() ("Day 3, 10:42 AM" -> 3), or 0 if it
+## isn't one.
+func day_of(stamp: String) -> int:
+	if not stamp.begins_with("Day "):
+		return 0
+	var number := stamp.substr(4).get_slice(",", 0)
+	return number.to_int() if number.is_valid_int() else 0
+
 ## `game_minutes` since midnight as a 12-hour time, whole minutes.
 func format_time(game_minutes: float) -> String:
 	var whole := floori(game_minutes) % int(MINUTES_PER_DAY)

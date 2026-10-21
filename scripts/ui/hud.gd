@@ -29,6 +29,9 @@ class_name Hud
 @onready var reports_label: Label = $RightColumn/StatsPanel/VBox/ReportsLabel
 ## "Probation — 1 of 3 clean shifts", only while on probation.
 @onready var probation_label: Label = $RightColumn/StatsPanel/VBox/ProbationLabel
+## "Next review: Day 15 · Warnings 1/3", only while Branch Manager
+## (RegionalManager).
+@onready var regional_label: Label = $RightColumn/StatsPanel/VBox/RegionalLabel
 @onready var shift_label: Label = $RightColumn/StatsPanel/VBox/ShiftLabel
 @onready var stats_panel: PanelContainer = $RightColumn/StatsPanel
 
@@ -107,6 +110,11 @@ func refresh() -> void:
 	reports_label.text = ReportManager.status_text()
 	probation_label.text = InterviewManager.probation_status_text()
 	probation_label.visible = probation_label.text != ""
+	regional_label.text = RegionalManager.status_text()
+	regional_label.visible = regional_label.text != ""
+	# A Branch Manager has no reports ("n/a"): the Regional Manager's review
+	# line takes its place.
+	reports_label.visible = not regional_label.visible
 	shift_label.text = shift_status.call() if shift_status.is_valid() else "Off shift"
 	low_reputation_warning_label.visible = ReputationManager.reputation <= ReputationManager.LOW_REPUTATION_THRESHOLD
 	notification_panel.visible = low_reputation_warning_label.visible or loan_officer_unlocked_label.visible or branch_manager_unlocked_label.visible

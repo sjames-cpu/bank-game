@@ -207,9 +207,12 @@ func _ready() -> void:
 	exit_door.interacted.connect(_on_exit_door_interacted)
 	end_of_day_screen.go_home_confirmed.connect(_on_go_home_confirmed)
 	end_of_day_screen.next_day_requested.connect(_on_next_day_requested)
-	# Customers the staff serve count toward today's branch total.
+	# Customers the staff serve count toward today's branch total; those who
+	# give up at a staffed window count against the manager's review.
 	for line: NpcCustomerLine in [window1_npc_line, window2_line, window3_line]:
 		line.customer_served.connect(_on_staff_customer_served)
+		line.customer_abandoned.connect(RegionalManager.note_staff_line_abandoned)
+	XPManager.branch_manager_demoted.connect(_on_branch_manager_demoted)
 
 	loan_officer_screen.shift_clocked_in.connect(_on_player_clocked_in.bind(ScheduleManager.SLOT_LOAN_DESK))
 	loan_officer_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_LOAN_DESK))
@@ -231,6 +234,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	_update_interaction_prompt()
 	_check_branch_opening()
+	_update_regional_visit()
 	_check_end_of_day()
 
 # --- the business day (BusinessDay) -----------------------------------------------
@@ -275,9 +279,95 @@ func _check_end_of_day() -> void:
 	if BusinessDay.is_day_over() and not is_player_on_shift() and is_lobby_empty():
 		show_end_of_day()
 
-## The End of Day summary, saved as it appears.
+## The End of Day summary, saved as it appears. On a review day the Regional
+## Manager's review comes first (RegionalManager.run_review()): its letter,
+## and a demotion's, pause the room, and once they're acknowledged
+## _check_end_of_day() comes back here for the summary.
 func show_end_of_day() -> void:
+	end_regional_visit()
+	if RegionalManager.is_review_due():
+		RegionalManager.run_review()
+		save_career()
+		if letter_screen.visible:
+			return
 	end_of_day_screen.show_summary(BusinessDay.summary())
+	save_career()
+
+# --- the Regional Manager's visit (RegionalManager) --------------------------------
+
+## On a review day the Regional Manager walks in from the entrance at
+## VISIT_START_MINUTES, stands outside the Manager's Office, and walks out
+## again at VISIT_END_MINUTES. A room loaded part-way through the visit finds
+## them already standing there.
+const VISIT_START_MINUTES: float = 10.0 * 60.0
+const VISIT_END_MINUTES: float = 11.0 * 60.0 + 30.0
+## Later than this after VISIT_START_MINUTES, they're placed at the spot.
+const VISIT_LATE_ARRIVAL_MINUTES: float = 10.0
+## Entrance -> up the aisle beside the lounge -> outside the Manager's
+## Office door (columns 9-10), facing it.
+const VISIT_ENTRANCE: Vector2 = Vector2(384, 690)
+const VISIT_ROUTE: Array[Vector2] = [Vector2(384, 330), Vector2(320, 330), Vector2(320, 290)]
+const VISIT_GREETING: String = "Just here to observe. Carry on."
+
+## The visiting Regional Manager (null when not here).
+var regional_visitor: StaffNPC = null
+var _visitor_leaving: bool = false
+## The day they last came, so they don't come back once they've left.
+var _visit_day: int = 0
+
+func _update_regional_visit() -> void:
+	var during_visit := GameClock.minutes >= VISIT_START_MINUTES and GameClock.minutes < VISIT_END_MINUTES and not BusinessDay.is_day_over()
+	if not is_instance_valid(regional_visitor):
+		regional_visitor = null
+		if during_visit and RegionalManager.is_review_day() and _visit_day != BusinessDay.stats_day:
+			_start_regional_visit()
+		return
+	if not during_visit and not _visitor_leaving:
+		_visitor_leaving = true
+		var route: Array[Vector2] = VISIT_ROUTE.duplicate()
+		route.reverse()
+		route.remove_at(0) # standing there
+		route.append(VISIT_ENTRANCE)
+		regional_visitor.follow_route(route, StaffNPC.State.ON_BREAK)
+		regional_visitor.route_finished.connect(end_regional_visit, CONNECT_ONE_SHOT)
+
+func _start_regional_visit() -> void:
+	_visit_day = BusinessDay.stats_day
+	_visitor_leaving = false
+	var member := StaffMember.new()
+	member.staff_name = RegionalManager.SENDER
+	member.look = StaffLooks.REGIONAL_MANAGER_LOOK
+	regional_visitor = STAFF_NPC_SCENE.instantiate()
+	regional_visitor.setup(member)
+	regional_visitor.name = "RegionalManagerVisitor"
+	staff_layer.add_child(regional_visitor)
+	if GameClock.minutes - VISIT_START_MINUTES > VISIT_LATE_ARRIVAL_MINUTES:
+		regional_visitor.place_at(VISIT_ROUTE[-1], StaffNPC.State.ON_BREAK)
+		return
+	regional_visitor.place_at(VISIT_ENTRANCE, StaffNPC.State.ON_BREAK)
+	regional_visitor.follow_route(VISIT_ROUTE, StaffNPC.State.ON_BREAK)
+	regional_visitor.route_finished.connect(regional_visitor.say.bind(VISIT_GREETING, 4.0), CONNECT_ONE_SHOT)
+
+## The visitor leaves the room (walked out, the day ended, or going home).
+func end_regional_visit() -> void:
+	# queue_free only: this can run from the visitor's own route_finished.
+	if is_instance_valid(regional_visitor):
+		regional_visitor.queue_free()
+	regional_visitor = null
+	_visitor_leaving = false
+
+## Demoted to Loan Officer (RegionalManager, at a review's End of Day): undoes
+## _apply_branch_manager_desks(). ScheduleManager has already closed Teller
+## Window 3 and re-announced the schedule, so its staff member is gone from
+## the desk; its line closes too, and the Branch Manager desk hides. The
+## Player Teller Window and the Loan Desk work for the player again (they
+## check XPManager themselves), and the Loan Desk's staff step away again
+## while the player works it.
+func _on_branch_manager_demoted() -> void:
+	if window3_line.active:
+		window3_line.close_line()
+	_update_branch_manager_desk_availability()
+	loan_desk_worker.active = true
 	save_career()
 
 func _on_exit_door_interacted() -> void:
@@ -294,6 +384,7 @@ func _on_go_home_confirmed() -> void:
 		line.clear_lobby()
 	_customers_awaiting_farewell.clear()
 	_customer_being_served = null
+	end_regional_visit()
 	show_end_of_day()
 
 ## "Start Day N+1": 8:30 AM the next morning, saved.

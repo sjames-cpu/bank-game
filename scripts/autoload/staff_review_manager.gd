@@ -15,6 +15,10 @@ extends Node
 ##   At STAFF_REPORTS_FOR_TERMINATION reports the manager may terminate them
 ##   (ScheduleManager.dismiss_staff()).
 ##
+## - Demotion (XPManager.branch_manager_demoted): items still waiting are
+##   closed as "closed at demotion", with no penalty, so a manager promoted
+##   again doesn't answer for staff mistakes from before.
+##
 ## Registered after ScheduleManager and XPManager in project.godot. Cleared
 ## by reset() (CareerReset); saved with the career (save_data()/load_data(),
 ## see SaveGame).
@@ -53,6 +57,9 @@ var queue: Array[StaffReviewItem] = []
 var staff_reports: Dictionary = {}
 ## staff name -> number of feedbacks given.
 var staff_feedbacks: Dictionary = {}
+
+func _ready() -> void:
+	XPManager.branch_manager_demoted.connect(_on_branch_manager_demoted)
 
 func reset() -> void:
 	queue.clear()
@@ -266,7 +273,8 @@ func decide(item: StaffReviewItem, action: Action) -> Dictionary:
 
 ## Branch Manager clock-out: serious items still in the queue cost
 ## IGNORED_SERIOUS_REPUTATION each and are closed as ignored. Minor and
-## acceptable items carry over with no penalty. Returns {count, reputation}.
+## acceptable items carry over with no penalty. Returns {count, reputation,
+## items} (items: the closed StaffReviewItems, for RegionalManager).
 func close_ignored_serious() -> Dictionary:
 	var ignored: Array[StaffReviewItem] = []
 	for item in queue:
@@ -282,7 +290,21 @@ func close_ignored_serious() -> Dictionary:
 		)
 	if not ignored.is_empty():
 		queue_changed.emit()
-	return {"count": ignored.size(), "reputation": ignored.size() * IGNORED_SERIOUS_REPUTATION}
+	return {"count": ignored.size(), "reputation": ignored.size() * IGNORED_SERIOUS_REPUTATION, "items": ignored}
+
+## Demoted to Loan Officer: nobody is left to review the queue, so every
+## item still waiting is closed, logged and never penalised.
+func _on_branch_manager_demoted() -> void:
+	if queue.is_empty():
+		return
+	for item in queue:
+		HistoryManager.add_record(
+			DecisionRecord.Role.BRANCH_MANAGER,
+			"Staff review — %s (%s): %s closed at demotion" % [item.staff_name, item.staff_slot, short_description(item)],
+			"Closed at demotion"
+		)
+	queue.clear()
+	queue_changed.emit()
 
 ## The manager's choice once a staff member has reached the report limit:
 ## they leave the branch and the roster (ScheduleManager.dismiss_staff()),

@@ -50,8 +50,8 @@ func sprite_of(node: Node) -> AnimatedSprite2D:
 
 func test_every_sprite_frames_has_the_full_format() -> void:
 	var paths := all_frames_paths()
-	# player, 12 customer looks, 10 staff looks.
-	assert_int(paths.size()).is_equal(1 + 12 + 10)
+	# player, 12 customer looks, 10 staff looks, the Regional Manager.
+	assert_int(paths.size()).is_equal(1 + 12 + 10 + 1)
 	for path in paths:
 		var frames: SpriteFrames = load(path)
 		var names := Array(frames.get_animation_names())
@@ -112,6 +112,19 @@ func test_the_uniform_is_unlike_the_players_suit() -> void:
 	# The blazer is clearly blue, the suit near-black.
 	assert_float(blazer.b - blazer.r).is_greater(0.3)
 	assert_float(player_suit.b - player_suit.r).is_less(0.05)
+
+func test_the_regional_manager_looks_like_neither_staff_nor_player() -> void:
+	var look := StaffLooks.REGIONAL_MANAGER_LOOK
+	assert_bool(StaffLooks.all_looks().has(look)).is_false()
+	var frames := StaffLooks.frames_for(look)
+	assert_str(frames.resource_path).is_equal(StaffLooks.frames_path(look))
+	var colours := colours_of(down_idle_image(frames))
+	# No uniform blazer or name tag, and not the player's near-black suit.
+	for colour: Color in [Color8(0x2d, 0x51, 0x96), Color8(0xe8, 0xc5, 0x47), Color8(0x1e, 0x1e, 0x26)]:
+		assert_bool(colours.has(colour)).override_failure_message("has %s" % colour).is_false()
+	# A grey suit and silver hair instead.
+	assert_bool(colours.has(Color8(0x6b, 0x71, 0x7e))).is_true()
+	assert_bool(colours.has(Color8(0xd4, 0xd4, 0xd4))).is_true()
 
 func test_hired_staff_get_a_hire_look_that_is_saved() -> void:
 	XPManager._grant_branch_manager()

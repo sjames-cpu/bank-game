@@ -12,6 +12,9 @@ extends Node
 signal xp_changed(new_total: int)
 signal loan_officer_unlocked
 signal branch_manager_unlocked
+## The Regional Manager demoted the Branch Manager (RegionalManager): they're
+## a Loan Officer again. ReportManager, ScheduleManager and the room react.
+signal branch_manager_demoted
 
 ## Shift score points are small (currently -5 to +10) while XP is meant to
 ## read as a bigger, more granular progression number against a 500-point
@@ -35,6 +38,10 @@ const REPUTATION_UNLOCK_FLOOR: int = 40
 const XP_UNLOCK_THRESHOLD_BRANCH_MANAGER: int = 1500
 const REPUTATION_UNLOCK_FLOOR_BRANCH_MANAGER: int = 60
 
+## After a demotion, promotion again takes this much more XP than the player
+## had when demoted (and the usual Reputation floor).
+const REPROMOTION_XP: int = 500
+
 ## Floored at 0 rather than allowed negative — a bad shift can cost score
 ## and reputation, but XP is meant to read as pure cumulative progress.
 var total_xp: int = 0
@@ -44,8 +51,13 @@ var total_xp: int = 0
 ## take the role away.
 var is_loan_officer_unlocked: bool = false
 
-## Same "never cleared once earned" rule as is_loan_officer_unlocked above.
+## Same "never cleared once earned" rule as is_loan_officer_unlocked above,
+## except for a demotion by the Regional Manager (demote_branch_manager()).
 var is_branch_manager_unlocked: bool = false
+
+## Set at a demotion: the XP needed to be promoted again (the XP at demotion
+## plus REPROMOTION_XP). 0 when the player has never been demoted.
+var repromotion_xp_target: int = 0
 
 ## Set when the Branch Manager thresholds are met while the player is
 ## mid-shift at a desk (see begin_player_shift()) — the promotion takes
@@ -83,6 +95,7 @@ func reset() -> void:
 	is_branch_manager_unlocked = false
 	is_branch_manager_promotion_pending = false
 	has_seen_branch_orientation = false
+	repromotion_xp_target = 0
 	_desks_on_shift.clear()
 	xp_changed.emit(total_xp)
 
@@ -93,6 +106,7 @@ func save_data() -> Dictionary:
 		"is_branch_manager_unlocked": is_branch_manager_unlocked,
 		"is_branch_manager_promotion_pending": is_branch_manager_promotion_pending,
 		"has_seen_branch_orientation": has_seen_branch_orientation,
+		"repromotion_xp_target": repromotion_xp_target,
 	}
 
 ## Restores the flags as saved, without running the unlock checks or
@@ -105,6 +119,7 @@ func load_data(data: Dictionary) -> void:
 	is_branch_manager_unlocked = SaveGame.bool_of(data, "is_branch_manager_unlocked", false)
 	is_branch_manager_promotion_pending = SaveGame.bool_of(data, "is_branch_manager_promotion_pending", false) and not is_branch_manager_unlocked
 	has_seen_branch_orientation = SaveGame.bool_of(data, "has_seen_branch_orientation", false)
+	repromotion_xp_target = maxi(0, SaveGame.int_of(data, "repromotion_xp_target", 0))
 	_desks_on_shift.clear()
 	xp_changed.emit(total_xp)
 
@@ -140,13 +155,31 @@ func _check_unlock() -> void:
 func _check_branch_manager_unlock() -> void:
 	if is_branch_manager_unlocked or is_branch_manager_promotion_pending:
 		return
-	if total_xp >= XP_UNLOCK_THRESHOLD_BRANCH_MANAGER and ReputationManager.reputation >= REPUTATION_UNLOCK_FLOOR_BRANCH_MANAGER:
+	if total_xp >= branch_manager_xp_required() and ReputationManager.reputation >= REPUTATION_UNLOCK_FLOOR_BRANCH_MANAGER:
 		if _desks_on_shift.is_empty():
 			_grant_branch_manager()
 		else:
 			is_branch_manager_promotion_pending = true
 
+## The XP the Branch Manager promotion needs: the usual threshold, or after a
+## demotion REPROMOTION_XP more than the player had then.
+func branch_manager_xp_required() -> int:
+	return maxi(XP_UNLOCK_THRESHOLD_BRANCH_MANAGER, repromotion_xp_target)
+
 func _grant_branch_manager() -> void:
 	is_branch_manager_promotion_pending = false
 	is_branch_manager_unlocked = true
 	branch_manager_unlocked.emit()
+
+## The Regional Manager's demotion (RegionalManager, at 3 regional warnings):
+## back to Loan Officer, which stays unlocked. Promotion again needs
+## REPROMOTION_XP more XP than now, through the usual checks, letter and
+## (already seen) orientation.
+func demote_branch_manager() -> void:
+	if not is_branch_manager_unlocked:
+		return
+	is_branch_manager_unlocked = false
+	is_branch_manager_promotion_pending = false
+	is_loan_officer_unlocked = true
+	repromotion_xp_target = total_xp + REPROMOTION_XP
+	branch_manager_demoted.emit()

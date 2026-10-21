@@ -10,7 +10,8 @@ class_name DisciplineLetterScreen
 ## "Welcome to Branch Management" orientation on the first Branch Manager
 ## clock-in (show_branch_orientation_once()), and the termination letter
 ## the Branch Manager sends a staff member (StaffReviewManager), and the
-## "Probation Complete" letter (InterviewManager.probation_completed). Lives in
+## "Probation Complete" letter (InterviewManager.probation_completed), and
+## the Regional Manager's review and demotion letters (RegionalManager). Lives in
 ## teller_room's UI layer (last, so it draws on top); process_mode ALWAYS so
 ## it works whether or not a desk screen has the tree paused.
 ##
@@ -70,6 +71,17 @@ func _ready() -> void:
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 	StaffReviewManager.staff_terminated.connect(_on_staff_terminated)
 	InterviewManager.probation_completed.connect(_on_probation_completed)
+	RegionalManager.review_completed.connect(_on_regional_review_completed)
+	RegionalManager.demoted.connect(_on_demoted)
+
+## The Regional Manager's review of the Branch Manager (RegionalManager), at
+## a review day's End of Day: the rating, each area and the outcome.
+func _on_regional_review_completed(result: Dictionary) -> void:
+	_enqueue(Mode.NOTICE, RegionalManager.review_title(result), RegionalManager.review_body(result), RegionalManager.SENDER)
+
+## Three regional warnings: back to Loan Officer (after the review letter).
+func _on_demoted(warnings_reached: int) -> void:
+	_enqueue(Mode.NOTICE, "Notice of Demotion", RegionalManager.demotion_body(warnings_reached), RegionalManager.SENDER)
 
 ## The Branch Manager (the player) terminating a staff member — a short
 ## letter to them, signed by the Branch Manager.

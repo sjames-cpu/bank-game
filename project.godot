@@ -29,6 +29,7 @@ StaffReviewManager="*res://scripts/autoload/staff_review_manager.gd"
 HiringManager="*res://scripts/autoload/hiring_manager.gd"
 HintManager="*res://scripts/autoload/hint_manager.gd"
 BusinessDay="*res://scripts/autoload/business_day.gd"
+RegionalManager="*res://scripts/autoload/regional_manager.gd"
 ReportManager="*res://scripts/autoload/report_manager.gd"
 
 [debug]
@@ -38,7 +39,6 @@ gdscript/warnings/unsafe_property_access=1
 gdscript/warnings/unsafe_method_access=1
 gdscript/warnings/unsafe_cast=1
 gdscript/warnings/unsafe_call_argument=1
-gdscript/warnings/integer_division=1
 
 [display]
 

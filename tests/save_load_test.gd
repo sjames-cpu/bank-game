@@ -150,6 +150,25 @@ func build_full_career() -> void:
 	HiringManager.candidates[ScheduleManager.SLOT_LOAN_DESK] = waiting
 	HiringManager.rejected_slots.append(ScheduleManager.SLOT_TELLER_WINDOW_1)
 
+	# The Regional Manager: warnings, a demotion's XP target and the review
+	# window's data (this career isn't a Branch Manager right now, so it has
+	# no window open).
+	XPManager.repromotion_xp_target = 2100
+	RegionalManager.warnings = 2
+	RegionalManager.counted_through_day = 2
+	RegionalManager.vault_by_day[2] = VaultReconciliationScreen.DiscrepancyResult.MINOR
+	RegionalManager.serious_reviewed = 3
+	RegionalManager.serious_ignored = 1
+	RegionalManager.serious_excused = 1
+	RegionalManager.reviews = 5
+	RegionalManager.unfair_reports = 2
+	RegionalManager.staff_work = 30
+	RegionalManager.staff_mistakes = 4
+	RegionalManager.staff_line_served = 25
+	RegionalManager.staff_line_abandoned = 2
+	RegionalManager.vacant_desk_minutes = 75.5
+	RegionalManager.hire_verdicts.assign([HiringManager.Verdict.MIDDLE])
+
 # --- round trip ------------------------------------------------------------------
 
 func test_save_then_load_restores_every_saved_value() -> void:
@@ -214,6 +233,10 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_float(GameClock.minutes).is_equal(642.75)
 	assert_str(GameClock.hud_text()).is_equal("Day 3 · 10:42 AM")
 	assert_bool(HintManager.has_shown(HintManager.Hint.FIRST_CUSTOMER)).is_false()
+	assert_int(XPManager.repromotion_xp_target).is_equal(2100)
+	assert_int(RegionalManager.warnings).is_equal(2)
+	assert_int(RegionalManager.vault_by_day[2]).is_equal(VaultReconciliationScreen.DiscrepancyResult.MINOR)
+	assert_float(RegionalManager.vacant_desk_minutes).is_equal(75.5)
 
 func test_saved_resources_cover_every_exported_field() -> void:
 	# A field added to a saved resource must reach the file without changes

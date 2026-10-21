@@ -139,6 +139,13 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Going home early**: off shift, the entrance doormat (`ExitDoor`) asks "Go home and end Day N?". Going home skips the clock to 5:00 PM, clears the lobby and shows the same summary, with nothing simulated for the skipped hours.
 - **Save/load and hints**: the day's totals are saved with the career, which is also saved when the summary appears and when the next day starts. A one-time hint explains the hours and going home.
 
+## Session 15 — Oct 19, 2026: The Regional Manager
+*(the Regional Manager commit)*
+
+- **Reviews** (`RegionalManager`): every 5 business days as Branch Manager, the Regional Manager reviews the days since the promotion or the last review. On review day they visit mid-morning (a new generated look: grey suit, silver hair) and stand outside the Manager's Office. The review letter comes at that day's End of Day, before the summary.
+- **The rating** weighs vault reconciliation (by day; a day with no count scores 0), serious staff errors left unreviewed, unfair reports, excused serious errors, the staff mistake rate, customers who gave up at staffed windows, vacant desks and hiring quality into a 0–100 score: Exceeds, Meets, Needs Improvement or Unsatisfactory. Areas with nothing to judge aren't rated, so a week of going home without working is judged on its missing vault counts and waiting serious items.
+- **Consequences**: Exceeds earns +15 Score and +3 Reputation and removes a regional warning; Needs Improvement adds a warning; Unsatisfactory adds one and costs 5 Reputation. Three warnings demote the player to Loan Officer: Teller Window 3 closes, the Branch Manager desk hides, the player's desks and the branch's reports apply again, staff review items still waiting are closed without penalty, and promotion again takes 500 more XP and Reputation 60. The HUD shows "Next review: Day N · Warnings 1/3" in place of "Reports: n/a (manager)", and the Branch Manager unlock hint is shorter so the column still fits.
+
 ---
 
 ## Notes for next session

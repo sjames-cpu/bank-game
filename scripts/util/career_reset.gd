@@ -24,5 +24,6 @@ static func reset_all() -> void:
 	HiringManager.reset()
 	HintManager.reset()
 	GameClock.reset()
+	RegionalManager.reset()
 	# Last: today's totals start from the fresh career and clock.
 	BusinessDay.reset()

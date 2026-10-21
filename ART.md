@@ -28,6 +28,7 @@ Every character uses the same format, so they all share one size and style and t
 | `customer_a2`–`a4`, `b2`–`b4`, `c2`–`c4` | Recolours of each customer design: hair, skin and clothing | generator |
 | `staff_01`–`staff_06` | The bank uniform worn by the six starting staff, one look each (`StaffRosterData`) | generator |
 | `staff_07`–`staff_10` | Uniform looks given to newly hired staff (`StaffLooks.HIRE_LOOKS`) | generator |
+| `regional_manager` | The Regional Manager who visits on review days: the player recoloured with a light grey suit, burgundy tie and silver hair, no uniform (`StaffLooks.REGIONAL_MANAGER_LOOK`) | generator |
 
 The staff uniform is built on the player's body, so proportions and animation match. It has a blue blazer, a white shirt front, charcoal trousers and a gold name tag. Each look has its own hair style (the player's short cut or customer A's ponytail), hair colour and skin tone.
 

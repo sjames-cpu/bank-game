@@ -289,6 +289,8 @@ func _on_vault_count_submitted(total_cents: int) -> void:
 	XPManager.add_shift_xp(score)
 
 	HistoryManager.add_record(DecisionRecord.Role.BRANCH_MANAGER, "Vault reconciliation: %s (discrepancy %s)" % [result_label, MoneyMath.format(discrepancy_cents)], result_label)
+	# The Regional Manager's review counts the days the vault was reconciled.
+	RegionalManager.note_vault_result(discrepancy_result)
 
 	_on_activity_completed(score, reputation_delta, xp)
 
@@ -361,6 +363,8 @@ func _prepare_shift_summary() -> void:
 	# Serious staff mistakes left unreviewed are closed as ignored, at a
 	# Reputation cost; minor/acceptable items carry over to the next shift.
 	var ignored := StaffReviewManager.close_ignored_serious()
+	var ignored_items: Array[StaffReviewItem] = ignored["items"]
+	RegionalManager.note_serious_ignored(ignored_items)
 	shift_review_stats["ignored"] = ignored["count"]
 	shift_review_stats["reputation"] += ignored["reputation"]
 	shift_reputation_total += ignored["reputation"]
