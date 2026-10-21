@@ -38,12 +38,20 @@ extends Node
 ## warnings the Branch Manager is demoted to Loan Officer
 ## (XPManager.demote_branch_manager()), and the warnings start over.
 ##
+## Reputation falling to 0 (ReputationManager.reputation_reached_zero) also
+## gives a Branch Manager a regional warning, with its own letter. If that
+## is the third, the demotion comes at that day's End of Day, before the
+## summary (demote_if_due(), from teller_room.show_end_of_day()), so the
+## player is never demoted in the middle of a shift.
+##
 ## Registered after BusinessDay and the managers it listens to.
 
 ## After a review, with the result (see run_review()).
 signal review_completed(result: Dictionary)
 ## After a demotion, once XPManager has demoted the player.
 signal demoted(warnings: int)
+## A regional warning for Reputation falling to 0, with the warnings now.
+signal zero_reputation_warning(warnings: int)
 
 const REVIEW_INTERVAL_DAYS: int = 5
 const WARNINGS_FOR_DEMOTION: int = 3
@@ -123,7 +131,8 @@ const UNSATISFACTORY_REPUTATION: int = -5
 
 const SENDER: String = "Regional Manager"
 
-## Regional warnings, 0 to WARNINGS_FOR_DEMOTION - 1 (a third one demotes).
+## Regional warnings, 0 to WARNINGS_FOR_DEMOTION - 1 (a third one demotes:
+## at once at a review, at the End of Day for a zero-Reputation warning).
 var warnings: int = 0
 
 ## First day of the current review window (the day after the promotion or
@@ -168,6 +177,7 @@ func _ready() -> void:
 	StaffReviewManager.review_decided.connect(_on_review_decided)
 	HistoryManager.staff_record_added.connect(_on_staff_record_added)
 	HiringManager.staff_hired.connect(_on_staff_hired)
+	ReputationManager.reputation_reached_zero.connect(_on_reputation_reached_zero)
 
 func _process(_delta: float) -> void:
 	sample_vacancies()
@@ -415,6 +425,32 @@ func apply_consequences(result: Dictionary) -> void:
 	result["xp_change"] = xp
 	result["warnings"] = warnings
 
+## Reputation fell to 0 while Branch Manager: one regional warning. During a
+## review (an Unsatisfactory rating's Reputation cost) run_review() demotes
+## if it's the third; otherwise the End of Day does (demote_if_due()).
+func _on_reputation_reached_zero() -> void:
+	if not is_collecting():
+		return
+	warnings = mini(warnings + 1, WARNINGS_FOR_DEMOTION)
+	HistoryManager.add_record(
+		DecisionRecord.Role.DISCIPLINARY,
+		"Regional warning from the Regional Manager: customer satisfaction has fallen to zero (regional warnings %d/%d)" % [warnings, WARNINGS_FOR_DEMOTION],
+		"Regional warning"
+	)
+	zero_reputation_warning.emit(warnings)
+
+## A third regional warning came outside a review: the demotion is due at
+## this End of Day.
+func is_demotion_due() -> bool:
+	return is_collecting() and warnings >= WARNINGS_FOR_DEMOTION
+
+## The End of Day's demotion, if one is due (teller_room.show_end_of_day()).
+func demote_if_due() -> bool:
+	if not is_demotion_due():
+		return false
+	_demote()
+	return true
+
 ## Back to Loan Officer: XPManager demotes (ReportManager, ScheduleManager and
 ## the room react to its signal), and the regional record starts over.
 func _demote() -> void:
@@ -592,6 +628,14 @@ func _outcome_text(result: Dictionary) -> String:
 		text += " At %d you'll return to the Loan Officer role." % WARNINGS_FOR_DEMOTION
 	return text
 
+func zero_reputation_body(warnings_now: int) -> String:
+	var text := "Customer satisfaction at your branch has fallen to zero. As Branch Manager, that is your responsibility, and it earns a regional warning.\n\nRegional warnings: %d of %d." % [warnings_now, WARNINGS_FOR_DEMOTION]
+	if warnings_now >= WARNINGS_FOR_DEMOTION:
+		text += " That is the limit: at the end of today you'll return to the Loan Officer role."
+	else:
+		text += " At %d you'll return to the Loan Officer role." % WARNINGS_FOR_DEMOTION
+	return text
+
 func demotion_body(warnings_reached: int) -> String:
 	return "Following %d regional warnings, you are no longer the Branch Manager, effective immediately. You return to the Loan Officer role.\n\nThe Player Teller Window and the Loan Desk are yours to work again, and the branch's disciplinary reports apply to you again, starting from none. Your staff, your hires and their records stay as they are.\n\nTo be promoted again you'll need %d more XP (%d in total) and Reputation of at least %d." % [
 		warnings_reached, XPManager.REPROMOTION_XP, XPManager.repromotion_xp_target, XPManager.REPUTATION_UNLOCK_FLOOR_BRANCH_MANAGER,
@@ -628,7 +672,9 @@ func save_data() -> Dictionary:
 ## a save made before reviews existed starts a window from the loaded day.
 func load_data(data: Dictionary) -> void:
 	reset()
-	warnings = clampi(SaveGame.int_of(data, "warnings", 0), 0, WARNINGS_FOR_DEMOTION - 1)
+	# Up to WARNINGS_FOR_DEMOTION itself: a zero-Reputation demotion due at
+	# the End of Day.
+	warnings = clampi(SaveGame.int_of(data, "warnings", 0), 0, WARNINGS_FOR_DEMOTION)
 	window_first_day = maxi(0, SaveGame.int_of(data, "window_first_day", 0))
 	counted_through_day = maxi(0, SaveGame.int_of(data, "counted_through_day", 0))
 	if not XPManager.is_branch_manager_unlocked:

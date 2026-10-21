@@ -15,7 +15,8 @@ class_name DisciplinaryReport
 @export var reason: String = ""
 
 ## The individual mistakes behind it — for teller reports, the names of the
-## customers whose transactions were done wrong.
+## customers whose transactions were done wrong. Empty for a report for
+## Reputation falling to 0 (ReportManager.ZERO_REPUTATION_REASON).
 @export var items: PackedStringArray = []
 
 @export var timestamp: String = ""

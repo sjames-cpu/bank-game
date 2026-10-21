@@ -73,11 +73,16 @@ func _ready() -> void:
 	InterviewManager.probation_completed.connect(_on_probation_completed)
 	RegionalManager.review_completed.connect(_on_regional_review_completed)
 	RegionalManager.demoted.connect(_on_demoted)
+	RegionalManager.zero_reputation_warning.connect(_on_zero_reputation_warning)
 
 ## The Regional Manager's review of the Branch Manager (RegionalManager), at
 ## a review day's End of Day: the rating, each area and the outcome.
 func _on_regional_review_completed(result: Dictionary) -> void:
 	_enqueue(Mode.NOTICE, RegionalManager.review_title(result), RegionalManager.review_body(result), RegionalManager.SENDER)
+
+## Reputation fell to 0 while Branch Manager.
+func _on_zero_reputation_warning(warnings_now: int) -> void:
+	_enqueue(Mode.WARNING, "Regional Warning — %d of %d" % [warnings_now, RegionalManager.WARNINGS_FOR_DEMOTION], RegionalManager.zero_reputation_body(warnings_now), RegionalManager.SENDER)
 
 ## Three regional warnings: back to Loan Officer (after the review letter).
 func _on_demoted(warnings_reached: int) -> void:
@@ -94,9 +99,12 @@ func _on_staff_terminated(staff_name: String, report_reasons: PackedStringArray)
 
 func _on_report_issued(report: DisciplinaryReport) -> void:
 	var limit := ReportManager.report_limit()
-	var body := "This is a formal written warning, issued for %s.\n\nCustomers affected:\n%s\n\nThis is report %d of %d. Reaching %d reports will result in termination." % [
-		report.reason.to_lower(), _bullets(report.items),
-		report.number, limit, limit,
+	# A report for Reputation falling to 0 has no customers to list.
+	var cause := "for %s.\n\nCustomers affected:\n%s" % [report.reason.to_lower(), _bullets(report.items)]
+	if report.items.is_empty():
+		cause = "because %s: your Reputation is 0 out of 100." % report.reason.to_lower()
+	var body := "This is a formal written warning, issued %s\n\nThis is report %d of %d. Reaching %d reports will result in termination." % [
+		cause, report.number, limit, limit,
 	]
 	if InterviewManager.is_on_probation:
 		body += "\n\nYou are on probation, so %d reports end your employment instead of the usual %d. Your probation's clean-shift count starts over: %d teller shifts without a report will complete it." % [
@@ -114,7 +122,8 @@ func _on_probation_completed() -> void:
 func _on_termination_issued(reports: Array[DisciplinaryReport]) -> void:
 	var lines: PackedStringArray = []
 	for report in reports:
-		lines.append("Report %d — %s: %s" % [report.number, report.reason, ", ".join(report.items)])
+		var items := ": " + ", ".join(report.items) if not report.items.is_empty() else ""
+		lines.append("Report %d — %s%s" % [report.number, report.reason, items])
 	var during := " during your probation period" if InterviewManager.is_on_probation else ""
 	var body := "Following %d disciplinary reports%s, your employment with the branch is terminated, effective immediately.\n\n%s" % [reports.size(), during, "\n".join(lines)]
 	# The career is over: delete its save now, so quitting at this letter

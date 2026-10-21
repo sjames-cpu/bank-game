@@ -146,6 +146,13 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **The rating** weighs vault reconciliation (by day; a day with no count scores 0), serious staff errors left unreviewed, unfair reports, excused serious errors, the staff mistake rate, customers who gave up at staffed windows, vacant desks and hiring quality into a 0–100 score: Exceeds, Meets, Needs Improvement or Unsatisfactory. Areas with nothing to judge aren't rated, so a week of going home without working is judged on its missing vault counts and waiting serious items.
 - **Consequences**: Exceeds earns +15 Score and +3 Reputation and removes a regional warning; Needs Improvement adds a warning; Unsatisfactory adds one and costs 5 Reputation. Three warnings demote the player to Loan Officer: Teller Window 3 closes, the Branch Manager desk hides, the player's desks and the branch's reports apply again, staff review items still waiting are closed without penalty, and promotion again takes 500 more XP and Reputation 60. The HUD shows "Next review: Day N · Warnings 1/3" in place of "Reports: n/a (manager)", and the Branch Manager unlock hint is shorter so the column still fits.
 
+## Session 16 — Oct 21, 2026: Reputation 0 has consequences
+*(the Reputation 0 commit)*
+
+- **Reputation 0** (HANDOFF design flaw): falling to 0 used to only show the HUD warning. Now a Teller or Loan Officer gets one written warning ("customer satisfaction has fallen to zero") that counts toward termination like any other, and a Branch Manager gets one regional warning with its own letter. The HUD warning stays.
+- **Once per fall**: it fires again only after Reputation has recovered above the low-reputation threshold (`ReputationManager.zero_armed`, saved with the career).
+- **A third regional warning this way** demotes at that day's End of Day, before the summary, so the player is never demoted mid-shift.
+
 ---
 
 ## Notes for next session

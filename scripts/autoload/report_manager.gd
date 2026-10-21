@@ -38,6 +38,9 @@ const REPORTS_FOR_TERMINATION: int = 3
 const REPORT_REASONS: Dictionary = {
 	DecisionRecord.Role.TELLER: "Repeated transaction errors at the teller desk",
 }
+## The report a Teller or Loan Officer gets when Reputation falls to 0
+## (ReputationManager.reputation_reached_zero).
+const ZERO_REPUTATION_REASON: String = "Customer satisfaction has fallen to zero"
 
 var reports: Array[DisciplinaryReport] = []
 
@@ -62,6 +65,7 @@ func _ready() -> void:
 	# XPManager is registered before ReportManager in project.godot.
 	XPManager.branch_manager_unlocked.connect(_on_branch_manager_unlocked)
 	XPManager.branch_manager_demoted.connect(_on_branch_manager_demoted)
+	ReputationManager.reputation_reached_zero.connect(_on_reputation_reached_zero)
 	is_exempt = XPManager.is_branch_manager_unlocked
 
 func record_mistake(role: DecisionRecord.Role, description: String) -> void:
@@ -89,18 +93,28 @@ func status_text() -> String:
 		return "Reports: n/a (manager)"
 	return "Reports: %d / %d" % [reports.size(), report_limit()]
 
-func _issue_report(role: DecisionRecord.Role, items: PackedStringArray) -> void:
+## Reputation fell to 0: one report, in the player's current role (a Branch
+## Manager gets a regional warning instead, from RegionalManager).
+func _on_reputation_reached_zero() -> void:
+	if is_exempt or is_terminated:
+		return
+	var role := DecisionRecord.Role.LOAN_OFFICER if XPManager.is_loan_officer_unlocked else DecisionRecord.Role.TELLER
+	_issue_report(role, PackedStringArray(), ZERO_REPUTATION_REASON)
+
+## `items`: the mistakes behind the report (none for a zero-Reputation one).
+func _issue_report(role: DecisionRecord.Role, items: PackedStringArray, reason: String = "") -> void:
 	var report := DisciplinaryReport.new()
 	report.number = reports.size() + 1
 	report.role = role
-	report.reason = REPORT_REASONS.get(role, "Repeated errors")
+	report.reason = reason if reason != "" else REPORT_REASONS.get(role, "Repeated errors")
 	report.items = items
 	report.timestamp = GameClock.timestamp()
 	reports.append(report)
 	var limit := report_limit()
+	var details := " (%s)" % ", ".join(items) if not items.is_empty() else ""
 	HistoryManager.add_record(
 		DecisionRecord.Role.DISCIPLINARY,
-		"Written warning %d/%d from the Branch Manager: %s (%s)" % [report.number, limit, report.reason, ", ".join(items)],
+		"Written warning %d/%d from the Branch Manager: %s%s" % [report.number, limit, report.reason, details],
 		"Report %d/%d" % [report.number, limit]
 	)
 	# A report during probation starts its clean-shift count over.

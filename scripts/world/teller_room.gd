@@ -282,10 +282,16 @@ func _check_end_of_day() -> void:
 ## The End of Day summary, saved as it appears. On a review day the Regional
 ## Manager's review comes first (RegionalManager.run_review()): its letter,
 ## and a demotion's, pause the room, and once they're acknowledged
-## _check_end_of_day() comes back here for the summary.
+## _check_end_of_day() comes back here for the summary. A demotion due from a
+## third regional warning for Reputation 0 comes first instead, and then
+## there's no review (the player is no longer Branch Manager).
 func show_end_of_day() -> void:
 	end_regional_visit()
-	if RegionalManager.is_review_due():
+	if RegionalManager.demote_if_due():
+		save_career()
+		if letter_screen.visible:
+			return
+	elif RegionalManager.is_review_due():
 		RegionalManager.run_review()
 		save_career()
 		if letter_screen.visible:
