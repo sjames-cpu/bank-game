@@ -21,7 +21,18 @@ class_name CustomerQueue
 ## the desk interaction — see there for how "serving" is decided.
 
 @export var customer_scene: PackedScene
+## The usual gap between arrivals (unpaused seconds): the player's line when
+## the staff windows are coping (see arrival_pressure).
 @export var spawn_interval: float = 20.0
+
+## How busy the rest of the branch is, 0-1, as customers choosing a line see
+## it (teller_room.gd sets it to staff_window_pressure() for the player's
+## line). At 0 arrivals come every spawn_interval; at 1 every
+## spawn_interval * MIN_INTERVAL_SHARE, in a straight line between. Read
+## each time the next gap starts. Unset: always spawn_interval.
+var arrival_pressure: Callable
+## The shortest gap, as a share of spawn_interval (20 s -> 10 s).
+const MIN_INTERVAL_SHARE: float = 0.5
 
 ## Phase 6c: chance a newly spawned customer presents a complaint (see
 ## CustomerComplaintsData) instead of a regular 6b flavor line. Doesn't
@@ -127,7 +138,17 @@ func _collect_queue_positions() -> Array[Marker2D]:
 
 func start_shift() -> void:
 	_customers_spawned_this_shift = 0
-	spawn_timer.start()
+	spawn_timer.start(_next_spawn_interval())
+
+## The gap before the next arrival: spawn_interval, shortened by
+## arrival_pressure down to spawn_interval * MIN_INTERVAL_SHARE. Overridden
+## by NpcCustomerLine (a random gap).
+func _next_spawn_interval() -> float:
+	var pressure := 0.0
+	if arrival_pressure.is_valid():
+		var value: float = arrival_pressure.call()
+		pressure = clampf(value, 0.0, 1.0)
+	return spawn_interval * lerpf(1.0, MIN_INTERVAL_SHARE, pressure)
 
 ## Clock-out just clears the line rather than preserving it across shifts —
 ## queue persistence isn't a Phase 6a concern (see requirements doc).
@@ -217,10 +238,13 @@ func open_for_the_day() -> void:
 
 ## Customers only come in while the branch is open (BusinessDay, 9 AM to
 ## 5 PM), here and at the staff lines (NpcCustomerLine shares this).
+## Every gap is chosen as it starts (_next_spawn_interval()), which also
+## ends open_for_the_day()'s short first one.
 func _on_spawn_timer_timeout() -> void:
-	# After open_for_the_day()'s short first gap, back to the usual one.
-	if not is_equal_approx(spawn_timer.wait_time, spawn_interval):
-		spawn_timer.start(spawn_interval)
+	_try_spawn()
+	spawn_timer.start(_next_spawn_interval())
+
+func _try_spawn() -> void:
 	if queue.size() >= queue_positions.size():
 		return
 	if not BusinessDay.is_open() or not _may_spawn():

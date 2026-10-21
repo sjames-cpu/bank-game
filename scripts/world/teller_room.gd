@@ -182,6 +182,7 @@ func _ready() -> void:
 	teller_screen.screen_closed.connect(_on_teller_screen_closed)
 	teller_screen.complaint_resolved.connect(_on_teller_complaint_resolved)
 	teller_screen.remaining_shift_work = _describe_remaining_shift_work
+	customer_queue.arrival_pressure = staff_window_pressure
 	teller_screen.shift_clocked_in.connect(customer_queue.start_shift)
 	teller_screen.shift_clocked_out.connect(customer_queue.end_shift)
 	teller_screen.shift_clocked_out.connect(_on_teller_shift_clocked_out)
@@ -527,6 +528,15 @@ func _assign_staff_to_work() -> void:
 	window3_line.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_TELLER_WINDOW_3)
 	loan_desk_worker.staff_npc = _staff_by_slot.get(ScheduleManager.SLOT_LOAN_DESK)
 	_update_staff_lines()
+
+## How busy the staff teller windows are for customers choosing a line, 0-1:
+## the average of Teller Windows 1 and 2's NpcCustomerLine.crowding() (a
+## closed window counts as full). It shortens the gap between arrivals at
+## the player's line (CustomerQueue.arrival_pressure): a fully staffed
+## branch whose staff keep up leaves it at 0, the usual pace. Teller
+## Window 3 only opens once the player no longer works their own line.
+func staff_window_pressure() -> float:
+	return (window1_npc_line.crowding() + window2_line.crowding()) / 2.0
 
 ## A staffed teller window's line is open; an unassigned one (e.g. its staff
 ## member was terminated) is closed — no new customers, and anyone waiting

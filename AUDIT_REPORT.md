@@ -146,7 +146,7 @@ All 16 new commits were made on 2026-10-07 by James2k8 (co-authored with Claude)
 |---|---|
 | Scoring rewards the wrong thing | **Partly.** Customer requests are now graded (+2 or −3, with a −3 extra if left unfixed), but the drawer count (+10/+5/−5) still dominates. See B2 above. |
 | No fail state, no persistence | **Fail state added** (termination after 3 reports). Reputation 0 still only shows a warning. **No persistence:** everything still resets on relaunch. |
-| Staffing screen is decorative | **Partly fixed.** The schedule now decides which NPC sits at each desk, and their speed, skill and reliability set NPC service time and mistake rate. It still doesn't affect the *player's* queue (arrival rate or service), which is what the handoff suggested. |
+| Staffing screen is decorative | **Partly fixed.** The schedule now decides which NPC sits at each desk, and their speed, skill and reliability set NPC service time and mistake rate. It still doesn't affect the *player's* queue (arrival rate or service), which is what the handoff suggested. **Update:** it now sets the player's arrival rate: closed staff windows and long staff lines bring customers sooner (`teller_room.staff_window_pressure()`). |
 | Unrealistic cash model | **Unchanged:** $1,000 and $500 bills, a $50,000 float, no coins (`drawer_count_screen.gd:21`, `teller_screen.gd:158`). Cash amounts are now whole dollars. |
 | Wall-clock time | **Unchanged:** shift and transaction times still come from `Time.get_datetime_string_from_system()`. There is no sim clock or business-day calendar. The wall-clock *gates* were removed. |
 | Orphaned interview | **Reconnected** through termination only. Still scored and can reject the player; `is_on_probation` is still unused. |

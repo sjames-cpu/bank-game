@@ -98,10 +98,18 @@ func clear_lobby() -> void:
 func _next_spawn_interval() -> float:
 	return randf_range(spawn_interval_min, spawn_interval_max)
 
-func _on_spawn_timer_timeout() -> void:
-	super._on_spawn_timer_timeout()
-	if active:
-		spawn_timer.start(_next_spawn_interval())
+## How crowded this window looks to an arriving customer, 0-1, for the
+## player's line (teller_room.staff_window_pressure()): a closed window is
+## 1 (its customers must go elsewhere); an open one is 0 with nobody waiting
+## behind the customer at the window, rising to 1 with the line full.
+func crowding() -> float:
+	if not active:
+		return 1.0
+	var behind := queue.size() - 1
+	var room_behind := queue_positions.size() - 1
+	if behind <= 0 or room_behind <= 0:
+		return 0.0
+	return clampf(float(behind) / room_behind, 0.0, 1.0)
 
 func is_serving() -> bool:
 	return _serving != null
