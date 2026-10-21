@@ -133,7 +133,7 @@ func test_three_major_counts_trigger_the_supervisor_sign_off() -> void:
 	assert_str(ts.drawer_count_screen.title_label.text).is_equal("Recount Drawer (2 of 2)")
 	count_drawer(MAJOR_TOTAL)
 
-	var notice := "Your supervisor verified the drawer at $50000.00 and signed off. The variance has been recorded."
+	var notice := "Your supervisor verified the drawer at $3000.00 and signed off. The variance has been recorded."
 	assert_bool(is_clocked_in()).is_true()
 	assert_str(ts.drawer_count_screen.status_label.text).contains(notice)
 	assert_bool(ts.feedback_label.visible).is_true()

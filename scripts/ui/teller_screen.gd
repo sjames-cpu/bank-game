@@ -160,11 +160,23 @@ enum DrawerCountPurpose { NONE, STARTING, ENDING }
 ## re-checking the discrepancy value against the thresholds itself.
 enum DiscrepancyResult { PERFECT, MINOR, MAJOR }
 
-## The drawer's assigned starting float, $50,000.00. Like every amount the
-## teller handles here (balances, transactions, requests, drawer totals),
-## int cents (B3, see MoneyMath) — dollars only on entry (the SpinBoxes) and
-## for display (MoneyMath.format()).
-const STARTING_FLOAT_CENTS: int = 5000000
+## The drawer's assigned starting float, $3,000.00: a typical teller
+## drawer, and enough for any shift. Four customers (CustomerQueue.
+## CUSTOMERS_PER_SHIFT_CAP) can withdraw at most $500 each (INTENT_MAX_CENTS),
+## $2,000 in all, so the drawer always covers its customers with $1,000 to
+## spare. Like every amount the teller handles here (balances, transactions,
+## requests, drawer totals), int cents (B3, see MoneyMath) — dollars only on
+## entry (the SpinBoxes) and for display (MoneyMath.format()).
+const STARTING_FLOAT_CENTS: int = 300000
+
+## What the float is made of, one count per CashDenominations entry ($100 to
+## the penny): mostly $20s, the note customers ask for most; tens, fives and
+## ones for making up amounts and change; a few $100s and $50s; and two rolls
+## of each coin (80 quarters, 100 dimes, 80 nickels, 100 pennies: $35).
+## 5x$100 + 6x$50 + 75x$20 + 40x$10 + 45x$5 + 40x$1 + $35 = $3,000.00. The
+## drawer counts allow for a drawer this full of small pieces (see
+## drawer_plausible_pieces()).
+const STARTING_FLOAT_MIX: Array[int] = [5, 6, 75, 40, 45, 40, 80, 100, 80, 100]
 
 const PERFECT_COUNT_SCORE: int = 10
 const MINOR_DISCREPANCY_SCORE: int = 5
@@ -465,6 +477,11 @@ func _on_withdraw_button_pressed() -> void:
 		return
 	if not account.can_withdraw(amount_cents):
 		_show_error("Insufficient funds.")
+		return
+	# Cash comes out of the drawer, which can't pay out more than it holds
+	# (a card withdrawal doesn't touch it).
+	if _current_payment_method() == ShiftTransaction.PaymentMethod.CASH and shift_state == ShiftState.CLOCKED_IN and amount_cents > drawer_cash_cents():
+		_show_error("Not enough cash in the drawer (%s)." % MoneyMath.format(drawer_cash_cents()))
 		return
 	if _current_payment_method() == ShiftTransaction.PaymentMethod.CARD and randf() < CARD_DECLINE_CHANCE:
 		_start_card_decline_cooldown()
@@ -913,6 +930,11 @@ func _record_transaction(type: ShiftTransaction.Type, amount_cents: int) -> Shif
 	shift_transactions.append(transaction)
 	return transaction
 
+## The cash in the drawer right now: the float plus cash deposits minus
+## cash withdrawals so far this shift.
+func drawer_cash_cents() -> int:
+	return _calculate_expected_ending_cents()
+
 ## Card transactions are excluded here (Phase 6e) — no physical cash
 ## changed hands, so they shouldn't shift what the drawer count is
 ## expected to hold. They still count toward
@@ -949,7 +971,17 @@ func _on_clock_in_button_pressed() -> void:
 		_opening_signed_off = false
 	pending_drawer_count_purpose = DrawerCountPurpose.STARTING
 	main_panel.visible = false
-	drawer_count_screen.show_screen(STARTING_FLOAT_CENTS, title)
+	drawer_count_screen.show_screen(STARTING_FLOAT_CENTS, title, drawer_plausible_pieces(STARTING_FLOAT_CENTS))
+
+## How many pieces a drawer holding `expected_cents` plausibly has, for the
+## count's excess-piece check (DrawerCountScreen.get_excess_bill_count()):
+## the starting float's pieces (STARTING_FLOAT_MIX), plus the fewest pieces
+## for any net cash taken in since. Counting the float as it came, or with
+## the fewest pieces, both stay Perfect; a count padded with hundreds of
+## extra coins still doesn't.
+static func drawer_plausible_pieces(expected_cents: int) -> int:
+	var taken_in := maxi(0, expected_cents - STARTING_FLOAT_CENTS)
+	return CashDenominations.piece_count(STARTING_FLOAT_MIX) + CashDenominations.piece_count(CashDenominations.fewest_pieces(taken_in))
 
 ## Gated on work, not time: a shift can only end once every customer it
 ## brings has been handled (see remaining_shift_work). The old 45-second
@@ -963,7 +995,8 @@ func _on_clock_out_button_pressed() -> void:
 	error_label.visible = false
 	pending_drawer_count_purpose = DrawerCountPurpose.ENDING
 	main_panel.visible = false
-	drawer_count_screen.show_screen(_calculate_expected_ending_cents(), "Ending Drawer Count")
+	var expected_cents := _calculate_expected_ending_cents()
+	drawer_count_screen.show_screen(expected_cents, "Ending Drawer Count", drawer_plausible_pieces(expected_cents))
 	ending_count_started.emit()
 
 ## Fires as soon as "Submit Count" is pressed on the drawer count screen
@@ -1090,7 +1123,7 @@ func _begin_shift() -> void:
 
 ## Same "Perfect Count!"/"Minor Discrepancy"/"Major Discrepancy" buckets
 ## DrawerCountScreen's status label shows, so this reuses its
-## MINOR_DISCREPANCY_THRESHOLD_CENTS constant rather than redefining the ±500
+## MINOR_DISCREPANCY_THRESHOLD_CENTS constant rather than redefining the $50
 ## cutoff a second time. Score and Reputation both derive from this one
 ## categorization instead of each re-checking the discrepancy value.
 ## excess_bills is how many more bills the player entered in the ending

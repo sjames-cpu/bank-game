@@ -38,8 +38,9 @@ class_name VaultReconciliationScreen
 signal count_submitted(total_cents: int)
 signal closed
 
-## Face value of each row of quantity_inputs: $1000, $500, $100, $50, $10, $1.
-const DENOMINATION_CENTS: Array[int] = [100000, 50000, 10000, 5000, 1000, 100]
+## Face value of each of quantity_inputs: $100 down to the penny
+## (CashDenominations, bills on the left, coins on the right).
+const DENOMINATION_CENTS: Array[int] = CashDenominations.DENOMINATION_CENTS
 
 ## The whole vault, not one drawer, is being counted here. Summing real
 ## Teller shift ending balances from HistoryManager was the other option
@@ -51,27 +52,26 @@ const DENOMINATION_CENTS: Array[int] = [100000, 50000, 10000, 5000, 1000, 100]
 ## exactly the debug-key testing this phase asks for. A flat simulated
 ## total — the same choice teller_screen.gd already makes for
 ## STARTING_FLOAT_CENTS — keeps this screen deterministic and
-## testable in isolation; 10x a teller's $50,000 starting drawer reads as
-## a reasonable "whole branch" scale.
-const EXPECTED_VAULT_CENTS: int = 50000000
+## testable in isolation. $200,000 is a small branch's vault: enough to
+## restock four $3,000 teller drawers (TellerScreen.STARTING_FLOAT_CENTS)
+## several times over, refill an ATM (typically tens of thousands a load)
+## and meet a few days of large cash withdrawals, without holding more
+## idle cash than a branch this size would.
+const EXPECTED_VAULT_CENTS: int = 20000000
 
-## A vault holds ~10x what one drawer does, so reusing DrawerCountScreen's
-## same $500 absolute threshold here would be a much tighter *relative*
-## tolerance (0.1% of the vault vs. 1% of a drawer) despite there being
-## more cash — and more chances for small counting slips to stack up — to
-## get through. Scaling the threshold by that same 10x keeps the relative
-## tolerance identical to a drawer count's, which is the more meaningful
-## thing to hold constant across drawer- and vault-scale counts.
-const MINOR_DISCREPANCY_THRESHOLD_CENTS: int = 500000
+## Ten times a drawer count's threshold (DrawerCountScreen's $50), as it
+## always was (it was $5,000 against the drawer's $500): a vault has more
+## cash and more piles for small slips to stack up in, so it gets more room,
+## in the same proportion as before.
+const MINOR_DISCREPANCY_THRESHOLD_CENTS: int = 50000
 
 ## Same excess-bill-count check as DrawerCountScreen (see that file's doc
 ## comment on PERFECT_BILL_COUNT_TOLERANCE for the reasoning, including why
 ## it's 4 rather than the original 2) — a correct total alone no longer
 ## counts as Perfect if the bill breakdown behind it is implausible.
-## Scaled 10x like MINOR_DISCREPANCY_THRESHOLD_CENTS above, since the vault's
-## canonical minimum bill count is itself 10x a drawer's (500 vs 50 $1000
-## bills for the respective expected balances) — keeping the same
-## relative tolerance rather than the same absolute one.
+## Scaled 10x like MINOR_DISCREPANCY_THRESHOLD_CENTS above. Unchanged with
+## the new denominations: they count swaps (pieces over the fewest
+## possible), and a vault is counted in ten times the piles.
 const PERFECT_BILL_COUNT_TOLERANCE: int = 40
 const MINOR_BILL_COUNT_TOLERANCE: int = 150
 
@@ -79,14 +79,9 @@ enum DiscrepancyResult { PERFECT, MINOR, MAJOR }
 
 var _paused_by_self: bool = false
 
-@onready var quantity_inputs: Array[SpinBox] = [
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom1000SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom500SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom100SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom50SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom10SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom1SpinBox,
-]
+@onready var denominations_grid: GridContainer = $Panel/VBox/CountSection/CountVBox/DenominationsGrid
+## One per DENOMINATION_CENTS entry, built in _ready() (CashDenominations.build_grid()).
+var quantity_inputs: Array[SpinBox] = []
 
 @onready var your_total_label: Label = $Panel/VBox/CountSection/CountVBox/YourTotalLabel
 @onready var submit_button: Button = $Panel/VBox/SubmitButton
@@ -102,6 +97,7 @@ func _ready() -> void:
 	visible = false
 	close_button.pressed.connect(_on_close_button_pressed)
 	submit_button.pressed.connect(_on_submit_button_pressed)
+	quantity_inputs = CashDenominations.build_grid(denominations_grid)
 
 	for quantity_input in quantity_inputs:
 		quantity_input.value_changed.connect(_on_quantity_changed)
@@ -144,18 +140,9 @@ func _calculate_total_cents() -> int:
 		total += DENOMINATION_CENTS[i] * int(quantity_inputs[i].value)
 	return total
 
-## See DrawerCountScreen._minimum_bill_count() — identical logic, kept as
-## its own copy rather than a shared base class, matching how this screen
-## already duplicates DENOMINATION_CENTS/_calculate_total_cents() from that one.
+## See DrawerCountScreen._minimum_bill_count().
 func _minimum_bill_count(target_cents: int) -> int:
-	var remaining := target_cents
-	var count := 0
-	for denom in DENOMINATION_CENTS:
-		@warning_ignore("integer_division")
-		var quantity := remaining / denom
-		count += quantity
-		remaining -= quantity * denom
-	return count
+	return CashDenominations.piece_count(CashDenominations.fewest_pieces(target_cents))
 
 ## Public so branch_manager_screen.gd can factor this into its own Score/
 ## Reputation/XP grading of the submitted count — see
@@ -207,7 +194,7 @@ func _on_submit_button_pressed() -> void:
 	discrepancy_label.text = "Discrepancy: %s" % MoneyMath.format(discrepancy_cents)
 	status_label.text = "%s Count!" % result_label if discrepancy_result == DiscrepancyResult.PERFECT else "%s Discrepancy" % result_label
 	if discrepancy_cents == 0 and discrepancy_result != DiscrepancyResult.PERFECT:
-		status_label.text += " (correct total, but an implausible bill mix)"
+		status_label.text += " (correct total, but an implausible mix of bills and coins)"
 	results_container.visible = true
 
 	count_submitted.emit(total_cents)

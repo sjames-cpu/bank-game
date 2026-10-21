@@ -1,15 +1,15 @@
 extends Control
 class_name DrawerCountScreen
 
-## Cash-counting mini-game: the player enters how many notes of each
-## denomination are in the drawer, and it's checked against an expected
+## Cash-counting mini-game: the player enters how many notes and coins of
+## each denomination are in the drawer (CashDenominations: $100 to $1 bills
+## on the left, quarters to pennies on the right), and it's checked against an expected
 ## balance the caller supplies (the teller screen's shift system decides
 ## what that number should be — a fixed starting float, or starting
 ## balance + deposits - withdrawals at clock-out). This screen doesn't
 ## know or care which; it just compares and reports.
 ##
-## Every amount is int cents (B3, see MoneyMath), denominations included, so
-## coins can be added as more DENOMINATION_CENTS entries.
+## Every amount is int cents (B3, see MoneyMath), denominations included.
 ##
 ## Manages its own pause state so it works whether or not a caller has
 ## already paused the tree (TellerScreen currently pauses for its own,
@@ -21,16 +21,23 @@ class_name DrawerCountScreen
 signal count_submitted(total_cents: int)
 signal closed
 
-## Face value of each row of quantity_inputs: $1000, $500, $100, $50, $10, $1.
-const DENOMINATION_CENTS: Array[int] = [100000, 50000, 10000, 5000, 1000, 100]
-const MINOR_DISCREPANCY_THRESHOLD_CENTS: int = 50000
+## Face value of each of quantity_inputs: $100 down to the penny.
+const DENOMINATION_CENTS: Array[int] = CashDenominations.DENOMINATION_CENTS
+## Within this of the expected total (and MINOR_BILL_COUNT_TOLERANCE) is a
+## Minor discrepancy, beyond it Major. Half the largest note, as before:
+## the old $500 was half a $1,000 bill, so with $100 the largest note it's
+## $50. A single $100 miscount is Major; a $50 one, or any coin slip, Minor.
+const MINOR_DISCREPANCY_THRESHOLD_CENTS: int = 5000
 
 ## A correct TOTAL alone used to be enough for a Perfect count, even if the
 ## denomination breakdown made no sense (e.g. the whole total stuffed into
 ## $1 bills) — nothing compared the breakdown itself to anything. These
 ## two constants gate that: excess bill count is the player's total bill
 ## count minus the minimum bills mathematically needed for the expected
-## balance (see _minimum_bill_count()) — using more bills than necessary
+## balance (see _minimum_bill_count()), or minus plausible_pieces when the
+## caller knows the drawer holds more (a teller drawer's float is mostly
+## $20s and rolled coins, see TellerScreen.STARTING_FLOAT_MIX) — using more
+## pieces than that
 ## is what an implausible/gamed breakdown looks like, whereas a reasonable
 ## alternate mix (e.g. a few $500s instead of a $1000) only adds a handful
 ## of bills over that minimum. A per-denomination cap was considered
@@ -47,22 +54,22 @@ const MINOR_DISCREPANCY_THRESHOLD_CENTS: int = 50000
 ## count on the same $50,000 comes in at ~9,950 excess bills), so it still
 ## clearly separates careful counting from sloppy/gamed counting rather
 ## than just loosening the check generally. First-pass values, tune
-## further after playtesting.
+## further after playtesting. Coins count as pieces like bills; the
+## tolerances are unchanged with the new denominations, since they count
+## swaps (a few smaller pieces for a larger one), not dollars.
 const PERFECT_BILL_COUNT_TOLERANCE: int = 4
 const MINOR_BILL_COUNT_TOLERANCE: int = 15
 
 var expected_cents: int = 0
+## How many pieces the drawer plausibly holds (0: just the fewest possible
+## for expected_cents). See get_excess_bill_count().
+var plausible_pieces: int = 0
 var _paused_by_self: bool = false
 
 @onready var title_label: Label = $Panel/VBox/TitleLabel
-@onready var quantity_inputs: Array[SpinBox] = [
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom1000SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom500SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom100SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom50SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom10SpinBox,
-	$Panel/VBox/CountSection/CountVBox/DenominationsGrid/Denom1SpinBox,
-]
+@onready var denominations_grid: GridContainer = $Panel/VBox/CountSection/CountVBox/DenominationsGrid
+## One per DENOMINATION_CENTS entry, built in _ready() (CashDenominations.build_grid()).
+var quantity_inputs: Array[SpinBox] = []
 
 @onready var your_total_label: Label = $Panel/VBox/CountSection/CountVBox/YourTotalLabel
 @onready var submit_button: Button = $Panel/VBox/SubmitButton
@@ -78,17 +85,19 @@ func _ready() -> void:
 	visible = false
 	close_button.pressed.connect(_on_close_button_pressed)
 	submit_button.pressed.connect(_on_submit_button_pressed)
+	quantity_inputs = CashDenominations.build_grid(denominations_grid)
 
 	# Every quantity SpinBox drives the same recalculation, regardless of
 	# which one the player just edited — value_changed hands us the new
-	# value, but we ignore it and just re-sum all six inputs.
+	# value, but we ignore it and just re-sum all of them.
 	for quantity_input in quantity_inputs:
 		quantity_input.value_changed.connect(_on_quantity_changed)
 
 	_reset_form()
 
-func show_screen(new_expected_cents: int, title: String = "Drawer Count") -> void:
+func show_screen(new_expected_cents: int, title: String = "Drawer Count", new_plausible_pieces: int = 0) -> void:
 	expected_cents = new_expected_cents
+	plausible_pieces = new_plausible_pieces
 	title_label.text = title
 	_reset_form()
 	visible = true
@@ -125,24 +134,16 @@ func _calculate_total_cents() -> int:
 		total += DENOMINATION_CENTS[i] * int(quantity_inputs[i].value)
 	return total
 
-## The fewest bills mathematically able to make up `target_cents`, largest
-## denomination first — greedy is optimal here since each denomination
-## divides evenly into the next size up (1000/500/100/50/10/1). Used as
-## the "plausible" baseline: real bill counts can vary a little from this
-## (a few mid-size bills instead of one big one), but shouldn't need wildly
-## more bills than this to reach the same total.
+## The fewest pieces able to make up `target_cents`
+## (CashDenominations.fewest_pieces(): greedy, optimal for US notes and
+## coins). The baseline: real counts can vary a little from this (a few
+## smaller pieces instead of one big one), but shouldn't need wildly more.
 func _minimum_bill_count(target_cents: int) -> int:
-	var remaining := target_cents
-	var count := 0
-	for denom in DENOMINATION_CENTS:
-		@warning_ignore("integer_division")
-		var quantity := remaining / denom
-		count += quantity
-		remaining -= quantity * denom
-	return count
+	return CashDenominations.piece_count(CashDenominations.fewest_pieces(target_cents))
 
-## How many more bills the player entered than the minimum possible for
-## expected_cents — see PERFECT_BILL_COUNT_TOLERANCE's doc comment.
+## How many more pieces the player entered than the drawer plausibly holds:
+## the fewest possible for expected_cents, or plausible_pieces if more —
+## see PERFECT_BILL_COUNT_TOLERANCE's doc comment.
 ## Public so teller_screen.gd can factor this into its own Score/
 ## Reputation/XP grading of the ending count, the same way it already
 ## reads MINOR_DISCREPANCY_THRESHOLD_CENTS directly.
@@ -150,7 +151,7 @@ func get_excess_bill_count() -> int:
 	var player_bill_count := 0
 	for quantity_input in quantity_inputs:
 		player_bill_count += int(quantity_input.value)
-	return maxi(0, player_bill_count - _minimum_bill_count(expected_cents))
+	return maxi(0, player_bill_count - maxi(_minimum_bill_count(expected_cents), plausible_pieces))
 
 func _update_live_total() -> void:
 	your_total_label.text = "Your Total: %s" % MoneyMath.format(_calculate_total_cents())
@@ -169,11 +170,11 @@ func _on_submit_button_pressed() -> void:
 	elif absi(discrepancy_cents) <= MINOR_DISCREPANCY_THRESHOLD_CENTS and excess_bills <= MINOR_BILL_COUNT_TOLERANCE:
 		status_label.text = "Minor Discrepancy"
 		if discrepancy_cents == 0:
-			status_label.text += " (correct total, but an unusual bill mix)"
+			status_label.text += " (correct total, but an unusual mix of bills and coins)"
 	else:
 		status_label.text = "Major Discrepancy"
 		if discrepancy_cents == 0:
-			status_label.text += " (correct total, but an implausible bill mix)"
+			status_label.text += " (correct total, but an implausible mix of bills and coins)"
 
 	results_container.visible = true
 	count_submitted.emit(total_cents)

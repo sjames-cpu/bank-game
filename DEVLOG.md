@@ -169,6 +169,14 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **2:00 PM cutoff**: teller transactions from 2 PM post on the next business day. The teller screen says so, the transaction records its posting day, and the End of Day summary lists them. Balances and grading don't change.
 - **Regional reviews** count business days (they always counted day numbers, which are now business days). The calendar's start date is saved with the clock.
 
+## Session 19 — Oct 21, 2026: A realistic cash model
+*(the cash model commit)*
+
+- **Denominations** (`CashDenominations`): $100, $50, $20, $10, $5 and $1 bills, and quarters, dimes, nickels and pennies, for the drawer count and the vault, laid out in two columns (bills, coins).
+- **Teller float**: $3,000 instead of $50,000: 5×$100, 6×$50, 75×$20, 40×$10, 45×$5, 40×$1 and two rolls of each coin. A shift's four customers can withdraw at most $2,000, so the drawer always covers them, and a cash withdrawal larger than the drawer's cash is refused. Counting the float as it came is Perfect: the count allows for the pieces the drawer plausibly holds.
+- **Vault**: $200,000 instead of $500,000, a small branch's scale.
+- **Thresholds**: Minor is within $50 for a drawer (half the largest note, as $500 was half a $1,000 bill) and $500 for the vault (10×, as before). The piece tolerances (4 and 15 over the plausible count; 40 and 150 for the vault) are unchanged: they count swaps, not dollars. Customer requests ($20–$500), starting balances ($200–$2,000), staff-line requests and the ATM ($500 limit) didn't depend on the float and are unchanged.
+
 ---
 
 ## Notes for next session
@@ -176,5 +184,4 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - No `.csproj`/`.sln` yet: everything is still GDScript despite the project being configured for .NET.
 - The save has one slot and no autosave mid-shift: quitting mid-shift loses that shift's work.
 - The business day has opening hours and an End of Day summary (`BusinessDay`), but nothing ever closes the career's days for good: there's no week, month or year view yet.
-- The cash model still has $1,000/$500 bills and no coins; amounts are already in cents, so coins can be added as more `DENOMINATION_CENTS` entries.
 - Loan application figures are whole-dollar floats by design (judged, never moved as cash).

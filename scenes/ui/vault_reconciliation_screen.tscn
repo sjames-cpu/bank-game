@@ -29,8 +29,8 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -200.0
-offset_right = 200.0
+offset_left = -270.0
+offset_right = 270.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -52,61 +52,7 @@ layout_mode = 2
 
 [node name="DenominationsGrid" type="GridContainer" parent="Panel/VBox/CountSection/CountVBox"]
 layout_mode = 2
-columns = 2
-
-[node name="Denom1000Label" type="Label" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-text = "$1000"
-
-[node name="Denom1000SpinBox" type="SpinBox" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-max_value = 9999.0
-step = 1.0
-
-[node name="Denom500Label" type="Label" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-text = "$500"
-
-[node name="Denom500SpinBox" type="SpinBox" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-max_value = 9999.0
-step = 1.0
-
-[node name="Denom100Label" type="Label" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-text = "$100"
-
-[node name="Denom100SpinBox" type="SpinBox" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-max_value = 9999.0
-step = 1.0
-
-[node name="Denom50Label" type="Label" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-text = "$50"
-
-[node name="Denom50SpinBox" type="SpinBox" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-max_value = 9999.0
-step = 1.0
-
-[node name="Denom10Label" type="Label" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-text = "$10"
-
-[node name="Denom10SpinBox" type="SpinBox" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-max_value = 9999.0
-step = 1.0
-
-[node name="Denom1Label" type="Label" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-text = "$1"
-
-[node name="Denom1SpinBox" type="SpinBox" parent="Panel/VBox/CountSection/CountVBox/DenominationsGrid"]
-layout_mode = 2
-max_value = 9999.0
-step = 1.0
+columns = 4
 
 [node name="YourTotalLabel" type="Label" parent="Panel/VBox/CountSection/CountVBox"]
 layout_mode = 2

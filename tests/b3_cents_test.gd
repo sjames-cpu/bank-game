@@ -30,17 +30,17 @@ func test_many_cash_transactions_sum_to_the_exact_drawer() -> void:
 	# Card transactions don't touch the drawer.
 	var card := ts._record_transaction(ShiftTransaction.Type.DEPOSIT, 12345)
 	card.payment_method = ShiftTransaction.PaymentMethod.CARD
-	# Bring the total back to whole dollars so the drawer (smallest bill $1)
-	# can hold it.
+	# Bring the total back to whole dollars (a round figure to check; the
+	# drawer has coins, so any cent amount counts too).
 	ts._record_transaction(ShiftTransaction.Type.WITHDRAWAL, 30)
 	expected_cents -= 30
 	assert_int(expected_cents % 100).is_equal(0)
 
 	assert_int(ts._calculate_expected_ending_cents()).is_equal(expected_cents)
-	assert_int(expected_cents).is_equal(5000000 + 30 + 10000 - 9900 + 199900 - 30)
+	assert_int(expected_cents).is_equal(300000 + 30 + 10000 - 9900 + 199900 - 30)
 
 	assert_bool(clock_out()).is_true()
-	assert_str(ts.drawer_count_screen.result_expected_label.text).is_equal("Expected Balance: $52000.00")
+	assert_str(ts.drawer_count_screen.result_expected_label.text).is_equal("Expected Balance: $5000.00")
 	assert_str(ts.drawer_count_screen.status_label.text).is_equal("Perfect Count!")
 	var last: DecisionRecord = HistoryManager.records[-1]
 	assert_str(last.grade_label).is_equal("Perfect")
