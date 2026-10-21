@@ -238,6 +238,28 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_int(RegionalManager.vault_by_day[2]).is_equal(VaultReconciliationScreen.DiscrepancyResult.MINOR)
 	assert_float(RegionalManager.vacant_desk_minutes).is_equal(75.5)
 
+## Game time builds up from frame deltas, so it can be any float; a value
+## the JSON parser can't read back exactly once made a CI round trip fail
+## (510.06136363636364 came back as 510.0613636363637). Both clock-driven
+## floats must survive a real save whatever they are.
+func test_clock_driven_times_survive_the_save_exactly() -> void:
+	XPManager._grant_branch_manager() # the review window holds vacant_desk_minutes
+	acknowledge_letters()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var values: Array[float] = [510.06136363636364, 1e-9, 0.1 + 0.2]
+	for i in 200:
+		values.append(rng.randf_range(0.0, GameClock.MINUTES_PER_DAY - 1.0))
+	for value in values:
+		GameClock.minutes = value
+		RegionalManager.vacant_desk_minutes = value * 3.7
+		var saved_career := SaveGame.capture()
+		assert_bool(SaveGame.save()).is_true()
+		SaveGame.restore(SaveGame.read().career)
+		assert_dict(SaveGame.capture()).override_failure_message("%s didn't survive the save" % value).is_equal(saved_career)
+		# Within a game second of the live value.
+		assert_float(GameClock.minutes).is_equal_approx(value, 1.0 / 60.0)
+
 func test_saved_resources_cover_every_exported_field() -> void:
 	# A field added to a saved resource must reach the file without changes
 	# to SaveGame: every exported property is written.

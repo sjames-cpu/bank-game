@@ -82,7 +82,7 @@ func format_time(game_minutes: float) -> String:
 	return "%d:%02d %s" % [hour_12, minute, suffix]
 
 func save_data() -> Dictionary:
-	return {"day": day, "minutes": minutes}
+	return {"day": day, "minutes": SaveGame.time_for_save(minutes)}
 
 func load_data(data: Dictionary) -> void:
 	day = maxi(START_DAY, SaveGame.int_of(data, "day", START_DAY))

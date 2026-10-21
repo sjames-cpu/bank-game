@@ -663,7 +663,7 @@ func save_data() -> Dictionary:
 			"staff_mistakes": staff_mistakes,
 			"staff_line_served": staff_line_served,
 			"staff_line_abandoned": staff_line_abandoned,
-			"vacant_desk_minutes": vacant_desk_minutes,
+			"vacant_desk_minutes": SaveGame.time_for_save(vacant_desk_minutes),
 			"hire_verdicts": hire_verdicts.duplicate(),
 		},
 	}

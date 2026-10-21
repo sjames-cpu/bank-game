@@ -203,6 +203,16 @@ static func int_value(value: Variant, default: int) -> int:
 		return int(number)
 	return default
 
+## Game time as saved (GameClock.minutes, RegionalManager's vacant
+## desk-minutes): snapped to TIME_STEP, a binary fraction whose short decimal
+## form the JSON parser reads back exactly. Time builds up from frame deltas,
+## and a full 17-digit float can come back one bit off, so a loaded career
+## wouldn't match the one saved.
+const TIME_STEP: float = 1.0 / 64.0
+
+static func time_for_save(minutes: float) -> float:
+	return roundf(minutes / TIME_STEP) * TIME_STEP
+
 static func float_of(data: Dictionary, key: String, default: float) -> float:
 	var value: Variant = data.get(key)
 	if value is int or value is float:

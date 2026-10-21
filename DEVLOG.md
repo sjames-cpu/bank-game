@@ -159,6 +159,7 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Customers choose a line** (HANDOFF design flaw, "staffing is decorative", the part the audit left open): when a staff teller window is closed or its line is long because its teller is slow, customers come to the Player Teller Window sooner.
 - **The model**: each staff window's crowding is 1 when closed, 0 with nobody waiting behind the customer at the window, and 0.5 or 1 with one or two waiting (the line holds three). The average over Teller Windows 1 and 2 is the pressure, and the gap between the player's arrivals is 20 s × (1 − 0.5 × pressure): 20 s fully staffed, 15 s with one window closed, 10 s with both closed or both full. It's worked out as each gap starts.
 - **Unchanged**: 4 customers a shift, patience and abandonment, opening hours.
+- **CI flake fixed** (separate commit): `hiring_test`'s save round trip failed on CI because the game clock's minutes (510.06136363636364) came back from JSON one bit off. Clock-driven floats are now saved snapped to 1/64 of a game minute, and a test round-trips 200 awkward values through a real save.
 
 ---
 
