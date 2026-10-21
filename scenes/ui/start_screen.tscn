@@ -92,23 +92,56 @@ theme_override_font_sizes/font_size = 24
 text = "Choose a Save Slot"
 horizontal_alignment = 1
 
-[node name="Slot1Button" type="Button" parent="SlotPanel/VBox"]
+[node name="Slot1Row" type="HBoxContainer" parent="SlotPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Slot1Button" type="Button" parent="SlotPanel/VBox/Slot1Row"]
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Slot 1
 New Game"
 
-[node name="Slot2Button" type="Button" parent="SlotPanel/VBox"]
+[node name="Slot1DeleteButton" type="Button" parent="SlotPanel/VBox/Slot1Row"]
+visible = false
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Delete"
+
+[node name="Slot2Row" type="HBoxContainer" parent="SlotPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Slot2Button" type="Button" parent="SlotPanel/VBox/Slot2Row"]
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Slot 2
 New Game"
 
-[node name="Slot3Button" type="Button" parent="SlotPanel/VBox"]
+[node name="Slot2DeleteButton" type="Button" parent="SlotPanel/VBox/Slot2Row"]
+visible = false
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Delete"
+
+[node name="Slot3Row" type="HBoxContainer" parent="SlotPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Slot3Button" type="Button" parent="SlotPanel/VBox/Slot3Row"]
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Slot 3
 New Game"
+
+[node name="Slot3DeleteButton" type="Button" parent="SlotPanel/VBox/Slot3Row"]
+visible = false
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Delete"
 
 [node name="BackButton" type="Button" parent="SlotPanel/VBox"]
 custom_minimum_size = Vector2(0, 40)
@@ -148,3 +181,38 @@ text = "Start a New Game Here"
 [node name="BackButton" type="Button" parent="MessagePanel/VBox"]
 layout_mode = 2
 text = "Back"
+
+[node name="DeletePanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -80.0
+offset_right = 200.0
+offset_bottom = 80.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="DeletePanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="DeleteLabel" type="Label" parent="DeletePanel/VBox"]
+layout_mode = 2
+text = "Delete this save? This cannot be undone."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ConfirmDeleteButton" type="Button" parent="DeletePanel/VBox"]
+layout_mode = 2
+text = "Delete"
+
+[node name="CancelDeleteButton" type="Button" parent="DeletePanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Cancel"

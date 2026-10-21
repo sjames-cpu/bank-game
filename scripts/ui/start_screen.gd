@@ -10,7 +10,8 @@ class_name StartScreen
 ## shows "New Game" and starts a new career in it. A slot whose save can't
 ## be read (damaged, or another version) says so; clicking it offers a new
 ## game there, with the bad file set aside beside it (SaveGame.set_aside()).
-## There's no delete or overwrite of a working save.
+## A filled slot also has a Delete button, which asks "Delete this save?
+## This cannot be undone." before deleting that slot only.
 ##
 ## Every slot is its own file: choosing one calls SaveGame.use_slot(), so the
 ## career saves to that slot only.
@@ -44,11 +45,25 @@ const WRONG_VERSION_MESSAGE: String = "The save in Slot %d is from a different v
 
 @onready var slot_panel: PanelContainer = $SlotPanel
 @onready var slot_buttons: Array[Button] = [
-	$SlotPanel/VBox/Slot1Button,
-	$SlotPanel/VBox/Slot2Button,
-	$SlotPanel/VBox/Slot3Button,
+	$SlotPanel/VBox/Slot1Row/Slot1Button,
+	$SlotPanel/VBox/Slot2Row/Slot2Button,
+	$SlotPanel/VBox/Slot3Row/Slot3Button,
+]
+## One per slot, shown only on a filled slot (a save that loads).
+@onready var delete_buttons: Array[Button] = [
+	$SlotPanel/VBox/Slot1Row/Slot1DeleteButton,
+	$SlotPanel/VBox/Slot2Row/Slot2DeleteButton,
+	$SlotPanel/VBox/Slot3Row/Slot3DeleteButton,
 ]
 @onready var back_button: Button = $SlotPanel/VBox/BackButton
+
+## "Delete this save? This cannot be undone." with Delete / Cancel.
+@onready var delete_panel: PanelContainer = $DeletePanel
+@onready var confirm_delete_button: Button = $DeletePanel/VBox/ConfirmDeleteButton
+@onready var cancel_delete_button: Button = $DeletePanel/VBox/CancelDeleteButton
+
+## The slot the delete confirmation is asking about.
+var _delete_slot: int = 0
 
 @onready var message_panel: PanelContainer = $MessagePanel
 @onready var message_label: Label = $MessagePanel/VBox/MessageLabel
@@ -76,6 +91,9 @@ func _ready() -> void:
 	quit_button.pressed.connect(_on_quit_pressed)
 	for i in slot_buttons.size():
 		slot_buttons[i].pressed.connect(_on_slot_pressed.bind(i + 1))
+		delete_buttons[i].pressed.connect(_on_delete_pressed.bind(i + 1))
+	confirm_delete_button.pressed.connect(_on_confirm_delete_pressed)
+	cancel_delete_button.pressed.connect(show_slots)
 	back_button.pressed.connect(show_main_menu)
 	message_new_game_button.pressed.connect(_on_message_new_game_pressed)
 	message_back_button.pressed.connect(show_slots)
@@ -98,6 +116,7 @@ func show_slots() -> void:
 		var result := SaveGame.read_slot(slot)
 		slot_results.append(result)
 		slot_buttons[slot - 1].text = slot_text(slot, result)
+		delete_buttons[slot - 1].visible = result.status == SaveGame.Status.OK
 	_show_only(slot_panel)
 	slot_buttons[0].grab_focus()
 
@@ -145,7 +164,7 @@ static func last_played_text(saved_at: String) -> String:
 	return text
 
 func _show_only(panel: Control) -> void:
-	for each: Control in [menu_panel, slot_panel, message_panel]:
+	for each: Control in [menu_panel, slot_panel, message_panel, delete_panel]:
 		each.visible = each == panel
 
 func _on_slot_pressed(slot: int) -> void:
@@ -186,6 +205,20 @@ func _on_message_new_game_pressed() -> void:
 	SaveGame.use_slot(_message_slot)
 	SaveGame.set_aside()
 	start_new_career(_message_slot)
+
+## A filled slot's Delete: ask first.
+func _on_delete_pressed(slot: int) -> void:
+	_delete_slot = slot
+	_show_only(delete_panel)
+	cancel_delete_button.grab_focus()
+
+## Confirmed: that slot's save goes (SaveGame.delete_slot(), the same delete
+## a termination uses: that slot only), and the slots show again, with it as
+## New Game.
+func _on_confirm_delete_pressed() -> void:
+	SaveGame.delete_slot(_delete_slot)
+	_delete_slot = 0
+	show_slots()
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()

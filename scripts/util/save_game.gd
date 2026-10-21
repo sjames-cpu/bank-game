@@ -130,6 +130,14 @@ static func migrate_legacy_save() -> bool:
 		return false
 	return DirAccess.rename_absolute(legacy, target) == OK
 
+## Deletes slot `slot`'s save (the slot screen's Delete), through the same
+## delete() termination uses, so only that slot's file is touched. Leaves
+## no slot chosen.
+static func delete_slot(slot: int) -> void:
+	use_slot(slot)
+	delete()
+	leave_slot()
+
 ## Reads slot `slot` without choosing it or changing the career.
 static func read_slot(slot: int) -> ReadResult:
 	return read_file(slot_path(slot))

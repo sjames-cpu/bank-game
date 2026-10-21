@@ -884,3 +884,38 @@ func test_firing_in_slot_2_clears_only_slot_2() -> void:
 	assert_nothing_left_over(fresh)
 	assert_str(slot_file_text(1)).is_equal(slot_1_text)
 	assert_str(slot_file_text(3)).is_equal(slot_3_text)
+
+## The slot screen's Delete: only on filled slots, asks first (Cancel keeps
+## the save), and deletes slot 2 only: slots 1 and 3 stay exactly as they were.
+func test_deleting_slot_2_leaves_slots_1_and_3_untouched() -> void:
+	for slot in range(1, SaveGame.SLOT_COUNT + 1):
+		CareerReset.reset_all()
+		ScoreManager.add_shift_score(slot * 10)
+		save_in_slot(slot)
+	var slot_1_text := slot_file_text(1)
+	var slot_3_text := slot_file_text(3)
+
+	var screen: StartScreen = await open_slots()
+	for button in screen.delete_buttons:
+		assert_bool(button.visible).is_true()
+
+	# Cancel keeps it.
+	screen.delete_buttons[1].pressed.emit()
+	assert_bool(screen.delete_panel.visible).is_true()
+	assert_str((screen.get_node("DeletePanel/VBox/DeleteLabel") as Label).text).is_equal("Delete this save? This cannot be undone.")
+	screen.cancel_delete_button.pressed.emit()
+	assert_bool(screen.slot_panel.visible).is_true()
+	assert_int(SaveGame.read_slot(2).status).is_equal(SaveGame.Status.OK)
+
+	# Delete removes slot 2 only.
+	screen.delete_buttons[1].pressed.emit()
+	screen.confirm_delete_button.pressed.emit()
+	assert_bool(screen.slot_panel.visible).is_true()
+	assert_int(SaveGame.read_slot(2).status).is_equal(SaveGame.Status.MISSING)
+	assert_str(screen.slot_buttons[1].text).is_equal("Slot 2\nNew Game")
+	assert_bool(screen.delete_buttons[1].visible).is_false()
+	assert_str(slot_file_text(1)).is_equal(slot_1_text)
+	assert_str(slot_file_text(3)).is_equal(slot_3_text)
+	assert_bool(screen.delete_buttons[0].visible).is_true()
+	assert_bool(screen.delete_buttons[2].visible).is_true()
+	assert_int(SaveGame.current_slot).is_equal(0)
