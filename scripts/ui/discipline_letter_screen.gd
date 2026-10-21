@@ -23,12 +23,21 @@ class_name DisciplineLetterScreen
 ## or dragging) while the title, sender and button stay visible, and a short
 ## letter shrinks to its text.
 ##
-## The termination letter's only button, "Apply for a new job", wipes all
-## career progress (CareerReset) and its save (SaveGame, already deleted when
-## the letter came up) and loads the interview; passing it starts a new
-## career in teller_room the usual way (interview_screen.gd).
+## The termination letter's only button wipes all career progress
+## (CareerReset) and its save (SaveGame, already deleted when the letter came
+## up). Where it goes depends on InterviewManager.interview_enabled: with the
+## interview on it reads "Apply for a new job" and loads the interview, whose
+## hire starts a new career in teller_room (interview_screen.gd); with it off
+## the letter adds that this is game over, and "Back to Start Screen" opens
+## the start screen, which offers New Game (there's no save any more).
 
 const INTERVIEW_SCENE: String = "res://scenes/ui/interview_screen.tscn"
+const START_SCREEN: String = "res://scenes/ui/start_screen.tscn"
+
+## The termination letter's button and last paragraph, by interview setting.
+const NEW_JOB_BUTTON_TEXT: String = "Apply for a new job"
+const GAME_OVER_BUTTON_TEXT: String = "Back to Start Screen"
+const GAME_OVER_TEXT: String = "Game over: your career at the branch has ended, and your saved career has been deleted. You can start a new game from the start screen."
 
 const WARNING_BACKDROP: Color = Color(0, 0, 0, 0.6)
 const TERMINATION_BACKDROP: Color = Color(0.08, 0.08, 0.1, 1)
@@ -126,6 +135,8 @@ func _on_termination_issued(reports: Array[DisciplinaryReport]) -> void:
 		lines.append("Report %d — %s%s" % [report.number, report.reason, items])
 	var during := " during your probation period" if InterviewManager.is_on_probation else ""
 	var body := "Following %d disciplinary reports%s, your employment with the branch is terminated, effective immediately.\n\n%s" % [reports.size(), during, "\n".join(lines)]
+	if not InterviewManager.interview_enabled:
+		body += "\n\n" + GAME_OVER_TEXT
 	# The career is over: delete its save now, so quitting at this letter
 	# can't bring it back (SaveGame won't save a terminated career either).
 	SaveGame.delete()
@@ -177,7 +188,7 @@ func _show(mode: Mode, title: String, body: String, sender: String = BRANCH_MANA
 	from_label.text = "From: " + sender
 	body_label.text = body
 	backdrop.color = TERMINATION_BACKDROP if mode == Mode.TERMINATION else WARNING_BACKDROP
-	action_button.text = "Apply for a new job" if mode == Mode.TERMINATION else "Acknowledge"
+	action_button.text = termination_button_text() if mode == Mode.TERMINATION else "Acknowledge"
 	visible = true
 	body_scroll.scroll_vertical = 0
 	_fit_to_body()
@@ -188,7 +199,7 @@ func _show(mode: Mode, title: String, body: String, sender: String = BRANCH_MANA
 
 func _on_action_button_pressed() -> void:
 	if _mode == Mode.TERMINATION:
-		_apply_for_new_job()
+		_end_career()
 		return
 	if not _queue.is_empty():
 		var next: Array = _queue.pop_front()
@@ -239,11 +250,16 @@ func _on_body_scroll_input(event: InputEvent) -> void:
 		body_scroll.scroll_vertical -= roundi(motion.relative.y)
 		body_scroll.accept_event()
 
-func _apply_for_new_job() -> void:
+## The termination letter's button: "Apply for a new job" with the interview
+## on, "Back to Start Screen" (game over) with it off.
+static func termination_button_text() -> String:
+	return NEW_JOB_BUTTON_TEXT if InterviewManager.interview_enabled else GAME_OVER_BUTTON_TEXT
+
+func _end_career() -> void:
 	get_tree().paused = false
 	SaveGame.delete()
 	CareerReset.reset_all()
-	get_tree().change_scene_to_file(INTERVIEW_SCENE)
+	get_tree().change_scene_to_file(INTERVIEW_SCENE if InterviewManager.interview_enabled else START_SCREEN)
 
 func _bullets(items: PackedStringArray) -> String:
 	var lines: PackedStringArray = []

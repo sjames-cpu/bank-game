@@ -1,16 +1,25 @@
 extends Control
 class_name StartScreen
 
-## The game's main scene. With no save it goes straight on to the interview
-## (a new game, as before saves existed). With a save it offers "Continue"
-## (restore the career, SaveGame.restore(), and walk into teller_room off
-## shift) and "New Game" (after a confirmation, delete the save and start
-## at the interview). A save that can't be read (damaged, or another
-## version) never stops the game: a short message, then a new game, with
-## the bad file set aside (SaveGame.set_aside()).
+## The game's main scene. With a save it offers "Continue" (restore the
+## career, SaveGame.restore(), and walk into teller_room off shift) and "New
+## Game" (after a confirmation, delete the save and start a new career). A
+## save that can't be read (damaged, or another version) never stops the
+## game: a short message, then a new game, with the bad file set aside
+## (SaveGame.set_aside()).
+##
+## How a new career starts depends on InterviewManager.interview_enabled
+## (the INTERVIEW_ENABLED switch). With the interview on, it starts at the
+## interview, and with no save this screen goes straight there. With it
+## off, the player is hired at once as a regular Teller (no probation),
+## saved, and walks into teller_room; with no save this screen shows its
+## menu with only "New Game" (also where a termination's game over lands).
 
 const INTERVIEW_SCENE: String = "res://scenes/ui/interview_screen.tscn"
 const TELLER_ROOM_SCENE: String = "res://scenes/world/teller_room.tscn"
+
+## The menu's summary when there's no saved career (interview off).
+const NO_SAVE_TEXT: String = "No saved career. Start a new game as a teller at the branch."
 
 const CORRUPT_MESSAGE: String = "Your saved career couldn't be loaded: the save file is damaged.\n\nStarting a new game."
 const WRONG_VERSION_MESSAGE: String = "Your saved career is from a different version of BankSim and can't be loaded.\n\nStarting a new game."
@@ -45,8 +54,13 @@ func _ready() -> void:
 	saved = SaveGame.read()
 	match saved.status:
 		SaveGame.Status.MISSING:
-			# Deferred: the tree is still adding this scene.
-			_start_new_career.call_deferred()
+			if InterviewManager.interview_enabled:
+				# Deferred: the tree is still adding this scene.
+				_start_new_career.call_deferred()
+			else:
+				summary_label.text = NO_SAVE_TEXT
+				continue_button.visible = false
+				_show_only(menu_panel)
 		SaveGame.Status.OK:
 			summary_label.text = describe(saved)
 			_show_only(menu_panel)
@@ -87,7 +101,11 @@ func _on_continue_pressed() -> void:
 	SaveGame.restore(saved.career)
 	get_tree().change_scene_to_file(TELLER_ROOM_SCENE)
 
+## With no save there's nothing to lose, so no confirmation.
 func _on_new_game_pressed() -> void:
+	if saved.status == SaveGame.Status.MISSING:
+		_start_new_career()
+		return
 	_show_only(confirm_panel)
 
 func _on_confirm_new_game_pressed() -> void:
@@ -100,4 +118,12 @@ func _on_message_ok_pressed() -> void:
 
 func _start_new_career() -> void:
 	CareerReset.reset_all()
-	get_tree().change_scene_to_file(INTERVIEW_SCENE)
+	if InterviewManager.interview_enabled:
+		get_tree().change_scene_to_file(INTERVIEW_SCENE)
+		return
+	# Interview off: hired straight away as a regular Teller, and saved at
+	# once, the way an interview hire is (interview_screen.gd), so quitting
+	# before the first clock-out still continues the career.
+	InterviewManager.hire_without_interview()
+	SaveGame.save()
+	get_tree().change_scene_to_file(TELLER_ROOM_SCENE)

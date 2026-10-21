@@ -1,10 +1,12 @@
 extends Control
 class_name InterviewScreen
 
-## The hiring interview mini-game (2h): every new game starts here (the
-## start screen, start_screen.gd, comes straight here when there's no save,
-## or on New Game), and so does "Apply for a new job" after a termination (discipline_letter_screen.gd resets all career progress
-## first). teller_room (and its Player/first shift) loads once the
+## The hiring interview mini-game (2h). Only used while the interview switch
+## is on (InterviewManager.INTERVIEW_ENABLED; off for now, and then nothing
+## loads this scene). With it on, every new game starts here (the start
+## screen, start_screen.gd, comes straight here when there's no save, or on
+## New Game), and so does "Apply for a new job" after a termination
+## (discipline_letter_screen.gd resets all career progress first). teller_room (and its Player/first shift) loads once the
 ## interview ends in Hired or Hired-on-Probation; the latter starts a
 ## probation (InterviewManager). A Rejected outcome loops back to the first
 ## question right here instead of needing any "quit game" flow.

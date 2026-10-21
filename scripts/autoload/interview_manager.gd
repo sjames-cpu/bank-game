@@ -23,6 +23,26 @@ signal probation_completed
 
 enum Outcome { HIRED, HIRED_ON_PROBATION, REJECTED }
 
+## THE INTERVIEW SWITCH. The hiring interview is off for now (it's being
+## redesigned); set this to true to bring it back exactly as it was.
+## - true: a new game (start_screen.gd) and "Apply for a new job" after a
+##   termination (discipline_letter_screen.gd) go through the interview,
+##   whose result can start a probation.
+## - false: a new game starts straight in the room as a regular hired Teller
+##   (hire_without_interview(): no probation), and a termination is game
+##   over: the letter's button goes back to the start screen.
+## Nothing of the interview is removed: its scene, questions, outcomes and
+## probation rules stay as they are, and a saved career on probation keeps
+## it.
+const INTERVIEW_ENABLED: bool = false
+
+## INTERVIEW_ENABLED as the game reads it. Only tests change it, to cover
+## both settings; it isn't career state, so reset() and save_data() leave it
+## alone.
+var interview_enabled: bool = INTERVIEW_ENABLED
+
+const INTERVIEW_SCENE: String = "res://scenes/ui/interview_screen.tscn"
+
 ## Score thresholds out of this question set's 30-point maximum (10
 ## questions, best answer worth +3 each; see InterviewQuestionsData). HIRE_THRESHOLD asks for mostly
 ## strong answers; PROBATION_THRESHOLD still requires a net-positive
@@ -82,6 +102,13 @@ func resolve_outcome(total_score: int, instant_rejected: bool) -> Outcome:
 	probation_clean_shifts = 0
 	_reported_this_shift = false
 	return outcome
+
+## A new career with the interview off (start_screen.gd): hired as a regular
+## Teller, as the interview's plain "Hired" outcome would, so no probation.
+func hire_without_interview() -> void:
+	is_on_probation = false
+	probation_clean_shifts = 0
+	_reported_this_shift = false
 
 ## How many reports end the career right now (ReportManager).
 func report_limit() -> int:
