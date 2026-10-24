@@ -76,6 +76,19 @@ class_name TellerScreen
 
 @onready var drawer_count_screen: DrawerCountScreen = $DrawerCountScreen
 
+## The drawer's cash, its limits and transfers with the vault, in a narrow
+## panel right of the main one (clear of the HUD column), shown with the
+## main panel while clocked in. Beside the main panel rather than in it, so
+## the main panel keeps its height.
+@onready var drawer_panel: PanelContainer = $DrawerPanel
+@onready var drawer_cash_label: Label = $DrawerPanel/VBox/CashLabel
+@onready var drawer_limits_label: Label = $DrawerPanel/VBox/LimitsLabel
+@onready var drawer_warning_label: Label = $DrawerPanel/VBox/WarningLabel
+@onready var transfer_input: SpinBox = $DrawerPanel/VBox/TransferSpinBox
+@onready var send_to_vault_button: Button = $DrawerPanel/VBox/SendButton
+@onready var get_from_vault_button: Button = $DrawerPanel/VBox/GetButton
+@onready var transfer_receipt_label: Label = $DrawerPanel/VBox/ReceiptLabel
+
 ## Score/Reputation/XP/Reports and the low-reputation/role-unlocked
 ## notifications are on the room's always-on HUD (hud.gd).
 
@@ -87,11 +100,14 @@ class_name TellerScreen
 @onready var shift_total_transactions_label: Label = $ShiftSummaryPanel/VBox/DrawerTotalsHBox/TotalTransactionsLabel
 @onready var shift_final_discrepancy_label: Label = $ShiftSummaryPanel/VBox/DrawerTotalsHBox/FinalDiscrepancyLabel
 @onready var shift_opening_count_label: Label = $ShiftSummaryPanel/VBox/OpeningCountLabel
+## Any drawer-limit breach (drawer_limit_summary()), shown only when there
+## was one. Vault transfers go on the opening-count line.
+@onready var shift_drawer_limit_label: Label = $ShiftSummaryPanel/VBox/DrawerLimitLabel
 @onready var shift_score_label: Label = $ShiftSummaryPanel/VBox/ShiftScoreLabel
 @onready var shift_total_score_label: Label = $ShiftSummaryPanel/VBox/TotalsHBox/TotalScoreLabel
-@onready var shift_xp_label: Label = $ShiftSummaryPanel/VBox/ShiftXPLabel
+@onready var shift_xp_label: Label = $ShiftSummaryPanel/VBox/DrawerPointsHBox/ShiftXPLabel
 @onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalsHBox/TotalXPLabel
-@onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/ReputationLabel
+@onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/DrawerPointsHBox/ReputationLabel
 @onready var shift_total_reputation_label: Label = $ShiftSummaryPanel/VBox/StandingHBox/TotalReputationLabel
 @onready var shift_total_reports_label: Label = $ShiftSummaryPanel/VBox/StandingHBox/TotalReportsLabel
 @onready var shift_customer_results_label: Label = $ShiftSummaryPanel/VBox/CustomerResultsLabel
@@ -135,6 +151,11 @@ signal screen_closed
 ## pop them from the queue the same way customer_request_satisfied does for
 ## a regular customer.
 signal complaint_resolved(customer: CustomerNPC)
+
+## Emitted when the drawer's cash goes over DRAWER_MAX_CENTS during a shift
+## (each time it crosses, not while it stays over). teller_room.gd shows
+## the one-time drawer-limit hint off this.
+signal drawer_went_over_limit
 
 ## Emitted when the player refuses service to the serving customer (Refuse
 ## Service, after checking their ID). teller_room.gd sends them off
@@ -259,6 +280,26 @@ const KYC_CHECK_SKIPPED_MISTAKES: int = 1
 const KYC_VALID_ID_REFUSED_SCORE: int = -3
 const KYC_VALID_ID_REFUSED_REPUTATION: int = -3
 
+## Drawer limits: bank policy keeps a teller's cash between these, so less
+## is at risk at the window (over) and withdrawals can still be paid (under).
+## The maximum is set so that, with the $3,000 float and the player's line
+## as it is (4 customers, $20-$500 requests, half paying by card, a fifth
+## complaints), the drawer goes over it in about one shift in four: a
+## simulation of those customers puts it over $3,350 at some point in 25% of
+## shifts (21% still over at clock-out); over $4,000 in under 1%. Customers
+## alone can't take the drawer under the minimum (4 x $500 out of $3,000
+## leaves exactly $1,000), so "low" means too much was sent to the vault.
+const DRAWER_MAX_CENTS: int = 335000
+const DRAWER_MIN_CENTS: int = 100000
+const DRAWER_OVER_LIMIT_TEXT: String = "Drawer over limit — send excess cash to the vault"
+const DRAWER_LOW_TEXT: String = "Drawer low — get cash from the vault"
+
+## Clocking out with the drawer over DRAWER_MAX_CENTS: a procedure mistake,
+## weighted like an ID check skipped (KYC_CHECK_SKIPPED_*). Going over during
+## the shift is only a warning.
+const DRAWER_OVER_AT_CLOCK_OUT_SCORE: int = -3
+const DRAWER_OVER_AT_CLOCK_OUT_MISTAKES: int = 1
+
 const FEEDBACK_GOOD_COLOR: Color = Color(0.3, 1, 0.3, 1)
 const FEEDBACK_BAD_COLOR: Color = Color(1, 0.3, 0.3, 1)
 const FEEDBACK_NEUTRAL_COLOR: Color = Color(1, 1, 1, 1)
@@ -337,6 +378,16 @@ var _valid_ids_refused: int = 0
 ## Requests done right but graded as an ID mistake (no correct reward).
 var _served_despite_id_mistake: int = 0
 
+## Cash moved between the drawer and the vault this shift (int cents), and
+## the drawer-limit record: whether it went over DRAWER_MAX_CENTS at any
+## point, whether it was still over at clock-out, and whether it's over
+## right now (to notice each crossing).
+var _sent_to_vault_cents: int = 0
+var _received_from_vault_cents: int = 0
+var _went_over_limit: bool = false
+var _over_limit_at_clock_out: bool = false
+var _drawer_over: bool = false
+
 ## Every deposit/withdrawal made since clock-in. This is the source of
 ## truth for both the clock-out "expected balance" math (starting
 ## balance + deposits - withdrawals) and, later, shift scoring — so it
@@ -354,6 +405,9 @@ func _ready() -> void:
 	cancel_account_button.pressed.connect(_on_cancel_account_button_pressed)
 	complaint_later_button.pressed.connect(_on_complaint_later_button_pressed)
 	respond_complaint_button.pressed.connect(_on_respond_complaint_button_pressed)
+	send_to_vault_button.pressed.connect(_on_send_to_vault_pressed)
+	get_from_vault_button.pressed.connect(_on_get_from_vault_pressed)
+	drawer_limits_label.text = "Min %s · Max %s" % [MoneyMath.format(DRAWER_MIN_CENTS, true), MoneyMath.format(DRAWER_MAX_CENTS, true)]
 	check_id_button.pressed.connect(_on_check_id_button_pressed)
 	refuse_service_button.pressed.connect(_on_refuse_service_button_pressed)
 	id_policy_label.text = KycPolicy.POLICY_TEXT
@@ -987,6 +1041,83 @@ func _refresh_display() -> void:
 	cutoff_label.visible = cutoff_label.text != ""
 	account_label.text = account.customer_name
 	balance_label.text = "Balance: %s" % MoneyMath.format(account.balance_cents)
+	_refresh_drawer()
+
+# --- the drawer and the vault -----------------------------------------------------
+
+## The drawer panel shows with the main panel while clocked in (checked each
+## frame, so every panel switch is covered).
+func _process(_delta: float) -> void:
+	drawer_panel.visible = visible and main_panel.visible and shift_state == ShiftState.CLOCKED_IN
+
+## The drawer's cash and its limit warning. A crossing over the maximum is
+## noted for the shift summary and announced (drawer_went_over_limit) for the
+## one-time hint; staying over isn't announced again.
+func _refresh_drawer() -> void:
+	var cash := drawer_cash_cents()
+	drawer_cash_label.text = "Cash: %s" % MoneyMath.format(cash)
+	drawer_warning_label.text = drawer_limit_warning()
+	drawer_warning_label.visible = drawer_warning_label.text != ""
+	if shift_state != ShiftState.CLOCKED_IN:
+		return
+	var over := cash > DRAWER_MAX_CENTS
+	if over and not _drawer_over:
+		_went_over_limit = true
+		drawer_went_over_limit.emit()
+	_drawer_over = over
+
+## DRAWER_OVER_LIMIT_TEXT, DRAWER_LOW_TEXT, or "" within the limits (and off
+## shift, when there's no drawer).
+func drawer_limit_warning() -> String:
+	if shift_state != ShiftState.CLOCKED_IN:
+		return ""
+	var cash := drawer_cash_cents()
+	if cash > DRAWER_MAX_CENTS:
+		return DRAWER_OVER_LIMIT_TEXT
+	if cash < DRAWER_MIN_CENTS:
+		return DRAWER_LOW_TEXT
+	return ""
+
+## Send to Vault: sells whole dollars of the drawer's cash to the vault.
+func _on_send_to_vault_pressed() -> void:
+	var cents := _transfer_amount_cents()
+	if cents <= 0:
+		return
+	if cents > drawer_cash_cents():
+		_show_error("The drawer only holds %s." % MoneyMath.format(drawer_cash_cents()))
+		return
+	VaultManager.receive_from_drawer(cents)
+	_sent_to_vault_cents += cents
+	_finish_transfer("Sold %s to the vault" % MoneyMath.format(cents, true))
+
+## Get Cash from Vault: buys whole dollars of cash from the vault.
+func _on_get_from_vault_pressed() -> void:
+	var cents := _transfer_amount_cents()
+	if cents <= 0:
+		return
+	if not VaultManager.pay_to_drawer(cents):
+		_show_error("The vault only holds %s." % MoneyMath.format(VaultManager.expected_cents))
+		return
+	_received_from_vault_cents += cents
+	_finish_transfer("Bought %s from the vault" % MoneyMath.format(cents, true))
+
+## The transfer amount: whole dollars, as cents. Only on shift.
+func _transfer_amount_cents() -> int:
+	if shift_state != ShiftState.CLOCKED_IN:
+		return 0
+	var cents := roundi(transfer_input.value) * 100
+	if cents <= 0:
+		_show_error("Enter a whole-dollar amount to transfer.")
+	return cents
+
+## Logged to history, with a receipt line on the drawer panel.
+func _finish_transfer(receipt: String) -> void:
+	error_label.visible = false
+	HistoryManager.add_record(DecisionRecord.Role.TELLER, receipt, "Vault transfer")
+	transfer_receipt_label.text = receipt
+	transfer_receipt_label.visible = true
+	transfer_input.value = 0
+	_refresh_drawer()
 
 func _show_main_panel() -> void:
 	complaint_panel.visible = false
@@ -1178,7 +1309,8 @@ func _record_transaction(type: ShiftTransaction.Type, amount_cents: int) -> Shif
 	return transaction
 
 ## The cash in the drawer right now: the float plus cash deposits minus
-## cash withdrawals so far this shift.
+## cash withdrawals so far this shift, minus cash sold to the vault plus
+## cash bought from it.
 func drawer_cash_cents() -> int:
 	return _calculate_expected_ending_cents()
 
@@ -1187,7 +1319,8 @@ func drawer_cash_cents() -> int:
 ## expected to hold. They still count toward
 ## shift_total_transactions_label's total below and still applied to the
 ## account balance in _on_deposit_button_pressed()/
-## _on_withdraw_button_pressed() — only this drawer math skips them.
+## _on_withdraw_button_pressed() — only this drawer math skips them. Vault
+## transfers are cash, so they count.
 func _calculate_expected_ending_cents() -> int:
 	var total_deposits := 0
 	var total_withdrawals := 0
@@ -1198,7 +1331,7 @@ func _calculate_expected_ending_cents() -> int:
 			total_deposits += transaction.amount_cents
 		else:
 			total_withdrawals += transaction.amount_cents
-	return shift_start_cents + total_deposits - total_withdrawals
+	return shift_start_cents + total_deposits - total_withdrawals - _sent_to_vault_cents + _received_from_vault_cents
 
 ## Also the Recount button: while awaiting_opening_recount, the same button
 ## (relabelled) reopens the count for the same opening.
@@ -1241,12 +1374,41 @@ func _on_clock_out_button_pressed() -> void:
 		_show_error("Can't clock out yet — %s." % remaining)
 		return
 	error_label.visible = false
+	_check_drawer_limit_at_clock_out()
 	pending_drawer_count_purpose = DrawerCountPurpose.ENDING
 	main_panel.visible = false
 	id_card_panel.visible = false
 	var expected_cents := _calculate_expected_ending_cents()
 	drawer_count_screen.show_screen(expected_cents, "Ending Drawer Count", drawer_plausible_pieces(expected_cents))
 	ending_count_started.emit()
+
+## Clocking out with the drawer over DRAWER_MAX_CENTS is a procedure mistake
+## (once per shift: the count can be backed out of and Clock Out pressed
+## again). Explained in the shift summary.
+func _check_drawer_limit_at_clock_out() -> void:
+	if _over_limit_at_clock_out or drawer_cash_cents() <= DRAWER_MAX_CENTS:
+		return
+	_over_limit_at_clock_out = true
+	ScoreManager.add_shift_score(DRAWER_OVER_AT_CLOCK_OUT_SCORE)
+	for i in DRAWER_OVER_AT_CLOCK_OUT_MISTAKES:
+		ReportManager.record_mistake(DecisionRecord.Role.TELLER, "Drawer over limit at clock-out")
+	HistoryManager.add_record(DecisionRecord.Role.TELLER, "Clocked out with the drawer over its limit (%s, limit %s)" % [MoneyMath.format(drawer_cash_cents()), MoneyMath.format(DRAWER_MAX_CENTS)], "Procedure (drawer)")
+
+## The summary's vault transfers, e.g. "Vault: sold $1000 · bought $0"
+## (on the opening-count line), or "" with none.
+func vault_transfers_summary() -> String:
+	if _sent_to_vault_cents == 0 and _received_from_vault_cents == 0:
+		return ""
+	return "Vault: sold %s · bought %s" % [MoneyMath.format(_sent_to_vault_cents, true), MoneyMath.format(_received_from_vault_cents, true)]
+
+## The summary's drawer-limit line, or "" when the drawer stayed within its
+## limits.
+func drawer_limit_summary() -> String:
+	if _over_limit_at_clock_out:
+		return "Over the drawer limit at clock-out: procedure mistake (%+d Score). Limits keep less cash at risk." % DRAWER_OVER_AT_CLOCK_OUT_SCORE
+	if _went_over_limit:
+		return "Went over the drawer limit (warning only)"
+	return ""
 
 ## Fires as soon as "Submit Count" is pressed on the drawer count screen
 ## — that screen is still open at this point, showing its own count
@@ -1371,6 +1533,12 @@ func _begin_shift() -> void:
 	_bad_ids_accepted = 0
 	_valid_ids_refused = 0
 	_served_despite_id_mistake = 0
+	_sent_to_vault_cents = 0
+	_received_from_vault_cents = 0
+	_went_over_limit = false
+	_over_limit_at_clock_out = false
+	_drawer_over = false
+	transfer_receipt_label.visible = false
 
 	_card_decline_on_cooldown = false
 	_update_shift_controls()
@@ -1469,6 +1637,10 @@ func _prepare_shift_summary(ending_total_cents: int) -> void:
 	shift_total_transactions_label.text = "Total Transactions: %d" % shift_transactions.size()
 	shift_final_discrepancy_label.text = "Final Discrepancy: %s" % MoneyMath.format(discrepancy_cents)
 	shift_opening_count_label.text = opening_count_summary()
+	if vault_transfers_summary() != "":
+		shift_opening_count_label.text += " · " + vault_transfers_summary()
+	shift_drawer_limit_label.text = drawer_limit_summary()
+	shift_drawer_limit_label.visible = shift_drawer_limit_label.text != ""
 	shift_score_label.text = "Score: %+d" % shift_score
 	if discrepancy_result != DiscrepancyResult.MAJOR:
 		shift_score_label.text += " (%s, %d of %d customers served)" % [_discrepancy_result_label(discrepancy_result), served, shift_customers]
@@ -1491,7 +1663,8 @@ func _prepare_shift_summary(ending_total_cents: int) -> void:
 	## shown here for the breakdown only, not re-applied.
 	shift_customer_results_label.text = "Served correctly: %d\nMistakes fixed: %d · Left unfixed: %d\nComplaints resolved: %d · Abandoned: %d\n%s" % [_customers_correct, _mistakes_fixed, _mistakes_unfixed, _complaints_resolved, _customers_abandoned, id_checks_summary()]
 	shift_customer_points_label.text = "Score %+d · Reputation %+d · XP %+d" % [_customer_score, _customer_reputation, _customer_xp]
-	shift_net_label.text = "This shift: Score %+d · Reputation %+d · XP %+d" % [shift_score + _customer_score, reputation_delta + _customer_reputation, shift_xp + _customer_xp]
+	var limit_score := DRAWER_OVER_AT_CLOCK_OUT_SCORE if _over_limit_at_clock_out else 0
+	shift_net_label.text = "This shift: Score %+d · Reputation %+d · XP %+d" % [shift_score + _customer_score + limit_score, reputation_delta + _customer_reputation, shift_xp + _customer_xp]
 
 	var discrepancy_label := _discrepancy_result_label(discrepancy_result)
 	HistoryManager.add_record(DecisionRecord.Role.TELLER, "Drawer count: %s (discrepancy %s)" % [discrepancy_label, MoneyMath.format(discrepancy_cents)], discrepancy_label)

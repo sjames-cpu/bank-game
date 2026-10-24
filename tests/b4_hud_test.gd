@@ -480,7 +480,8 @@ func test_first_customer_hint_shows_once() -> void:
 	clock_in()
 	assert_int(hud.current_hint).is_equal(-1)
 
-	var first := spawn()
+	# Small deposits, so the drawer stays within its limit (no drawer hint).
+	var first := spawn(ShiftTransaction.Type.DEPOSIT, 100)
 	open_desk()
 	assert_int(hud.current_hint).is_equal(Hint.FIRST_CUSTOMER)
 	assert_str(hud.hint_label.text).is_equal("Do what the customer asks, then press Complete Transaction.")

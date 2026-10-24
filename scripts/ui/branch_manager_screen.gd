@@ -95,7 +95,7 @@ var _awaiting_vault_reconciliation_result: bool = false
 ## Separate from the one-shot guard above — that one stops a rapid-click
 ## spam within a single visit, but nothing stopped closing and reopening
 ## VaultReconciliationScreen repeatedly across the same shift, resubmitting
-## the same always-correct EXPECTED_VAULT_CENTS answer for another full
+## the same always-correct expected-vault answer for another full
 ## Score/Reputation/XP grant each time (a real bank only reconciles its
 ## vault once per shift, not on demand). This is that per-shift cap: set
 ## true the moment a vault count is actually graded, reset false at the
@@ -275,7 +275,7 @@ func _on_vault_count_submitted(total_cents: int) -> void:
 	_vault_reconciled_this_shift = true
 	_update_shift_controls()
 
-	var discrepancy_cents := total_cents - VaultReconciliationScreen.EXPECTED_VAULT_CENTS
+	var discrepancy_cents := total_cents - VaultManager.expected_cents
 	var excess_bills := vault_reconciliation_screen.get_excess_bill_count()
 	var discrepancy_result := _categorize_vault_discrepancy(discrepancy_cents, excess_bills)
 	var result_label := _vault_discrepancy_result_label(discrepancy_result)

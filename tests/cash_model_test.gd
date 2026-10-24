@@ -89,8 +89,8 @@ func test_the_float_and_its_mix() -> void:
 		coins += CashDenominations.DENOMINATION_CENTS[i] * TellerScreen.STARTING_FLOAT_MIX[i]
 	assert_int(coins).is_equal(3500)
 	# The vault is a small branch's: well above every drawer together.
-	assert_int(VaultReconciliationScreen.EXPECTED_VAULT_CENTS).is_equal(20000000)
-	assert_int(VaultReconciliationScreen.EXPECTED_VAULT_CENTS).is_greater(4 * FLOAT * 10)
+	assert_int(VaultReconciliationScreen.STARTING_VAULT_CENTS).is_equal(20000000)
+	assert_int(VaultReconciliationScreen.STARTING_VAULT_CENTS).is_greater(4 * FLOAT * 10)
 
 # --- grading ----------------------------------------------------------------------
 
@@ -118,9 +118,9 @@ func test_a_correct_count_with_coins_grades_perfect() -> void:
 	assert_str(drawer_status(expected, closing, TellerScreen.drawer_plausible_pieces(expected))).is_equal("Perfect Count!")
 	assert_str(drawer_status(expected, CashDenominations.fewest_pieces(expected), TellerScreen.drawer_plausible_pieces(expected))).is_equal("Perfect Count!")
 	# Coins in a vault count: a dollar as four quarters is still Perfect.
-	var vault_count := CashDenominations.fewest_pieces(VaultReconciliationScreen.EXPECTED_VAULT_CENTS - 100)
+	var vault_count := CashDenominations.fewest_pieces(VaultReconciliationScreen.STARTING_VAULT_CENTS - 100)
 	vault_count[index_of(25)] += 4
-	assert_int(CashDenominations.total_cents(vault_count)).is_equal(VaultReconciliationScreen.EXPECTED_VAULT_CENTS)
+	assert_int(CashDenominations.total_cents(vault_count)).is_equal(VaultReconciliationScreen.STARTING_VAULT_CENTS)
 	assert_str(vault_status(vault_count)).is_equal("Perfect Count!")
 
 func test_drawer_thresholds_at_the_new_scale() -> void:
@@ -160,7 +160,7 @@ func test_drawer_thresholds_at_the_new_scale() -> void:
 	assert_int(ts._categorize_discrepancy(-5001, 0)).is_equal(TellerScreen.DiscrepancyResult.MAJOR)
 
 func test_vault_thresholds_at_the_new_scale() -> void:
-	var exact := CashDenominations.fewest_pieces(VaultReconciliationScreen.EXPECTED_VAULT_CENTS)
+	var exact := CashDenominations.fewest_pieces(VaultReconciliationScreen.STARTING_VAULT_CENTS)
 	assert_str(vault_status(exact)).is_equal("Perfect Count!")
 	var minor := exact.duplicate()
 	minor[index_of(10000)] += 5 # $500 over

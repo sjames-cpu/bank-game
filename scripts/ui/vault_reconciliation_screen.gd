@@ -49,15 +49,17 @@ const DENOMINATION_CENTS: Array[int] = CashDenominations.DENOMINATION_CENTS
 ## _prepare_shift_summary()), not a structured ending-balance figure —
 ## and a real sum would read as $0 whenever this screen is opened
 ## standalone with no prior Teller shifts played this session, which is
-## exactly the debug-key testing this phase asks for. A flat simulated
+## exactly the debug-key testing this phase asks for. A simulated starting
 ## total — the same choice teller_screen.gd already makes for
 ## STARTING_FLOAT_CENTS — keeps this screen deterministic and
-## testable in isolation. $200,000 is a small branch's vault: enough to
+## testable in isolation; from there the expected total follows the teller's
+## vault transfers (VaultManager.expected_cents), which is what a count is
+## graded against. $200,000 is a small branch's vault: enough to
 ## restock four $3,000 teller drawers (TellerScreen.STARTING_FLOAT_CENTS)
 ## several times over, refill an ATM (typically tens of thousands a load)
 ## and meet a few days of large cash withdrawals, without holding more
 ## idle cash than a branch this size would.
-const EXPECTED_VAULT_CENTS: int = 20000000
+const STARTING_VAULT_CENTS: int = 20000000
 
 ## Ten times a drawer count's threshold (DrawerCountScreen's $50), as it
 ## always was (it was $5,000 against the drawer's $500): a vault has more
@@ -151,13 +153,13 @@ func get_excess_bill_count() -> int:
 	var player_bill_count := 0
 	for quantity_input in quantity_inputs:
 		player_bill_count += int(quantity_input.value)
-	return maxi(0, player_bill_count - _minimum_bill_count(EXPECTED_VAULT_CENTS))
+	return maxi(0, player_bill_count - _minimum_bill_count(VaultManager.expected_cents))
 
 func _update_live_total() -> void:
 	your_total_label.text = "Your Total: %s" % MoneyMath.format(_calculate_total_cents())
 
 ## excess_bills is how many more bills the player entered than the minimum
-## possible for EXPECTED_VAULT_CENTS (see get_excess_bill_count()) — a
+## possible for the vault's expected total (see get_excess_bill_count()) — a
 ## correct total no longer grades Perfect on its own if the breakdown
 ## behind it is implausible.
 func _categorize_discrepancy(discrepancy_cents: int, excess_bills: int) -> DiscrepancyResult:
@@ -184,12 +186,12 @@ func _discrepancy_result_label(discrepancy_result: DiscrepancyResult) -> String:
 ## screen has no scoring responsibility at all.
 func _on_submit_button_pressed() -> void:
 	var total_cents := _calculate_total_cents()
-	var discrepancy_cents := total_cents - EXPECTED_VAULT_CENTS
+	var discrepancy_cents := total_cents - VaultManager.expected_cents
 	var excess_bills := get_excess_bill_count()
 	var discrepancy_result := _categorize_discrepancy(discrepancy_cents, excess_bills)
 	var result_label := _discrepancy_result_label(discrepancy_result)
 
-	result_expected_label.text = "Expected Balance: %s" % MoneyMath.format(EXPECTED_VAULT_CENTS)
+	result_expected_label.text = "Expected Balance: %s" % MoneyMath.format(VaultManager.expected_cents)
 	result_total_label.text = "Your Total: %s" % MoneyMath.format(total_cents)
 	discrepancy_label.text = "Discrepancy: %s" % MoneyMath.format(discrepancy_cents)
 	status_label.text = "%s Count!" % result_label if discrepancy_result == DiscrepancyResult.PERFECT else "%s Discrepancy" % result_label

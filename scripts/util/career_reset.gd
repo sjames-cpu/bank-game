@@ -19,6 +19,7 @@ static func reset_all() -> void:
 	InterviewManager.reset()
 	HistoryManager.reset()
 	AccountManager.reset()
+	VaultManager.reset()
 	ScheduleManager.reset()
 	StaffReviewManager.reset()
 	HiringManager.reset()

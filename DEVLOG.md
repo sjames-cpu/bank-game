@@ -225,6 +225,14 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **HUD hints scroll**: with every notification up, three hints (arrival, Loan Officer unlocked, opening hours) ran past the bottom of the window. The HUD test only tried one short hint. The hint text now scrolls in whatever room is left, and the test lays out every hint.
 - **Save guard**: scratch screenshot scripts now name every slot from a scratch prefix, so a slot screen can't lead them to a real save; and the guard recognises a real save however its path is spelled.
 
+## Session 26 — Oct 24, 2026: Drawer limits and cash transfers with the vault
+
+- **Limits**: the teller drawer should hold between $1,000 and $3,350. With the $3,000 float and today's customers, a simulation puts the drawer over $3,350 at some point in about one shift in four (over $4,000, the first idea, in under 1%). Customers alone can't take it under $1,000, so "low" means too much went to the vault. Both are constants on `TellerScreen`.
+- **Drawer panel** beside the teller screen: the cash, the limits, "Drawer over limit — send excess cash to the vault" or "Drawer low — get cash from the vault", and Send to Vault / Get Cash from Vault in whole dollars, with a receipt line ("Sold $1000 to the vault") and a history record. Card transactions never touch the drawer.
+- **Exact to the cent**: the closing count expects float + net cash − sold + bought, and the vault's expected total (new `VaultManager`, saved with the career) moves by the same transfers, so the Branch Manager's vault count is graded against what the vault should really hold.
+- **Consequences**: going over during a shift is a warning and a one-time hint; clocking out over the limit is a procedure mistake (−3 Score, one mistake toward reports). The shift summary shows transfers and any breach.
+- **Tests** that served four $500 deposits now send the excess to the vault before clocking out, as a careful teller would.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

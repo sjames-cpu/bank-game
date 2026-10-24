@@ -53,6 +53,8 @@ func _run_shift(actions: Array, minor: bool) -> Vector3i:
 				deposit(50)
 				complete()
 				close_desk()
+	# Four $500 deposits are over the drawer limit: sent back first.
+	send_excess_to_vault()
 	assert_bool(clock_out(minor)).is_true()
 	return totals() - start_totals
 

@@ -84,7 +84,7 @@ func bm_clock_in() -> void:
 func bm_clock_out() -> void:
 	bm.vault_reconciliation_button.pressed.emit()
 	var vault := bm.vault_reconciliation_screen
-	var remaining := VaultReconciliationScreen.EXPECTED_VAULT_CENTS
+	var remaining := VaultManager.expected_cents
 	for i in VaultReconciliationScreen.DENOMINATION_CENTS.size():
 		var denom := VaultReconciliationScreen.DENOMINATION_CENTS[i]
 		vault.quantity_inputs[i].value = floori(float(remaining) / denom)

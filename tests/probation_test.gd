@@ -42,6 +42,7 @@ func play_teller_shift(report_during: bool = false) -> void:
 		acknowledge_letters()
 	for i in CustomerQueue.CUSTOMERS_PER_SHIFT_CAP:
 		serve_correctly(spawn())
+	send_excess_to_vault()
 	assert_bool(clock_out()).is_true()
 	close_desk()
 

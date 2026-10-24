@@ -193,6 +193,7 @@ static func capture() -> Dictionary:
 		"reports": ReportManager.save_data(),
 		"history": HistoryManager.save_data(),
 		"accounts": AccountManager.save_data(),
+		"vault": VaultManager.save_data(),
 		"schedule": ScheduleManager.save_data(),
 		"staff_review": StaffReviewManager.save_data(),
 		"hiring": HiringManager.save_data(),
@@ -217,6 +218,7 @@ static func restore(career: Dictionary) -> void:
 	ReportManager.load_data(dict_of(career, "reports"))
 	HistoryManager.load_data(dict_of(career, "history"))
 	AccountManager.load_data(dict_of(career, "accounts"))
+	VaultManager.load_data(dict_of(career, "vault"))
 	ScheduleManager.load_data(dict_of(career, "schedule"))
 	StaffReviewManager.load_data(dict_of(career, "staff_review"))
 	# After ScheduleManager: candidates are kept per desk slot.

@@ -136,6 +136,18 @@ func clock_in() -> void:
 	close_desk()
 	cq.spawn_timer.stop()
 
+## What a careful teller does before clocking out: sends whatever the
+## drawer holds over its limit to the vault (TellerScreen.DRAWER_MAX_CENTS),
+## so the clock-out isn't a drawer-limit mistake.
+func send_excess_to_vault() -> void:
+	var excess := ts.drawer_cash_cents() - TellerScreen.DRAWER_MAX_CENTS
+	if excess <= 0:
+		return
+	open_desk()
+	ts.transfer_input.value = ceili(excess / 100.0)
+	ts.send_to_vault_button.pressed.emit()
+	close_desk()
+
 ## Presses Clock Out and, if the gate lets it through, counts the drawer.
 ## Returns false (and leaves the shift running) when clock-out was blocked.
 func clock_out(minor: bool = false) -> bool:

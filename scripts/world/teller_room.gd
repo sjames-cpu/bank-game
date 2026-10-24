@@ -207,6 +207,7 @@ func _ready() -> void:
 	teller_screen.screen_closed.connect(_on_teller_screen_closed)
 	teller_screen.complaint_resolved.connect(_on_teller_complaint_resolved)
 	teller_screen.customer_refused.connect(_on_teller_customer_refused)
+	teller_screen.drawer_went_over_limit.connect(hud.show_hint_once.bind(HintManager.Hint.DRAWER_LIMIT))
 	teller_screen.remaining_shift_work = _describe_remaining_shift_work
 	customer_queue.arrival_pressure = staff_window_pressure
 	teller_screen.shift_clocked_in.connect(customer_queue.start_shift)
