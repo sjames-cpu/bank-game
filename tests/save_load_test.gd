@@ -363,6 +363,46 @@ func test_only_the_real_game_writes_the_real_save() -> void:
 			if FileAccess.file_exists(leftover):
 				DirAccess.remove_absolute(leftover)
 
+func test_the_guard_knows_the_real_saves_however_they_are_spelled() -> void:
+	# Only the guard's checks run here (nothing is written), so the real
+	# files are safe even if a check is wrong.
+	var real_files: Array[String] = ["user://career.json"]
+	for slot in range(1, SaveGame.SLOT_COUNT + 1):
+		real_files.append("user://career_slot_%d.json" % slot)
+	for file in real_files:
+		var spellings: Array[String] = [file, file.replace("user://", "user://./"), ProjectSettings.globalize_path(file)]
+		if OS.get_name() == "Windows":
+			spellings.append(file.to_upper().replace("USER://", "user://"))
+		for spelling in spellings:
+			assert_bool(SaveGame._is_real(spelling)).override_failure_message("%s isn't guarded" % spelling).is_true()
+			SaveGame.path = spelling
+			assert_bool(SaveGame._may_write("write")).override_failure_message("%s may be written in a test" % spelling).is_false()
+	# The real files stay guarded even with real_prefix pointed elsewhere
+	# (the guard's own test stands files in for them).
+	SaveGame.real_prefix = "user://test_real_career_guard"
+	for file in real_files:
+		assert_bool(SaveGame._is_real(file)).is_true()
+	assert_bool(SaveGame._is_real("user://test_real_career_guard_slot_3.json")).is_true()
+	# Test and scratch files are not real.
+	for file: String in [TEST_SAVE_PATH, "user://scratch_shots_career_slot_1.json", "user://career_slot_4.json", "user://career_slot_1.json.tmp"]:
+		assert_bool(SaveGame._is_real(file)).override_failure_message("%s counted as real" % file).is_false()
+
+func test_scripts_keep_every_slot_to_their_own_files() -> void:
+	# What the scratch screenshot scripts do: every slot the slot screen can
+	# pick is then theirs, and none is real, even once the real game is allowed.
+	SaveGame.use_saves_named("user://scratch_shots_career")
+	assert_str(SaveGame.path).is_equal("user://scratch_shots_career_slot_1.json")
+	SaveGame.allow_real_save()
+	for slot in range(1, SaveGame.SLOT_COUNT + 1):
+		SaveGame.use_slot(slot)
+		assert_bool(SaveGame._is_real(SaveGame.path)).is_false()
+	assert_bool(SaveGame._is_real(SaveGame.legacy_path())).is_false()
+	# And the tests' own files, which every room-driving suite uses.
+	use_test_save_path()
+	assert_str(SaveGame.path).is_equal(TEST_SAVE_PATH)
+	assert_str(SaveGame.prefix).is_equal(TEST_PREFIX)
+	assert_bool(SaveGame.real_save_allowed).is_false()
+
 # --- when the room saves -------------------------------------------------------------
 
 func test_teller_clock_out_saves() -> void:

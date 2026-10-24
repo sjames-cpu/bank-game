@@ -81,6 +81,13 @@ static func slot_path(slot: int) -> String:
 static func legacy_path() -> String:
 	return prefix + ".json"
 
+## Names every save file from `file_prefix` instead and plays its Slot 1:
+## how tests and scratch scripts keep to files of their own, whichever slot
+## the slot screen later picks.
+static func use_saves_named(file_prefix: String) -> void:
+	prefix = file_prefix
+	use_slot(1)
+
 ## Plays slot `slot` from now on: saves go to its file only.
 static func use_slot(slot: int) -> void:
 	current_slot = clampi(slot, 1, SLOT_COUNT)
@@ -91,14 +98,36 @@ static func leave_slot() -> void:
 	current_slot = 0
 	path = ""
 
-## Whether `file_path` is one of the player's real saves (see real_prefix).
+## Whether `file_path` is one of the player's real saves: a slot file or the
+## old single save named from real_prefix, or from REAL_PREFIX whatever
+## real_prefix says. Paths are compared as files on disk, so another spelling
+## of the same file ("user://./career_slot_1.json", the absolute path, other
+## letter case on Windows) is real too.
 static func _is_real(file_path: String) -> bool:
-	if file_path == real_prefix + ".json":
-		return true
-	for slot in range(1, SLOT_COUNT + 1):
-		if file_path == "%s_slot_%d.json" % [real_prefix, slot]:
-			return true
-	return false
+	return _is_real_legacy(file_path) or _real_files(false).has(_disk_path(file_path))
+
+## Whether `file_path` is the real old single save (see _is_real()).
+static func _is_real_legacy(file_path: String) -> bool:
+	return _real_files(true).has(_disk_path(file_path))
+
+## The real save files, as _disk_path()s: the old single saves when `legacy`,
+## else the slot files.
+static func _real_files(legacy: bool) -> PackedStringArray:
+	var files: PackedStringArray = []
+	for real: String in [REAL_PREFIX, real_prefix]:
+		if legacy:
+			files.append(_disk_path(real + ".json"))
+		else:
+			for slot in range(1, SLOT_COUNT + 1):
+				files.append(_disk_path("%s_slot_%d.json" % [real, slot]))
+	return files
+
+## `file_path` as the file it names on disk, for comparing paths.
+static func _disk_path(file_path: String) -> String:
+	var disk := ProjectSettings.globalize_path(file_path).replace("\\", "/").simplify_path()
+	if OS.get_name() == "Windows":
+		disk = disk.to_lower()
+	return disk
 
 ## Whether `path` may be written, moved or deleted (see real_prefix). Warns
 ## when it may not.
@@ -108,7 +137,7 @@ static func _may_write(action: String) -> bool:
 		return false
 	if not _is_real(path):
 		return true
-	if path == real_prefix + ".json":
+	if _is_real_legacy(path):
 		push_warning("SaveGame: refused to %s the old single save (%s); it's only ever moved into Slot 1." % [action, path])
 		return false
 	if real_save_allowed:

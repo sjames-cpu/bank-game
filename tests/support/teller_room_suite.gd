@@ -73,11 +73,10 @@ func after_test() -> void:
 ## (TEST_SAVE_PATH), and removes every test save (all slots, the old single
 ## save, and the files SaveGame writes beside them).
 func use_test_save_path() -> void:
-	SaveGame.prefix = TEST_PREFIX
+	SaveGame.use_saves_named(TEST_PREFIX)
 	# Opening the start screen allows the real saves; tests start without it.
 	SaveGame.real_prefix = SaveGame.REAL_PREFIX
 	SaveGame.real_save_allowed = false
-	SaveGame.use_slot(1)
 	StartScreen.next_view = StartScreen.View.MAIN_MENU
 	var files: Array[String] = [SaveGame.legacy_path()]
 	for slot in range(1, SaveGame.SLOT_COUNT + 1):
