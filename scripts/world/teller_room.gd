@@ -206,6 +206,7 @@ func _ready() -> void:
 	teller_screen.customer_left_unfixed.connect(_on_teller_customer_left_unfixed)
 	teller_screen.screen_closed.connect(_on_teller_screen_closed)
 	teller_screen.complaint_resolved.connect(_on_teller_complaint_resolved)
+	teller_screen.customer_refused.connect(_on_teller_customer_refused)
 	teller_screen.remaining_shift_work = _describe_remaining_shift_work
 	customer_queue.arrival_pressure = staff_window_pressure
 	teller_screen.shift_clocked_in.connect(customer_queue.start_shift)
@@ -518,9 +519,12 @@ func describe_shift_status() -> String:
 
 ## First-customer hint: only for a regular customer at the desk (a complaint
 ## customer has no request to complete).
+## The ID-check hint comes the first time a customer at the desk needs ID.
 func _hint_first_customer(customer: CustomerNPC) -> void:
 	if is_instance_valid(customer) and customer.complaint == null:
 		hud.show_hint_once(HintManager.Hint.FIRST_CUSTOMER)
+		if KycPolicy.requires_id(customer):
+			hud.show_hint_once(HintManager.Hint.ID_CHECK)
 
 ## (Re)creates one StaffNPC per assigned desk from ScheduleManager. A desk
 ## the player is clocked in at gets its staff member placed straight in the
@@ -781,6 +785,19 @@ func _on_teller_complaint_resolved(customer: CustomerNPC) -> void:
 	if customer != _customer_being_served:
 		return
 	_serve_current_customer()
+
+## Refused service (no valid ID): they leave the line, saying their
+## CustomerNPC.farewell_line once the screen closes, and the screen moves on
+## to whoever's next. Not counted as served for the day's totals.
+func _on_teller_customer_refused(customer: CustomerNPC) -> void:
+	if customer != _customer_being_served:
+		return
+	var leaving := customer_queue.serve_front_customer()
+	if leaving != null:
+		_customers_awaiting_farewell.append(leaving)
+	_customer_being_served = customer_queue.get_front_customer()
+	teller_screen.advance_to_customer(_customer_being_served)
+	_hint_first_customer(_customer_being_served)
 
 ## Pops the front customer (advancing the rest of the line immediately),
 ## then moves the screen straight on to whoever's next instead of leaving

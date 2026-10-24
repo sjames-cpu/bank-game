@@ -38,6 +38,7 @@ func before_test() -> void:
 	cq = room.get_node("CustomerQueue")
 	# Customers in these tests are spawned explicitly (spawn()).
 	cq.spawn_timer.stop()
+	_fix_id_rolls(cq)
 
 ## Makes `new_room` (one a scene change loaded, e.g. from the slot screen)
 ## the room the helpers below drive, as before_test() does for the first.
@@ -46,6 +47,15 @@ func adopt_room(new_room: TellerRoom) -> void:
 	ts = room.get_node("UI/TellerScreen")
 	cq = room.get_node("CustomerQueue")
 	cq.spawn_timer.stop()
+	_fix_id_rolls(cq)
+
+## The player's line in tests: every ID valid and nobody opening an account
+## unless a test asks (kyc_test.gd sets the chances), with its own generator
+## seeded so the cards are the same every run.
+func _fix_id_rolls(line: CustomerQueue) -> void:
+	line.kyc_rng.seed = RNG_SEED
+	line.id_problem_chance = 0.0
+	line.account_opening_chance = 0.0
 
 ## A fresh, not yet added, teller room.
 func instantiate_room() -> TellerRoom:
@@ -152,7 +162,49 @@ func spawn(intent_type: ShiftTransaction.Type = ShiftTransaction.Type.DEPOSIT, a
 	var line := CustomerDialogueLine.new()
 	line.text = "I'd like to %s $%.0f." % ["deposit" if intent_type == ShiftTransaction.Type.DEPOSIT else "withdraw", amount]
 	customer.dialogue_line = line
+	give_id(customer, IdCard.Problem.NONE)
 	return customer
+
+## Gives `customer` a fresh ID card with `problem` (see KycPolicy).
+func give_id(customer: CustomerNPC, problem: IdCard.Problem) -> void:
+	customer.id_card = KycPolicy.issue_card(cq.kyc_rng, customer.display_name, customer.look_index, GameClock.today_date(), problem, CustomerNPC.CUSTOMER_FRAME_SETS.size())
+
+## Spawns an account-opening customer (no account yet) asking to open one
+## with `amount` dollars, with an ID showing `problem`.
+func spawn_opener(amount: float = 200.0, problem: IdCard.Problem = IdCard.Problem.NONE) -> CustomerNPC:
+	# Every regular customer opens an account; a complaint customer (rolled
+	# separately) is sent away and the next one tried.
+	cq.account_opening_chance = 1.0
+	var customer: CustomerNPC = null
+	for attempt in 20:
+		cq._spawn_customer()
+		customer = cq.queue[-1]
+		if customer.opens_account:
+			break
+		cq.queue.pop_back()
+		cq._customers_spawned_this_shift -= 1
+		customer.free()
+	cq.account_opening_chance = 0.0
+	assert_bool(customer.opens_account).is_true()
+	customer.intent_amount_cents = MoneyMath.to_cents(amount)
+	customer.dialogue_line.text = "I'd like to open an account with %s." % MoneyMath.format(customer.intent_amount_cents, true)
+	customer.payment_method = ShiftTransaction.PaymentMethod.CASH
+	give_id(customer, problem)
+	return customer
+
+func check_id() -> void:
+	ts.check_id_button.pressed.emit()
+
+func refuse_service() -> void:
+	ts.refuse_service_button.pressed.emit()
+
+## Opens an account in `holder`'s name through Open New Account, with a
+## starting deposit of `starting` dollars.
+func open_account(holder: String, starting: float = 0.0) -> void:
+	ts.open_account_button.pressed.emit()
+	ts.new_name_input.text = holder
+	ts.new_balance_input.value = starting
+	ts.create_account_button.pressed.emit()
 
 func deposit(amount: float) -> void:
 	ts.amount_input.value = amount
@@ -175,9 +227,12 @@ func select_account(target: Account) -> void:
 	ts.account_option_button.select(index)
 	ts._on_account_option_selected(index)
 
-## Serves the front customer correctly in one visit and closes the desk.
+## Serves the front customer correctly in one visit and closes the desk,
+## checking their ID first when the request needs it.
 func serve_correctly(customer: CustomerNPC) -> void:
 	open_desk()
+	if KycPolicy.requires_id(customer):
+		check_id()
 	if customer.intent_type == ShiftTransaction.Type.DEPOSIT:
 		deposit(customer.intent_amount_cents / 100.0)
 	else:

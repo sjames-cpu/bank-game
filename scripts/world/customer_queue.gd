@@ -106,6 +106,16 @@ var _complaint_pool: Array[CustomerComplaint] = CustomerComplaintsData.get_compl
 
 var queue: Array[CustomerNPC] = []
 
+## ID checks (KycPolicy): rolls for IDs and account openings use this line's
+## own generator, so they never shift the global random draws (names,
+## balances, requests) a seeded run depends on. Randomized in _ready(); tests
+## seed it, or set the chances below.
+var kyc_rng := RandomNumberGenerator.new()
+## KycPolicy.ID_PROBLEM_CHANCE and ACCOUNT_OPENING_CHANCE, per line so tests
+## can fix them.
+var id_problem_chance: float = KycPolicy.ID_PROBLEM_CHANCE
+var account_opening_chance: float = KycPolicy.ACCOUNT_OPENING_CHANCE
+
 ## Customers leave sideways by this many pixels (into the corridor between
 ## this lane and the next), then walk down to exit_y — see
 ## send_customer_off(). Negative = to the left.
@@ -126,6 +136,7 @@ var _departing: Array[CustomerNPC] = []
 var _customers_spawned_this_shift: int = 0
 
 func _ready() -> void:
+	kyc_rng.randomize()
 	spawn_timer.wait_time = spawn_interval
 	spawn_timer.one_shot = false
 	spawn_timer.timeout.connect(_on_spawn_timer_timeout)
@@ -270,12 +281,27 @@ func _spawn_customer() -> void:
 	add_child(customer)
 	customer.global_position = spawn_point.global_position
 	customer.display_name = CUSTOMER_NAMES.pick_random()
-	customer.account = _get_or_create_customer_account(customer.display_name)
+	# Rolled for everyone but only used for a regular customer, so 1 in
+	# ACCOUNT_OPENING_CHANCE of regular customers opens an account. Someone new
+	# to the bank has no account yet: one with a name already banking here
+	# goes by an unused name, or (none left) doesn't open one.
+	var opener := _checks_ids() and kyc_rng.randf() < account_opening_chance
+	var new_name := _unused_customer_name(customer.display_name) if opener else ""
+	if new_name == "":
+		customer.account = _get_or_create_customer_account(customer.display_name)
 	if _rolls_complaint():
 		customer.complaint = _complaint_pool.pick_random()
+		if customer.account == null:
+			customer.account = _get_or_create_customer_account(customer.display_name)
+	elif new_name != "":
+		customer.display_name = new_name
+		_assign_account_opening(customer)
 	else:
 		_assign_transaction_intent(customer)
 	customer.payment_method = ShiftTransaction.PaymentMethod.CARD if randf() < CARD_CHANCE else ShiftTransaction.PaymentMethod.CASH
+	if _checks_ids():
+		var problem := KycPolicy.roll_problem(kyc_rng, id_problem_chance)
+		customer.id_card = KycPolicy.issue_card(kyc_rng, customer.display_name, customer.look_index, GameClock.today_date(), problem, CustomerNPC.CUSTOMER_FRAME_SETS.size())
 	customer.patience_expired.connect(_on_customer_patience_expired.bind(customer))
 	queue.append(customer)
 	_customers_spawned_this_shift += 1
@@ -314,6 +340,37 @@ func _get_or_create_customer_account(customer_name: String) -> Account:
 ## Overridden by NpcCustomerLine — see _get_or_create_customer_account().
 func _uses_staff_line_accounts() -> bool:
 	return false
+
+## Whether this line's customers carry ID and may come to open an account
+## (KycPolicy): the player's line only. NpcCustomerLine overrides it, so
+## staff windows are unchanged and draw nothing from kyc_rng.
+func _checks_ids() -> bool:
+	return true
+
+## `preferred` if nobody by that name banks in the player's line yet, else
+## another name from the pool that doesn't (kyc_rng), or "" if every name
+## already has an account.
+func _unused_customer_name(preferred: String) -> String:
+	if AccountManager.find_account_by_name(preferred) == null:
+		return preferred
+	var unused: Array[String] = []
+	for candidate in CUSTOMER_NAMES:
+		if AccountManager.find_account_by_name(candidate) == null:
+			unused.append(candidate)
+	if unused.is_empty():
+		return ""
+	return unused[kyc_rng.randi_range(0, unused.size() - 1)]
+
+## An account-opening customer: no account yet, a first deposit drawn like
+## a deposit request (kyc_rng), and a line saying so.
+func _assign_account_opening(customer: CustomerNPC) -> void:
+	customer.opens_account = true
+	customer.intent_type = ShiftTransaction.Type.DEPOSIT
+	var steps := kyc_rng.randi_range(roundi(INTENT_MIN_CENTS / float(INTENT_STEP_CENTS)), roundi(INTENT_MAX_CENTS / float(INTENT_STEP_CENTS)))
+	customer.intent_amount_cents = steps * INTENT_STEP_CENTS
+	var line := CustomerDialogueLine.new()
+	line.text = "I'd like to open an account with %s." % MoneyMath.format(customer.intent_amount_cents, true)
+	customer.dialogue_line = line
 
 ## Regular (non-complaint) customers state a specific Deposit/Withdraw
 ## request instead of a pure flavor line. A withdrawal request never

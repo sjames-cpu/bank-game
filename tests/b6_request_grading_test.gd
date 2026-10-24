@@ -15,6 +15,7 @@ func test_correct_request_is_rewarded_and_served() -> void:
 	open_desk()
 	assert_bool(ts.complete_transaction_button.visible).is_true()
 	assert_bool(ts.complete_transaction_button.disabled).is_true()
+	check_id() # a withdrawal needs ID (kyc_test.gd)
 	withdraw(120)
 	assert_bool(ts.complete_transaction_button.disabled).is_false()
 	complete()

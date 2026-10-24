@@ -159,6 +159,10 @@ func _rolls_complaint() -> bool:
 func _uses_staff_line_accounts() -> bool:
 	return true
 
+## Staff windows don't check ID or open accounts (KycPolicy).
+func _checks_ids() -> bool:
+	return false
+
 func _process(delta: float) -> void:
 	if _winding_down and _serving == null:
 		_winding_down = false

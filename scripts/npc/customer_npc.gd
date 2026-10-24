@@ -83,6 +83,26 @@ var correction_line: String = ""
 ## identical one just for this field.
 var payment_method: ShiftTransaction.PaymentMethod = ShiftTransaction.PaymentMethod.CASH
 
+## ID checks (KycPolicy): the photo ID this customer carries (null in staff
+## lines, which don't check ID), whether the teller has looked at it, and
+## whether the teller processed an ID-requiring request before looking
+## (id_check_skipped: checking afterwards doesn't undo that).
+var id_card: IdCard = null
+var id_checked: bool = false
+var id_check_skipped: bool = false
+## Set once the ID part of this visit has been graded (at the first Complete
+## Transaction, or at Refuse Service), so it's graded once per customer.
+var kyc_graded: bool = false
+
+## Comes to open an account with a first deposit of intent_amount_cents
+## (CustomerQueue, KycPolicy.ACCOUNT_OPENING_CHANCE). `account` stays null
+## until the teller opens one in their name (TellerScreen).
+var opens_account: bool = false
+
+## Index into CUSTOMER_FRAME_SETS: this customer's look, also their face on
+## a genuine ID card.
+var look_index: int = 0
+
 @export var speed: float = 120.0
 
 const ARRIVAL_DISTANCE: float = 4.0
@@ -170,8 +190,33 @@ var _facing_flip: bool = false
 func _ready() -> void:
 	target_position = global_position
 	_sprite.sprite_frames = CUSTOMER_FRAME_SETS.pick_random()
+	look_index = CUSTOMER_FRAME_SETS.find(_sprite.sprite_frames)
 	# Readable at any camera zoom (WorldText).
 	WorldText.register(_farewell_label)
+
+## Changes this customer's look (tests use it to fix one).
+func set_look(index: int) -> void:
+	look_index = index
+	_sprite.sprite_frames = CUSTOMER_FRAME_SETS[index]
+
+## A still of `look` facing forward, for portraits (the ID card).
+static func portrait_of(look: int) -> Texture2D:
+	return CUSTOMER_FRAME_SETS[look].get_frame_texture(&"idle_down", 0)
+
+## Said instead of a random farewell when set (e.g. after being refused
+## service, from the lines below).
+var farewell_line: String = ""
+
+## Refused service at the window (Refuse Service): one of these instead of
+## the usual farewell, the first for a genuine customer.
+const REFUSED_VALID_ID_LINES: Array[String] = [
+	"What? My ID is perfectly valid!",
+	"I've banked here for years. Unbelievable.",
+]
+const REFUSED_BAD_ID_LINES: Array[String] = [
+	"Fine. I'll come back another time.",
+	"Never mind, then.",
+]
 
 ## Which queue spot (index into CustomerQueue.queue_positions) this customer
 ## stands at or is stepping into; -1 until their line gives them one.
@@ -237,6 +282,8 @@ func say_farewell_and_leave(exit_route: Array[Vector2], farewell: String = "") -
 	_abandoning = true # stop the patience clock — this customer is done, not waiting
 	patience_indicator.set_urgency(0.0)
 
+	if farewell == "":
+		farewell = farewell_line
 	if farewell == "":
 		farewell = (UPSET_FAREWELL_LINES if left_upset else FAREWELL_LINES).pick_random()
 	_farewell_label.text = farewell

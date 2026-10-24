@@ -33,14 +33,31 @@ class_name TellerScreen
 @onready var customer_dialogue_panel: PanelContainer = $Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel
 @onready var customer_dialogue_label: Label = $Panel/VBox/ServingSection/ServingVBox/CustomerDialoguePanel/CustomerDialogueLabel
 @onready var respond_complaint_button: Button = $Panel/VBox/ServingSection/ServingVBox/RespondComplaintButton
+## Check ID shares the Complete Transaction row, and Refuse Service sits on
+## the ID card itself, so the ID checks add no row to the main panel.
+@onready var check_id_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/CompleteRowHBox/CheckIdButton
+@onready var refuse_service_button: Button = $IdCardPanel/VBox/RefuseServiceButton
+
+## The customer's photo ID (Check ID), beside the main panel rather than in
+## it, so it adds nothing to the panel's height.
+@onready var id_card_panel: PanelContainer = $IdCardPanel
+@onready var id_window_portrait: TextureRect = $IdCardPanel/VBox/PortraitsHBox/WindowVBox/WindowPortrait
+@onready var id_card_portrait: TextureRect = $IdCardPanel/VBox/PortraitsHBox/CardVBox/CardPortrait
+@onready var id_no_id_label: Label = $IdCardPanel/VBox/PortraitsHBox/CardVBox/NoIdLabel
+@onready var id_name_label: Label = $IdCardPanel/VBox/DetailsGrid/NameValue
+@onready var id_dob_label: Label = $IdCardPanel/VBox/DetailsGrid/DobValue
+@onready var id_number_label: Label = $IdCardPanel/VBox/DetailsGrid/NumberValue
+@onready var id_expiry_label: Label = $IdCardPanel/VBox/DetailsGrid/ExpiryValue
+@onready var id_today_label: Label = $IdCardPanel/VBox/TodayLabel
+@onready var id_policy_label: Label = $IdCardPanel/VBox/PolicyLabel
 @onready var feedback_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/FeedbackLabel
 ## "After cutoff — posts Tue 6 Jan", from 2:00 PM (BusinessDay.cutoff_text()).
 @onready var cutoff_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/CutoffLabel
 @onready var reverse_transaction_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/TransactionButtonsHBox/ReverseTransactionButton
-## Own full-width row under the transaction buttons: Deposit/Withdraw/Reverse
-## already fill the 420px panel, and a fourth button there would squash all
-## of them.
-@onready var complete_transaction_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/CompleteTransactionButton
+## Own row under the transaction buttons (with Check ID): Deposit/Withdraw/
+## Reverse already fill the 420px panel, and a fourth button there would
+## squash all of them.
+@onready var complete_transaction_button: Button = $Panel/VBox/ActionsSection/ActionsVBox/CompleteRowHBox/CompleteTransactionButton
 @onready var account_label: Label = $Panel/VBox/AccountSection/AccountVBox/AccountLabel
 @onready var balance_label: Label = $Panel/VBox/AccountSection/AccountVBox/BalanceLabel
 @onready var error_label: Label = $Panel/VBox/ActionsSection/ActionsVBox/ErrorLabel
@@ -71,12 +88,12 @@ class_name TellerScreen
 @onready var shift_final_discrepancy_label: Label = $ShiftSummaryPanel/VBox/DrawerTotalsHBox/FinalDiscrepancyLabel
 @onready var shift_opening_count_label: Label = $ShiftSummaryPanel/VBox/OpeningCountLabel
 @onready var shift_score_label: Label = $ShiftSummaryPanel/VBox/ShiftScoreLabel
-@onready var shift_total_score_label: Label = $ShiftSummaryPanel/VBox/TotalScoreLabel
+@onready var shift_total_score_label: Label = $ShiftSummaryPanel/VBox/TotalsHBox/TotalScoreLabel
 @onready var shift_xp_label: Label = $ShiftSummaryPanel/VBox/ShiftXPLabel
-@onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalXPLabel
+@onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalsHBox/TotalXPLabel
 @onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/ReputationLabel
-@onready var shift_total_reputation_label: Label = $ShiftSummaryPanel/VBox/TotalReputationLabel
-@onready var shift_total_reports_label: Label = $ShiftSummaryPanel/VBox/TotalReportsLabel
+@onready var shift_total_reputation_label: Label = $ShiftSummaryPanel/VBox/StandingHBox/TotalReputationLabel
+@onready var shift_total_reports_label: Label = $ShiftSummaryPanel/VBox/StandingHBox/TotalReportsLabel
 @onready var shift_customer_results_label: Label = $ShiftSummaryPanel/VBox/CustomerResultsLabel
 @onready var shift_customer_points_label: Label = $ShiftSummaryPanel/VBox/CustomerPointsLabel
 ## Drawer + Customers for this shift, so the two sections visibly add up.
@@ -118,6 +135,11 @@ signal screen_closed
 ## pop them from the queue the same way customer_request_satisfied does for
 ## a regular customer.
 signal complaint_resolved(customer: CustomerNPC)
+
+## Emitted when the player refuses service to the serving customer (Refuse
+## Service, after checking their ID). teller_room.gd sends them off
+## (CustomerNPC.farewell_line) and moves on to whoever's next.
+signal customer_refused(customer: CustomerNPC)
 
 ## Set by teller_room.gd: returns a short description of this shift's
 ## remaining customer work (e.g. "2 customers still waiting"), or "" once
@@ -210,6 +232,33 @@ const CUSTOMER_REQUEST_WRONG_REPUTATION: int = -2
 ## a Major drawer discrepancy. A fixed mistake stays at -2.
 const CUSTOMER_LEFT_UNFIXED_REPUTATION: int = -3
 
+## ID checks (KycPolicy), graded once per customer whose request needs ID
+## (a withdrawal or a new account), at their first Complete Transaction or at
+## Refuse Service:
+## - valid ID checked first, request done: the usual correct-request reward;
+## - bad ID refused: the same reward, "Good catch";
+## - request done on a bad ID (checked or not): a serious mistake, worth
+##   KYC_BAD_ID_ACCEPTED_MISTAKES mistakes toward reports (so a written warning
+##   at once), and more Score and Reputation than a wrong request (the account
+##   holder's money went to someone else);
+## - request done without checking a valid ID first: a procedure mistake,
+##   one mistake toward reports, a wrong request's Score but no Reputation
+##   (the customer never noticed);
+## - valid ID refused: the customer leaves upset, like an unfixed mistake's
+##   walk-out (-3 Reputation) plus a wrong request's Score; not a mistake
+##   toward reports.
+## XP follows positive Score only, as for requests.
+const KYC_BAD_ID_CAUGHT_SCORE: int = 5
+const KYC_BAD_ID_CAUGHT_REPUTATION: int = 0
+const KYC_BAD_ID_ACCEPTED_SCORE: int = -8
+const KYC_BAD_ID_ACCEPTED_REPUTATION: int = -3
+const KYC_BAD_ID_ACCEPTED_MISTAKES: int = 2
+const KYC_CHECK_SKIPPED_SCORE: int = -3
+const KYC_CHECK_SKIPPED_REPUTATION: int = 0
+const KYC_CHECK_SKIPPED_MISTAKES: int = 1
+const KYC_VALID_ID_REFUSED_SCORE: int = -3
+const KYC_VALID_ID_REFUSED_REPUTATION: int = -3
+
 const FEEDBACK_GOOD_COLOR: Color = Color(0.3, 1, 0.3, 1)
 const FEEDBACK_BAD_COLOR: Color = Color(1, 0.3, 0.3, 1)
 const FEEDBACK_NEUTRAL_COLOR: Color = Color(1, 1, 1, 1)
@@ -277,6 +326,16 @@ var _customers_abandoned: int = 0
 var _customer_score: int = 0
 var _customer_reputation: int = 0
 var _customer_xp: int = 0
+## ID checks this shift: customers whose ID was checked, bad IDs refused,
+## requests done without checking first, requests done on a bad ID, and
+## valid IDs refused.
+var _ids_checked: int = 0
+var _bad_ids_caught: int = 0
+var _id_checks_skipped: int = 0
+var _bad_ids_accepted: int = 0
+var _valid_ids_refused: int = 0
+## Requests done right but graded as an ID mistake (no correct reward).
+var _served_despite_id_mistake: int = 0
 
 ## Every deposit/withdrawal made since clock-in. This is the source of
 ## truth for both the clock-out "expected balance" math (starting
@@ -295,6 +354,9 @@ func _ready() -> void:
 	cancel_account_button.pressed.connect(_on_cancel_account_button_pressed)
 	complaint_later_button.pressed.connect(_on_complaint_later_button_pressed)
 	respond_complaint_button.pressed.connect(_on_respond_complaint_button_pressed)
+	check_id_button.pressed.connect(_on_check_id_button_pressed)
+	refuse_service_button.pressed.connect(_on_refuse_service_button_pressed)
+	id_policy_label.text = KycPolicy.POLICY_TEXT
 	reverse_transaction_button.pressed.connect(_on_reverse_transaction_button_pressed)
 	complete_transaction_button.pressed.connect(_on_complete_transaction_button_pressed)
 	account_option_button.item_selected.connect(_on_account_option_selected)
@@ -350,6 +412,7 @@ func show_screen(serving_customer: CustomerNPC = null) -> void:
 func set_serving_customer(customer: CustomerNPC) -> void:
 	if customer != _serving_customer:
 		_customer_transactions.clear()
+		id_card_panel.visible = false
 	_serving_customer = customer
 	if customer != null:
 		# Payment method shares the status line (it used to have its own) to
@@ -389,6 +452,10 @@ func _update_customer_buttons() -> void:
 	reverse_transaction_button.visible = serving_request and not _customer_transactions.is_empty()
 	complete_transaction_button.visible = serving_request
 	complete_transaction_button.disabled = _customer_transactions.is_empty()
+	# Any regular customer's ID can be looked at; service can be refused only
+	# for a request that needs ID, once it has been checked.
+	check_id_button.visible = serving_request and _serving_customer.id_card != null
+	refuse_service_button.visible = serving_request and KycPolicy.requires_id(_serving_customer) and _serving_customer.id_checked
 
 func _is_serving_regular_customer() -> bool:
 	return is_instance_valid(_serving_customer) and _serving_customer.complaint == null
@@ -433,6 +500,7 @@ func hide_screen() -> void:
 		_complete_transaction(true)
 	if _has_pending_mistake():
 		_leave_unfixed(_serving_customer)
+	id_card_panel.visible = false
 	visible = false
 	get_tree().paused = false
 	screen_closed.emit()
@@ -504,6 +572,7 @@ func _on_customer_transaction(type: ShiftTransaction.Type, amount_cents: int, sh
 		return
 	if not _is_serving_regular_customer():
 		return
+	_note_id_requiring_action(_serving_customer)
 	_customer_transactions.append({
 		"account": account,
 		"type": type,
@@ -517,6 +586,143 @@ func _on_complete_transaction_button_pressed() -> void:
 	if has_uncompleted_transactions():
 		_complete_transaction(false)
 
+# --- ID checks (KycPolicy) ------------------------------------------------------
+
+## The teller is about to act on `customer`'s request (a transaction, or
+## opening their account): policy says check ID first, when it's needed.
+## Checking afterwards doesn't undo a skipped check.
+func _note_id_requiring_action(customer: CustomerNPC) -> void:
+	if KycPolicy.requires_id(customer) and not customer.id_checked:
+		customer.id_check_skipped = true
+
+## Check ID: shows the serving customer's card beside the panel, next to
+## how they look at the window.
+func _on_check_id_button_pressed() -> void:
+	var customer := _serving_customer
+	if not _is_serving_regular_customer() or customer.id_card == null:
+		return
+	if not customer.id_checked:
+		customer.id_checked = true
+		if shift_state == ShiftState.CLOCKED_IN:
+			_ids_checked += 1
+	_show_id_card(customer)
+	_update_customer_buttons()
+
+func _show_id_card(customer: CustomerNPC) -> void:
+	var card := customer.id_card
+	id_window_portrait.texture = CustomerNPC.portrait_of(customer.look_index)
+	id_card_portrait.visible = card.presented
+	id_no_id_label.visible = not card.presented
+	if card.presented:
+		id_card_portrait.texture = CustomerNPC.portrait_of(card.portrait_look)
+		id_name_label.text = card.holder_name
+		id_dob_label.text = IdCard.date_text(card.date_of_birth)
+		id_number_label.text = card.id_number
+		id_expiry_label.text = IdCard.date_text(card.expiry_date)
+	else:
+		id_no_id_label.text = "No ID"
+		for label: Label in [id_name_label, id_dob_label, id_number_label, id_expiry_label]:
+			label.text = "—"
+	var today := GameClock.today_date()
+	id_today_label.text = "Today: %s · Customer: %s" % [IdCard.date_text(today), customer.display_name]
+	if not card.presented:
+		id_today_label.text += "\n\"Sorry, I don't have my ID with me.\""
+	id_card_panel.visible = true
+
+## Refuse Service ("I'm sorry, I can't process this without valid ID."):
+## only for a request that needs ID, once the ID has been checked, and with
+## nothing done for this visit still standing (reverse it first). Graded on
+## whether the ID really was bad (see the KYC_* constants).
+func _on_refuse_service_button_pressed() -> void:
+	var customer := _serving_customer
+	if not _is_serving_regular_customer() or not KycPolicy.requires_id(customer) or not customer.id_checked:
+		return
+	if not _customer_transactions.is_empty():
+		_show_error("Reverse this visit's transactions before refusing service.")
+		return
+	customer.kyc_graded = true
+	var valid := customer.id_card.is_valid()
+	var score_delta := KYC_VALID_ID_REFUSED_SCORE if valid else KYC_BAD_ID_CAUGHT_SCORE
+	var reputation_delta := KYC_VALID_ID_REFUSED_REPUTATION if valid else KYC_BAD_ID_CAUGHT_REPUTATION
+	var points := _apply_points(score_delta, reputation_delta)
+	var said := "You: \"%s\"" % KycPolicy.REFUSAL_LINE
+	if valid:
+		_valid_ids_refused += 1
+		customer.left_upset = true
+		customer.farewell_line = CustomerNPC.REFUSED_VALID_ID_LINES.pick_random()
+		_show_feedback("%s — but %s's ID was valid, so they leave upset. (%s)" % [said, customer.display_name, points], FEEDBACK_BAD_COLOR)
+		HistoryManager.add_record(DecisionRecord.Role.TELLER, "Refused %s service on a valid ID" % customer.display_name, "Refused (valid ID)")
+	else:
+		_bad_ids_caught += 1
+		customer.farewell_line = CustomerNPC.REFUSED_BAD_ID_LINES.pick_random()
+		_show_feedback("%s — Good catch: %s. (%s)" % [said, id_problem_text(customer), points], FEEDBACK_GOOD_COLOR)
+		HistoryManager.add_record(DecisionRecord.Role.TELLER, "Refused %s service: %s" % [customer.display_name, id_problem_text(customer)], "Good catch")
+	id_card_panel.visible = false
+	customer.correction_line = ""
+	customer_refused.emit(customer)
+
+## What's wrong with `customer`'s ID, for feedback ("" when nothing is).
+func id_problem_text(customer: CustomerNPC) -> String:
+	var card := customer.id_card
+	match card.problem:
+		IdCard.Problem.EXPIRED:
+			return "the ID expired %s" % IdCard.date_text(card.expiry_date)
+		IdCard.Problem.NAME_MISMATCH:
+			return "the ID is in another name"
+		IdCard.Problem.WRONG_PORTRAIT:
+			return "the photo is someone else's"
+		IdCard.Problem.NO_ID:
+			return "there was no ID"
+	return ""
+
+## Grades the ID part of `customer`'s request once, at their first Complete
+## Transaction: a bad ID (checked or not) is a serious mistake, a valid one
+## not checked first a procedure mistake. Returns the feedback for a
+## mistake, or "" when the ID part was fine (or not needed, or already
+## graded): the correct-request reward then goes ahead as usual.
+func _grade_kyc(customer: CustomerNPC) -> String:
+	if customer.kyc_graded or not KycPolicy.requires_id(customer) or customer.id_card == null:
+		return ""
+	customer.kyc_graded = true
+	if customer.id_check_skipped:
+		_id_checks_skipped += 1
+	if not customer.id_card.is_valid():
+		_bad_ids_accepted += 1
+		var points := _apply_points(KYC_BAD_ID_ACCEPTED_SCORE, KYC_BAD_ID_ACCEPTED_REPUTATION)
+		for i in KYC_BAD_ID_ACCEPTED_MISTAKES:
+			ReportManager.record_mistake(DecisionRecord.Role.TELLER, "%s (invalid ID)" % customer.display_name)
+		HistoryManager.add_record(DecisionRecord.Role.TELLER, "Served %s on an invalid ID: %s" % [customer.display_name, id_problem_text(customer)], "Serious (ID)")
+		return "Serious ID breach: %s. Policy: no valid ID, no service. (%s, %d mistakes)" % [id_problem_text(customer), points, KYC_BAD_ID_ACCEPTED_MISTAKES]
+	if customer.id_check_skipped:
+		var points := _apply_points(KYC_CHECK_SKIPPED_SCORE, KYC_CHECK_SKIPPED_REPUTATION)
+		for i in KYC_CHECK_SKIPPED_MISTAKES:
+			ReportManager.record_mistake(DecisionRecord.Role.TELLER, "%s (ID not checked)" % customer.display_name)
+		HistoryManager.add_record(DecisionRecord.Role.TELLER, "Served %s without checking ID first" % customer.display_name, "Procedure (ID)")
+		return "Procedure mistake: bank policy is ID first for withdrawals and new accounts, to protect customers. (%s)" % points
+	return ""
+
+## Applies a Score and Reputation change from serving a customer, tallies it
+## for the shift summary, and returns it as text ("+5 Score, -3 Reputation").
+## XP follows positive Score only.
+func _apply_points(score_delta: int, reputation_delta: int) -> String:
+	ScoreManager.add_shift_score(score_delta)
+	if reputation_delta != 0:
+		ReputationManager.add_reputation(reputation_delta)
+	var xp_delta := 0
+	if score_delta > 0:
+		XPManager.add_shift_xp(score_delta)
+		xp_delta = score_delta * XPManager.XP_PER_SCORE_POINT
+	_customer_score += score_delta
+	_customer_reputation += reputation_delta
+	_customer_xp += xp_delta
+	return _points_text(score_delta, reputation_delta)
+
+func _points_text(score_delta: int, reputation_delta: int) -> String:
+	var points := "%+d Score" % score_delta
+	if reputation_delta != 0:
+		points += ", %+d Reputation" % reputation_delta
+	return points
+
 ## Grades the serving customer's request against this visit's transactions.
 ## Right: the correct-request reward (or, after an earlier wrong Complete,
 ## counted as fixed with no further change) and the customer is served.
@@ -525,15 +731,23 @@ func _on_complete_transaction_button_pressed() -> void:
 ## wrong (correction_line) until a later Complete finds it right. A fixed
 ## mistake still counts as a mistake (was_mistake stays set). closing is
 ## true when hide_screen() completes on the player's behalf.
+##
+## A request that needs ID also has its ID part graded at the first Complete
+## (_grade_kyc()): a mistake there replaces the correct-request reward, and
+## is added to a wrong request's penalty.
 func _complete_transaction(closing: bool) -> void:
 	var customer := _serving_customer
+	var kyc_message := _grade_kyc(customer)
 	if _is_request_satisfied(customer):
 		if customer.was_mistake:
 			_mistakes_fixed += 1
 			HistoryManager.add_record(DecisionRecord.Role.TELLER, "Fixed %s's request: %s" % [customer.display_name, _describe_visit_transactions(customer)], "Fixed")
 			_show_feedback("Fixed — %s's account now matches their request." % customer.display_name, FEEDBACK_NEUTRAL_COLOR)
-		else:
+		elif kyc_message == "":
 			_grade_request(customer, true)
+		else:
+			_served_despite_id_mistake += 1
+			_show_feedback("Request done. %s" % kyc_message, FEEDBACK_BAD_COLOR)
 		_complete_customer_request(customer)
 		return
 
@@ -545,6 +759,10 @@ func _complete_transaction(closing: bool) -> void:
 		ReportManager.record_mistake(DecisionRecord.Role.TELLER, customer.display_name)
 	elif not closing:
 		_show_feedback("Still not right — %s is still waiting for a correction." % customer.display_name, FEEDBACK_BAD_COLOR)
+	if kyc_message != "":
+		# A wrong request and an ID mistake at once: the request part kept
+		# short (the customer says what's wrong), so both fit the panel.
+		_show_feedback("Not right (%s). %s" % [_points_text(CUSTOMER_REQUEST_WRONG_SCORE, CUSTOMER_REQUEST_WRONG_REPUTATION), kyc_message], FEEDBACK_BAD_COLOR)
 	customer.correction_line = _describe_mistake(customer)
 	_refresh_customer_dialogue()
 
@@ -622,6 +840,8 @@ func _stray_transactions(customer: CustomerNPC) -> Array[Dictionary]:
 func _describe_mistake(customer: CustomerNPC) -> String:
 	if _customer_transactions.is_empty():
 		return ""
+	if customer.opens_account and customer.account == null:
+		return "I still need an account opened in my name — %s." % customer.display_name
 	var last: Dictionary = _customer_transactions[-1]
 	if last["account"] != customer.account:
 		return "That's not my account — I'm %s." % customer.display_name
@@ -671,24 +891,12 @@ func _money(cents: int) -> String:
 func _grade_request(customer: CustomerNPC, correct: bool) -> void:
 	var score_delta := CUSTOMER_REQUEST_CORRECT_SCORE if correct else CUSTOMER_REQUEST_WRONG_SCORE
 	var reputation_delta := CUSTOMER_REQUEST_CORRECT_REPUTATION if correct else CUSTOMER_REQUEST_WRONG_REPUTATION
-	ScoreManager.add_shift_score(score_delta)
-	if reputation_delta != 0:
-		ReputationManager.add_reputation(reputation_delta)
-	var xp_delta := 0
-	if score_delta > 0:
-		XPManager.add_shift_xp(score_delta)
-		xp_delta = score_delta * XPManager.XP_PER_SCORE_POINT
+	var points := _apply_points(score_delta, reputation_delta)
 	if correct:
 		_customers_correct += 1
-	_customer_score += score_delta
-	_customer_reputation += reputation_delta
-	_customer_xp += xp_delta
 
-	var asked := "%s %s" % [_verb_label(customer.intent_type), _money(customer.intent_amount_cents)]
+	var asked := _describe_request(customer)
 	var did := _describe_visit_transactions(customer)
-	var points := "%+d Score" % score_delta
-	if reputation_delta != 0:
-		points += ", %+d Reputation" % reputation_delta
 	var message: String
 	if correct:
 		message = "Correct — %s as requested. (%s)" % [asked, points]
@@ -702,6 +910,12 @@ func _grade_request(customer: CustomerNPC, correct: bool) -> void:
 		"Served %s: asked to %s, teller %s" % [customer.display_name, asked, did],
 		grade_label
 	)
+
+## "deposit $200", or "open an account with $200".
+func _describe_request(customer: CustomerNPC) -> String:
+	if customer.opens_account:
+		return "open an account with %s" % _money(customer.intent_amount_cents)
+	return "%s %s" % [_verb_label(customer.intent_type), _money(customer.intent_amount_cents)]
 
 ## This visit's transactions in order, e.g. "deposited $200, deposited $300"
 ## — with the account named on any that hit someone else's.
@@ -788,6 +1002,7 @@ func _show_main_panel() -> void:
 ## interview_screen.gd uses for its answer choices.
 func _show_complaint_panel(customer: CustomerNPC) -> void:
 	main_panel.visible = false
+	id_card_panel.visible = false
 	open_account_panel.visible = false
 	shift_summary_panel.visible = false
 	complaint_panel.visible = true
@@ -874,12 +1089,44 @@ func _on_create_account_button_pressed() -> void:
 		new_account_error_label.visible = true
 		return
 
-	account = AccountManager.create_account(new_name, MoneyMath.to_cents(new_balance_input.value))
+	var starting_cents := MoneyMath.to_cents(new_balance_input.value)
+	if _is_opening_for_customer():
+		_open_customer_account(new_name, starting_cents)
+		return
+	account = AccountManager.create_account(new_name, starting_cents)
 
 	error_label.visible = false
 	_show_main_panel()
 	_refresh_account_list()
 	_refresh_display()
+
+## Serving, on shift, a customer who came to open an account and doesn't
+## have one yet.
+func _is_opening_for_customer() -> bool:
+	return shift_state == ShiftState.CLOCKED_IN and _is_serving_regular_customer() and _serving_customer.opens_account and _serving_customer.account == null
+
+## Opens an account for the serving account-opening customer. It's theirs
+## when it's in their name (letter case and spaces aside); a starting deposit
+## is taken like a deposit (into the drawer, and counted towards their
+## request at Complete Transaction). Opening it is an ID-requiring action.
+func _open_customer_account(new_name: String, starting_cents: int) -> void:
+	var customer := _serving_customer
+	_note_id_requiring_action(customer)
+	var opened := AccountManager.create_account(new_name, 0)
+	if new_name.to_lower() == customer.display_name.to_lower():
+		opened.is_customer_account = true
+		customer.account = opened
+	account = opened
+	error_label.visible = false
+	_show_main_panel()
+	_refresh_account_list()
+	_refresh_display()
+	_show_feedback("Opened an account for %s. Make their first deposit, then press Complete Transaction." % new_name, FEEDBACK_NEUTRAL_COLOR)
+	if starting_cents > 0:
+		AccountManager.deposit(account, starting_cents)
+		var shift_transaction := _record_transaction(ShiftTransaction.Type.DEPOSIT, starting_cents)
+		_refresh_display()
+		_on_customer_transaction(ShiftTransaction.Type.DEPOSIT, starting_cents, shift_transaction)
 
 ## Phase 6j: lists AccountManager.get_browsable_accounts() rather than
 ## get_accounts() — the demo account plus anything opened via "Open New
@@ -971,6 +1218,7 @@ func _on_clock_in_button_pressed() -> void:
 		_opening_signed_off = false
 	pending_drawer_count_purpose = DrawerCountPurpose.STARTING
 	main_panel.visible = false
+	id_card_panel.visible = false
 	drawer_count_screen.show_screen(STARTING_FLOAT_CENTS, title, drawer_plausible_pieces(STARTING_FLOAT_CENTS))
 
 ## How many pieces a drawer holding `expected_cents` plausibly has, for the
@@ -995,6 +1243,7 @@ func _on_clock_out_button_pressed() -> void:
 	error_label.visible = false
 	pending_drawer_count_purpose = DrawerCountPurpose.ENDING
 	main_panel.visible = false
+	id_card_panel.visible = false
 	var expected_cents := _calculate_expected_ending_cents()
 	drawer_count_screen.show_screen(expected_cents, "Ending Drawer Count", drawer_plausible_pieces(expected_cents))
 	ending_count_started.emit()
@@ -1116,6 +1365,12 @@ func _begin_shift() -> void:
 	_customer_score = 0
 	_customer_reputation = 0
 	_customer_xp = 0
+	_ids_checked = 0
+	_bad_ids_caught = 0
+	_id_checks_skipped = 0
+	_bad_ids_accepted = 0
+	_valid_ids_refused = 0
+	_served_despite_id_mistake = 0
 
 	_card_decline_on_cooldown = false
 	_update_shift_controls()
@@ -1158,14 +1413,26 @@ func _scale_drawer_bonus(points: int, served: int, shift_customers: int) -> int:
 		return 0
 	return roundi(float(points) * served / shift_customers)
 
-## Served = request done (correctly or fixed) or complaint resolved.
+## Served = request done (correctly, fixed, or despite an ID mistake),
+## complaint resolved, or a bad ID rightly refused.
 func _customers_served() -> int:
-	return _customers_correct + _mistakes_fixed + _complaints_resolved
+	return _customers_correct + _mistakes_fixed + _complaints_resolved + _bad_ids_caught + _served_despite_id_mistake
 
 ## Every customer this shift brought — the clock-out gate guarantees each
-## one has been served, left unfixed, or abandoned by now.
+## one has been served, left unfixed, refused on a valid ID, or abandoned
+## by now.
 func _shift_customer_count() -> int:
-	return _customers_served() + _mistakes_unfixed + _customers_abandoned
+	return _customers_served() + _mistakes_unfixed + _customers_abandoned + _valid_ids_refused
+
+## The summary's ID line, e.g. "ID checks: 3 checked · 1 bad ID caught · 0
+## skipped", plus bad IDs accepted and valid IDs refused when there were any.
+func id_checks_summary() -> String:
+	var text := "ID checks: %d checked · %d bad ID%s caught · %d skipped" % [_ids_checked, _bad_ids_caught, "" if _bad_ids_caught == 1 else "s", _id_checks_skipped]
+	if _bad_ids_accepted > 0:
+		text += " · %d bad ID%s accepted" % [_bad_ids_accepted, "" if _bad_ids_accepted == 1 else "s"]
+	if _valid_ids_refused > 0:
+		text += " · %d valid ID%s refused" % [_valid_ids_refused, "" if _valid_ids_refused == 1 else "s"]
+	return text
 
 func _calculate_reputation_delta(discrepancy_result: DiscrepancyResult) -> int:
 	match discrepancy_result:
@@ -1222,7 +1489,7 @@ func _prepare_shift_summary(ending_total_cents: int) -> void:
 	## Drawer lines above sit under the summary's "Drawer Count" header;
 	## these sit under "Customers" — already applied as each happened, so
 	## shown here for the breakdown only, not re-applied.
-	shift_customer_results_label.text = "Served correctly: %d\nMistakes fixed: %d · Left unfixed: %d\nComplaints resolved: %d · Abandoned: %d" % [_customers_correct, _mistakes_fixed, _mistakes_unfixed, _complaints_resolved, _customers_abandoned]
+	shift_customer_results_label.text = "Served correctly: %d\nMistakes fixed: %d · Left unfixed: %d\nComplaints resolved: %d · Abandoned: %d\n%s" % [_customers_correct, _mistakes_fixed, _mistakes_unfixed, _complaints_resolved, _customers_abandoned, id_checks_summary()]
 	shift_customer_points_label.text = "Score %+d · Reputation %+d · XP %+d" % [_customer_score, _customer_reputation, _customer_xp]
 	shift_net_label.text = "This shift: Score %+d · Reputation %+d · XP %+d" % [shift_score + _customer_score, reputation_delta + _customer_reputation, shift_xp + _customer_xp]
 

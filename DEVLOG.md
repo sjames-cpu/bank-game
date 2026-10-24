@@ -216,6 +216,15 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Fired = this slot cleared**: the termination letter explains why, then "Back to Save Slots" lands on the slot screen, where that slot shows New Game; the other slots are untouched.
 - **No leftovers**: the menu resets the whole career and unpauses whenever it opens, and tests check that loading or starting another slot after a full career (or mid-shift) leaves nothing behind.
 
+## Session 25 — Oct 24, 2026: ID checks at the teller window, and two safety fixes
+
+- **ID checks (KYC)**, presented as bank policy: every customer in the player's line carries a photo ID (name, date of birth, ID number, expiry, a portrait of their look). About 1 in 7 has a problem: expired, another name, someone else's photo, or no ID at all (rate and mix are constants in `KycPolicy`). Withdrawals and new accounts need ID; deposits don't. Check ID shows the card beside the teller panel, next to the customer's own face; Refuse Service ("I'm sorry, I can't process this without valid ID.") is on the card.
+- **Grading**: valid ID checked and served, +5 as usual; bad ID refused, +5 "Good catch"; served on a bad ID, −8 Score, −3 Reputation and two mistakes (a written warning at once); ID not checked first, −3 Score and one mistake; a valid ID refused, −3 Score and −3 Reputation as the customer walks out. The shift summary counts IDs checked, bad IDs caught and checks skipped.
+- **Account openers**: about 1 in 10 regular customers comes to open an account with a first deposit. The player checks ID, opens it in their name and deposits; Complete Transaction grades it all.
+- **Staff windows and the ATM** don't check ID yet. A one-time hint explains the policy at the first customer who needs ID.
+- **HUD hints scroll**: with every notification up, three hints (arrival, Loan Officer unlocked, opening hours) ran past the bottom of the window. The HUD test only tried one short hint. The hint text now scrolls in whatever room is left, and the test lays out every hint.
+- **Save guard**: scratch screenshot scripts now name every slot from a scratch prefix, so a slot screen can't lead them to a real save; and the guard recognises a real save however its path is spelled.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

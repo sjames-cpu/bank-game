@@ -155,9 +155,18 @@ visible = false
 size_flags_horizontal = 3
 text = "Reverse Transaction"
 
-[node name="CompleteTransactionButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+[node name="CompleteRowHBox" type="HBoxContainer" parent="Panel/VBox/ActionsSection/ActionsVBox"]
+layout_mode = 2
+
+[node name="CheckIdButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox/CompleteRowHBox"]
 layout_mode = 2
 visible = false
+text = "Check ID"
+
+[node name="CompleteTransactionButton" type="Button" parent="Panel/VBox/ActionsSection/ActionsVBox/CompleteRowHBox"]
+layout_mode = 2
+visible = false
+size_flags_horizontal = 3
 disabled = true
 theme_type_variation = &"PrimaryButton"
 text = "Complete Transaction"
@@ -185,6 +194,138 @@ text = "Clock Out"
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Close"
+
+[node name="IdCardPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -530.0
+offset_right = -226.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="IdCardPanel"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="IdCardPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Photo ID"
+horizontal_alignment = 1
+
+[node name="PortraitsHBox" type="HBoxContainer" parent="IdCardPanel/VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 24
+
+[node name="WindowVBox" type="VBoxContainer" parent="IdCardPanel/VBox/PortraitsHBox"]
+layout_mode = 2
+
+[node name="WindowLabel" type="Label" parent="IdCardPanel/VBox/PortraitsHBox/WindowVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "At the window"
+horizontal_alignment = 1
+
+[node name="WindowPortrait" type="TextureRect" parent="IdCardPanel/VBox/PortraitsHBox/WindowVBox"]
+texture_filter = 1
+custom_minimum_size = Vector2(48, 72)
+layout_mode = 2
+size_flags_horizontal = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CardVBox" type="VBoxContainer" parent="IdCardPanel/VBox/PortraitsHBox"]
+layout_mode = 2
+
+[node name="CardLabel" type="Label" parent="IdCardPanel/VBox/PortraitsHBox/CardVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "On the card"
+horizontal_alignment = 1
+
+[node name="CardPortrait" type="TextureRect" parent="IdCardPanel/VBox/PortraitsHBox/CardVBox"]
+texture_filter = 1
+custom_minimum_size = Vector2(48, 72)
+layout_mode = 2
+size_flags_horizontal = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NoIdLabel" type="Label" parent="IdCardPanel/VBox/PortraitsHBox/CardVBox"]
+visible = false
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+text = "No ID"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DetailsGrid" type="GridContainer" parent="IdCardPanel/VBox"]
+layout_mode = 2
+columns = 2
+
+[node name="NameKey" type="Label" parent="IdCardPanel/VBox/DetailsGrid"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Name"
+
+[node name="NameValue" type="Label" parent="IdCardPanel/VBox/DetailsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "—"
+autowrap_mode = 2
+
+[node name="DobKey" type="Label" parent="IdCardPanel/VBox/DetailsGrid"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Date of birth"
+
+[node name="DobValue" type="Label" parent="IdCardPanel/VBox/DetailsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "—"
+
+[node name="NumberKey" type="Label" parent="IdCardPanel/VBox/DetailsGrid"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "ID number"
+
+[node name="NumberValue" type="Label" parent="IdCardPanel/VBox/DetailsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "—"
+
+[node name="ExpiryKey" type="Label" parent="IdCardPanel/VBox/DetailsGrid"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Expires"
+
+[node name="ExpiryValue" type="Label" parent="IdCardPanel/VBox/DetailsGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "—"
+
+[node name="TodayLabel" type="Label" parent="IdCardPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Today: 5 Jan 2026 · Customer: —"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="PolicyLabel" type="Label" parent="IdCardPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Bank policy"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="RefuseServiceButton" type="Button" parent="IdCardPanel/VBox"]
+layout_mode = 2
+visible = false
+text = "Refuse Service"
 
 [node name="DrawerCountScreen" parent="." instance=ExtResource("drawer_count_screen_scene")]
 layout_mode = 1
@@ -301,25 +442,36 @@ text = "This shift: Score +0 · Reputation +0 · XP +0"
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="TotalScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="TotalsHBox" type="HBoxContainer" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
+
+[node name="TotalScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox/TotalsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "Total Score: 0"
 horizontal_alignment = 1
 
-[node name="TotalXPLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="TotalXPLabel" type="Label" parent="ShiftSummaryPanel/VBox/TotalsHBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Total XP: 0"
 horizontal_alignment = 1
 
-[node name="TotalReputationLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="StandingHBox" type="HBoxContainer" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
+
+[node name="TotalReputationLabel" type="Label" parent="ShiftSummaryPanel/VBox/StandingHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "Reputation: 50"
 horizontal_alignment = 1
 
-[node name="TotalReportsLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="TotalReportsLabel" type="Label" parent="ShiftSummaryPanel/VBox/StandingHBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Reports: 0 / 3"
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="DoneButton" type="Button" parent="ShiftSummaryPanel/VBox"]
 layout_mode = 2
