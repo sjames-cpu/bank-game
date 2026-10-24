@@ -46,7 +46,10 @@ class_name Hud
 @onready var branch_manager_unlocked_label: Label = $RightColumn/NotificationPanel/NotificationStack/BranchManagerUnlockedLabel
 
 @onready var hint_panel: PanelContainer = $RightColumn/HintPanel
-@onready var hint_label: Label = $RightColumn/HintPanel/VBox/HintLabel
+@onready var hint_label: Label = $RightColumn/HintPanel/VBox/HintScroll/HintLabel
+## The hint text scrolls when the column has no room left for all of it
+## (every notification up, a long hint): see _fit_hint().
+@onready var hint_scroll: ScrollContainer = $RightColumn/HintPanel/VBox/HintScroll
 @onready var hint_dismiss_button: Button = $RightColumn/HintPanel/VBox/DismissButton
 
 ## Always-on reminder of the keys, e.g. "E — interact · Z — zoom · Esc — menu", in the
@@ -118,11 +121,34 @@ func refresh() -> void:
 	shift_label.text = shift_status.call() if shift_status.is_valid() else "Off shift"
 	low_reputation_warning_label.visible = ReputationManager.reputation <= ReputationManager.LOW_REPUTATION_THRESHOLD
 	notification_panel.visible = low_reputation_warning_label.visible or loan_officer_unlocked_label.visible or branch_manager_unlocked_label.visible
+	_fit_hint()
 	# Any open desk screen pauses the tree, and the prompt belongs to the room.
 	if get_tree().paused:
 		prompt_panel.visible = false
 	elif prompt_panel.visible:
 		_place_prompt()
+
+## The column keeps this far from the bottom of the window.
+const COLUMN_BOTTOM_MARGIN: float = 8.0
+
+## Sizes the hint's text area to its text, but never taller than the room
+## left under the stats and notifications: past that the text scrolls, so
+## the column always ends inside the window, whatever the hint.
+func _fit_hint() -> void:
+	if not hint_panel.visible:
+		return
+	var column := hint_panel.get_parent() as Control
+	var text_height := hint_label.get_minimum_size().y
+	# A ScrollContainer adds only its own minimum height to the column.
+	var without_text := column.get_combined_minimum_size().y - hint_scroll.custom_minimum_size.y
+	# Against the 648px design height: the "expand" stretch never shows less,
+	# and every screen is laid out for it.
+	var design_height: int = ProjectSettings.get_setting("display/window/size/viewport_height", 648)
+	var window_height := minf(get_viewport().get_visible_rect().size.y, design_height)
+	var room := window_height - COLUMN_BOTTOM_MARGIN - column.get_global_rect().position.y - without_text
+	var height := clampf(text_height, 0.0, maxf(room, 0.0))
+	if not is_equal_approx(hint_scroll.custom_minimum_size.y, height):
+		hint_scroll.custom_minimum_size.y = height
 
 ## The controls line, with key names from the InputMap (InputPrompts), so
 ## it can't drift from the keys that actually work.

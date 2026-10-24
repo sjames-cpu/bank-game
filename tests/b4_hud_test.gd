@@ -57,6 +57,18 @@ func promote() -> void:
 	XPManager._grant_branch_manager()
 	acknowledge_letters()
 
+## The hint whose panel is tallest as laid out (each shown in turn).
+func tallest_hint() -> Hint:
+	var tallest: Hint = Hint.ARRIVAL
+	var tallest_height := -1.0
+	for hint: Hint in Hint.values():
+		hud._show_hint(hint)
+		await settle()
+		if hud.hint_panel.size.y > tallest_height:
+			tallest_height = hud.hint_panel.size.y
+			tallest = hint
+	return tallest
+
 func dismiss_all_hints() -> void:
 	while hud.current_hint != -1:
 		hud.hint_dismiss_button.pressed.emit()
@@ -172,8 +184,8 @@ func test_controls_line_names_the_keys_and_overlaps_nothing() -> void:
 	assert_str(hud.controls_label.text).is_equal(Hud.controls_text())
 	assert_bool(hud.controls_panel.is_visible_in_tree()).is_true()
 
-	# The tallest the HUD column gets: a hint and every notification.
-	hud._show_hint(Hint.BRANCH_MANAGER_UNLOCKED)
+	# The tallest the HUD column gets: the tallest hint and every notification.
+	hud._show_hint(await tallest_hint())
 	hud.show_unlock_notification(hud.loan_officer_unlocked_label)
 	hud.show_unlock_notification(hud.branch_manager_unlocked_label)
 	ReputationManager.add_reputation(-100)
@@ -215,8 +227,8 @@ func test_hud_column_never_overlaps_a_screen_panel() -> void:
 	acknowledge_letters()
 	bm._prepare_shift_summary()
 	dismiss_all_hints()
-	hud._show_hint(Hint.BRANCH_MANAGER_UNLOCKED) # the longest hint text
-	# Every notification up at once: the tallest the column gets.
+	# Every notification up at once, then every hint in turn below: the
+	# tallest the column gets.
 	hud.show_unlock_notification(hud.loan_officer_unlocked_label)
 	hud.show_unlock_notification(hud.branch_manager_unlocked_label)
 	ReputationManager.add_reputation(-100)
@@ -234,19 +246,22 @@ func test_hud_column_never_overlaps_a_screen_panel() -> void:
 		while node != ui:
 			(node as CanvasItem).visible = true
 			node = node.get_parent()
-	await settle()
-
-	var column: Rect2 = (hud.get_node("RightColumn") as Control).get_global_rect()
-	assert_bool(hud.hint_panel.visible).is_true()
-	for label: Label in [hud.low_reputation_warning_label, hud.loan_officer_unlocked_label, hud.branch_manager_unlocked_label]:
-		assert_bool(label.is_visible_in_tree()).is_true()
-	for panel in panels:
-		var rect := panel.get_global_rect()
-		assert_bool(rect.intersects(column)) \
-			.override_failure_message("%s (%s) overlaps the HUD column %s" % [panel.get_path(), rect, column]) \
-			.is_false()
-	# And the column itself fits in the 648px window.
-	assert_float(column.end.y).is_less(648.0)
+	# Every hint, measured as laid out (not picked by its text), so a new or
+	# reworded hint can't overflow unnoticed.
+	for hint: Hint in Hint.values():
+		hud._show_hint(hint)
+		await settle()
+		var column: Rect2 = (hud.get_node("RightColumn") as Control).get_global_rect()
+		assert_bool(hud.hint_panel.visible).is_true()
+		for label: Label in [hud.low_reputation_warning_label, hud.loan_officer_unlocked_label, hud.branch_manager_unlocked_label]:
+			assert_bool(label.is_visible_in_tree()).is_true()
+		for panel in panels:
+			var rect := panel.get_global_rect()
+			assert_bool(rect.intersects(column)) \
+				.override_failure_message("%s (%s) overlaps the HUD column %s with hint %s" % [panel.get_path(), rect, column, Hint.keys()[hint]]) \
+				.is_false()
+		# And the column itself fits in the 648px window.
+		assert_float(column.end.y).override_failure_message("hint %s: the column ends at %.0f" % [Hint.keys()[hint], column.end.y]).is_less(648.0)
 
 func test_notifications_show_on_the_hud_with_no_screen_open() -> void:
 	await settle()
@@ -567,3 +582,23 @@ func test_player_spawns_inside_the_entrance_clear_of_furniture_and_lanes() -> vo
 		assert_bool(corridor.intersects(player_rect)).override_failure_message("spawn in %s's exit corridor" % line.name).is_false()
 
 	assert_object(room.interactable_in_range()).is_null()
+
+func test_a_long_hint_scrolls_only_when_the_column_runs_out_of_room() -> void:
+	dismiss_all_hints()
+	# Room to spare: the whole text shows, no scrolling.
+	hud._show_hint(Hint.OPENING_HOURS)
+	await settle()
+	assert_float(hud.hint_scroll.size.y).is_equal_approx(hud.hint_label.get_minimum_size().y, 0.5)
+	# Every notification up: the text area shrinks to the room left and
+	# scrolls, and the column still ends inside the 648px window.
+	promote()
+	hud.show_unlock_notification(hud.loan_officer_unlocked_label)
+	hud.show_unlock_notification(hud.branch_manager_unlocked_label)
+	ReputationManager.add_reputation(-100)
+	acknowledge_letters()
+	dismiss_all_hints()
+	hud._show_hint(Hint.OPENING_HOURS)
+	await settle()
+	assert_float(hud.hint_scroll.size.y).is_less(hud.hint_label.get_minimum_size().y)
+	assert_float((hud.get_node("RightColumn") as Control).get_global_rect().end.y).is_less_equal(648.0 - Hud.COLUMN_BOTTOM_MARGIN + 0.5)
+	assert_bool(hud.hint_dismiss_button.is_visible_in_tree()).is_true()

@@ -125,8 +125,13 @@ layout_mode = 2
 theme_type_variation = &"MutedLabel"
 text = "Tip"
 
-[node name="HintLabel" type="Label" parent="RightColumn/HintPanel/VBox"]
+[node name="HintScroll" type="ScrollContainer" parent="RightColumn/HintPanel/VBox"]
 layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="HintLabel" type="Label" parent="RightColumn/HintPanel/VBox/HintScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 2
 
 [node name="DismissButton" type="Button" parent="RightColumn/HintPanel/VBox"]
