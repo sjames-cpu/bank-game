@@ -11,15 +11,17 @@ class_name NpcLoanDeskWorker
 ##
 ## Decision quality: with StaffMember.loan_correct_chance() (skill / 10) the
 ## staff member makes the correct call for the application's hidden
-## risk_assessment (Approve low / Counter-Offer medium / Reject high);
-## otherwise one of the other two decisions. Graded with the existing
+## risk_assessment, read from the underwriting worksheet (Approve low /
+## Counter-Offer medium at the affordable amount / Reject high); otherwise
+## one of the other two decisions. Graded by type with
 ## LoanApplication.grade(); BEST counts as correct, anything else as a
 ## mistake. Logged to HistoryManager as a STAFF record. Never touches the
 ## player's Score/Reputation/XP.
 
 signal decision_made(application: LoanApplication, staff: StaffMember, correct: bool)
 
-## Fraction of the requested amount offered on a Counter-Offer.
+## Fraction of the requested amount offered on a Counter-Offer when the
+## worksheet leaves nothing affordable to offer.
 const COUNTER_OFFER_FRACTION: float = 0.6
 
 ## The desk (ScheduleManager.SLOT_LOAN_DESK_*) this worker decides for.
@@ -86,6 +88,13 @@ static func _decision_amount(application: LoanApplication, decision: LoanApplica
 		LoanApplication.DecisionType.APPROVE:
 			return application.requested_amount
 		LoanApplication.DecisionType.COUNTER_OFFER:
+			# The worksheet's reference: what they could carry at a healthy
+			# total DTI, kept below the request.
+			var reference := application.counter_offer_reference()
+			if reference >= application.requested_amount:
+				reference -= 100.0
+			if reference >= 100.0:
+				return reference
 			return roundf(application.requested_amount * COUNTER_OFFER_FRACTION / 100.0) * 100.0
 		_:
 			return 0.0

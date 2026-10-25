@@ -130,11 +130,20 @@ static func details_text(item: StaffReviewItem) -> String:
 		]
 	var decision := LoanApplication.decision_type_label(item.decision)
 	if item.decision != LoanApplication.DecisionType.REJECT:
-		decision += " ($%s)" % _thousands(item.decision_amount)
-	return "Applicant: %s — $%s %s loan\nCredit score %d · Income $%s/yr · Debt payments $%s/mo\nDTI %.1f%% · Loan-to-income %.0f%%\nDecision: %s" % [
-		item.applicant_name, _thousands(item.requested_amount), item.loan_purpose.to_lower(),
-		item.credit_score, _thousands(item.annual_income), _thousands(item.monthly_debt_payments),
-		item.debt_to_income * 100.0, item.loan_to_income * 100.0,
+		decision += " (%s)" % LoanApplication.dollars(item.decision_amount)
+	if not item.has_worksheet:
+		# Saved before the underwriting worksheet: only the application.
+		return "Applicant: %s — %s %s loan\nCredit score %d · Income %s/yr · Debt payments %s/mo\n(No worksheet: decided before it was introduced.)\nDecision: %s" % [
+			item.applicant_name, LoanApplication.dollars(item.requested_amount), item.loan_purpose.to_lower(),
+			item.credit_score, LoanApplication.dollars(item.annual_income), LoanApplication.dollars(item.monthly_debt_payments),
+			decision,
+		]
+	var housing := "Mortgage %s (replaces %s)" % [LoanApplication.dollars(item.new_payment), LoanApplication.dollars(item.monthly_housing_payment)] if item.replaces_housing else "Housing %s" % LoanApplication.dollars(item.monthly_housing_payment)
+	return "Applicant: %s — %s %s loan (%d months at %.2f%%)\nCredit score %d (%s) · Employed %s\nIncome %s/mo · %s · Debts %s/mo · New payment %s/mo\nFront-end DTI %s · Total DTI %s · Affordable at 36%%: %s\nDecision: %s" % [
+		item.applicant_name, LoanApplication.dollars(item.requested_amount), item.loan_purpose.to_lower(), item.term_months, item.annual_rate * 100.0,
+		item.credit_score, LoanApplication.credit_score_band(item.credit_score), LoanApplication.employment_text(item.employment_months),
+		LoanApplication.dollars(item.annual_income / 12.0), housing, LoanApplication.dollars(item.monthly_debt_payments), LoanApplication.dollars(item.new_payment),
+		LoanApplication.percent(item.front_end_dti), LoanApplication.percent(item.total_dti), LoanApplication.dollars(item.affordable_amount),
 		decision,
 	]
 
@@ -157,11 +166,3 @@ static func _result_text(item: StaffReviewItem, result: Dictionary) -> String:
 	if item.kind == StaffReviewItem.Kind.LOAN:
 		text += "\nGraded: %s." % LoanApplication.grade_description(item.grade)
 	return text
-
-static func _thousands(amount: float) -> String:
-	var digits := str(roundi(amount))
-	var out := ""
-	while digits.length() > 3:
-		out = "," + digits.substr(digits.length() - 3) + out
-		digits = digits.substr(0, digits.length() - 3)
-	return digits + out

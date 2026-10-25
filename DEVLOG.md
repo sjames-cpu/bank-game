@@ -258,6 +258,16 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Regional review**: a new Cash management area (15%) covers days the vault closed out of range and how each visit was handled, rated only when there was something to judge; vault reconciliation, unreviewed errors and fairness of reports gave up 5% each.
 - Walking the crew in for real caught two things the tests skipped: a guard caught on the vault doorway's corner, and a second guard placed inside the sidewalk. A test now walks them in and out.
 
+## Session 30 — Oct 25, 2026: The Loan Officer's underwriting worksheet
+
+- **Applications got real numbers**: each now has a monthly housing payment (rent or mortgage), time in the job, and a loan purpose that sets the bank's term, rate and policy maximum: auto 5 years at 7.0% (up to $75,000), home a 30-year fixed at 6.5% (up to $800,000; the mortgage replaces the rent), personal 3 years at 12.0% ($50,000), business 10 years at 9.0% ($250,000). The new loan's payment uses the standard amortization formula. All ten sample applicants were rewritten with consistent figures: three clearly safe, four borderline, three clearly risky.
+- **The worksheet**: after "Run Credit Check", a second column shows monthly income, housing, existing debt payments, the new payment, front-end DTI (housing ÷ income), total DTI (everything, the new loan included, ÷ income; guide bands 36% healthy, 43% stretched, 50% high), the credit band, employment and the largest amount the applicant could carry at 36%. Each ratio has a one-line explanation. The verdict stays hidden.
+- **The hidden risk assessment** now reads total DTI, credit score and employment (under two years counts against). The old non-housing DTI and loan-to-income bands are gone. Under the old formula three applicants were off their intended tier; now all ten match.
+- **Counter-offers** show the affordable amount and are graded on the amount: for a borderline applicant, an affordable offer below the request (and not a lowball) is the right call. A risky applicant countered for more than they can carry is graded as a risky loan.
+- **Denials** need one or two stated reasons (total DTI, credit score, income for the amount, employment, amount over the maximum), graded against the application's real weak points: +2 each right, −2 each wrong, −1 for each real one left out.
+- Staff loan officers decide with the same skill-based odds against the new assessment, countering at the affordable amount. The Branch Manager's staff review shows the worksheet; review items in older saves still load and say they have no worksheet.
+- The screen's fit test caught it running off the window with the reasons open. The fix was compact checkboxes and a wider panel that still ends 8 px short of the HUD column.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

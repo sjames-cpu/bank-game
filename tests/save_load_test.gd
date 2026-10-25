@@ -120,8 +120,15 @@ func build_full_career() -> void:
 	loan_item.credit_score = 702
 	loan_item.annual_income = 61234.25
 	loan_item.monthly_debt_payments = 812.4
-	loan_item.debt_to_income = 0.1592
-	loan_item.loan_to_income = 0.408
+	loan_item.has_worksheet = true
+	loan_item.monthly_housing_payment = 1150.0
+	loan_item.new_payment = 495.12
+	loan_item.term_months = 60
+	loan_item.annual_rate = 0.07
+	loan_item.front_end_dti = 0.2254
+	loan_item.total_dti = 0.4817
+	loan_item.employment_months = 30
+	loan_item.affordable_amount = 9800.0
 	loan_item.decision = LoanApplication.DecisionType.COUNTER_OFFER
 	loan_item.decision_amount = 20000.75
 	loan_item.grade = LoanApplication.Grade.PARTIAL

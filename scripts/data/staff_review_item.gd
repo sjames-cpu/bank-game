@@ -43,8 +43,19 @@ enum TellerMistake { AMOUNT_SHORT, AMOUNT_OVER, WRONG_TYPE, WRONG_ACCOUNT }
 @export var credit_score: int = 0
 @export var annual_income: float = 0.0
 @export var monthly_debt_payments: float = 0.0
-@export var debt_to_income: float = 0.0
-@export var loan_to_income: float = 0.0
+## The underwriting worksheet's values (LoanApplication), frozen at the
+## decision. An item from a save before the worksheet has has_worksheet
+## false and none of them (its old DTI and loan-to-income are dropped).
+@export var has_worksheet: bool = false
+@export var monthly_housing_payment: float = 0.0
+@export var replaces_housing: bool = false
+@export var new_payment: float = 0.0
+@export var term_months: int = 0
+@export var annual_rate: float = 0.0
+@export var front_end_dti: float = 0.0
+@export var total_dti: float = 0.0
+@export var employment_months: int = 0
+@export var affordable_amount: float = 0.0
 @export var decision: LoanApplication.DecisionType = LoanApplication.DecisionType.NONE
 @export var decision_amount: float = 0.0
 ## Hidden until the manager has decided.

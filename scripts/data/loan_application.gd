@@ -1,24 +1,22 @@
 extends Resource
 class_name LoanApplication
 
-## A loan application submitted for review. risk_tier is pre-set here
-## rather than computed from credit_score/income/debt, simulating a feed
-## from an upstream underwriting/scoring system the way a real bank's
-## loan queue would arrive pre-flagged — it lets sample data include
-## borderline cases where the "official" tier and a naive read of the
-## raw numbers don't perfectly agree. Grading (grade()/grade_decision()
-## below) only ever reads risk_assessment, never risk_tier — risk_tier is
-## sample-data authoring context for those borderline cases, not an input
-## to any grading logic.
+## A loan application submitted for review, and the underwriting worksheet
+## built from it (HANDOFF.md Phase 3). risk_tier is pre-set sample-data
+## authoring context: the tier each sample applicant is meant to land on.
+## Grading (grade()/grade_decision() below) only ever reads risk_assessment,
+## never risk_tier; loan_application_test.gd checks the two agree for every
+## sample.
 ##
-## The money figures here (requested_amount, annual_income, existing_debt,
-## monthly_debt_payments, decision_amount) stay whole-dollar floats, not the
-## int cents the teller/ATM/drawer use (B3, see MoneyMath). They're figures
-## the player judges, never cash that moves through an account or drawer, so
-## nothing sums them and they can't drift; they're whole dollars by
-## construction (decision_amount rounds a counter-offer to $100). Leaving
-## them alone keeps DTI and loan-to-income — float ratios compared against
-## band thresholds — bit-for-bit what they were.
+## The rules here are presented in game as bank policy, not as any law:
+## the term and rate for each purpose, the DTI guide bands, the policy
+## maximums and the denial reasons are the branch's own lending policy.
+##
+## The money figures here stay whole-dollar floats, not the int cents the
+## teller/ATM/drawer use (B3, see MoneyMath). They're figures the player
+## judges, never cash that moves through an account or drawer, so nothing
+## sums them and they can't drift; decision_amount rounds a counter-offer
+## to $100.
 ## Built in code (see loan_applications_data.gd) rather than loaded from
 ## .tres files, matching Account/InterviewQuestion.
 
@@ -30,6 +28,11 @@ enum DecisionType { NONE, APPROVE, REJECT, COUNTER_OFFER }
 ## BAD/WORST are two levels of wrong (BAD being overly cautious, WORST
 ## being an outright risky approval).
 enum Grade { BEST, PARTIAL, BAD, WORST }
+
+## The main reasons a loan officer can state for a denial (the player picks
+## 1-2). Each is a real weak point of an application when weak_points()
+## says so.
+enum DenialReason { TOTAL_DTI, CREDIT_SCORE, INCOME, EMPLOYMENT, AMOUNT }
 
 ## Score/Reputation point table for each Grade (Phase 4e). Kept here
 ## (rather than on loan_review_screen.gd, where they originally lived)
@@ -54,6 +57,65 @@ const PARTIAL_CREDIT_REPUTATION: int = 0
 const BAD_DECISION_REPUTATION: int = -1
 const WORST_DECISION_REPUTATION: int = -2
 
+## Stated denial reasons, graded on top of the Reject decision's own grade
+## (Score only; XP follows Score). Pitched at a fifth of a correct loan call
+## each, so two right reasons add +4 to a correct denial's +10, and a wrong
+## or missing reason costs about what it earns: naming the real problems
+## matters, but less than making the right call.
+const REASON_RIGHT_SCORE: int = 2
+const REASON_WRONG_SCORE: int = -2
+const REASON_MISSING_SCORE: int = -1
+const MAX_DENIAL_REASONS: int = 2
+
+## Total-DTI guide bands (bank policy): at or under HEALTHY_DTI the
+## applicant's payments leave comfortable room; up to STRETCHED_DTI is
+## manageable; up to HIGH_DTI is a heavy load; beyond that, unaffordable.
+const HEALTHY_DTI: float = 0.36
+const STRETCHED_DTI: float = 0.43
+const HIGH_DTI: float = 0.50
+
+## Credit score bands used by the risk assessment (FICO-style labels, see
+## credit_score_band()).
+const GOOD_CREDIT: int = 670
+const FAIR_CREDIT: int = 580
+const VERY_GOOD_CREDIT: int = 740
+
+## Policy looks for two years in the same job or line of work.
+const STEADY_EMPLOYMENT_MONTHS: int = 24
+
+## "Income too low for the amount": the new loan's payment alone takes more
+## than this share of monthly income (a home loan's mortgage payment is
+## judged against the usual 28% front-end guide instead).
+const NEW_PAYMENT_SHARE_LIMIT: float = 0.20
+const HOME_PAYMENT_SHARE_LIMIT: float = 0.28
+
+## A counter-offer below this share of the reference amount (the affordable
+## amount, or the request if that's less) is a lowball, not a reasonable
+## offer.
+const REASONABLE_COUNTER_SHARE: float = 0.5
+
+const HOME_PURPOSE: String = "Home"
+
+## Bank policy per loan purpose: term (months), annual rate and the most the
+## branch lends for it. Typical 2025-26 US figures, one rate per purpose
+## (real lenders also price by credit score; the game keeps one rate so the
+## worksheet stays readable):
+## - Auto: 5 years at 7.0%, about what a new-car loan cost a good-credit
+##   borrower; $75,000 covers nearly any new car.
+## - Home: a 30-year fixed mortgage at 6.5% (principal and interest only).
+##   It replaces the applicant's current rent, so the new payment becomes
+##   their housing payment. $800,000 is about the conforming loan limit.
+## - Personal: an unsecured 3-year loan at 12.0%, about the average personal
+##   loan rate; capped at $50,000.
+## - Business: a 10-year small-business term loan at 9.0% (about prime plus
+##   two points); capped at $250,000 for a branch to decide.
+const PURPOSE_TERMS: Dictionary = {
+	"Auto": {"months": 60, "rate": 0.07, "max": 75000.0},
+	"Home": {"months": 360, "rate": 0.065, "max": 800000.0},
+	"Personal": {"months": 36, "rate": 0.12, "max": 50000.0},
+	"Business": {"months": 120, "rate": 0.09, "max": 250000.0},
+}
+
 @export var applicant_name: String = ""
 @export var requested_amount: float = 0.0
 @export var credit_score: int = 0
@@ -62,126 +124,212 @@ const WORST_DECISION_REPUTATION: int = -2
 ## not a payment. See monthly_debt_payments for what DTI actually uses.
 @export var existing_debt: float = 0.0
 ## The applicant's current required monthly payments on existing_debt.
-## This (not the balance) is what debt_to_income_ratio() measures.
 @export var monthly_debt_payments: float = 0.0
+## Rent or mortgage, monthly. A Home loan replaces it (see
+## housing_payment_after_loan()).
+@export var monthly_housing_payment: float = 0.0
+## Time in the current job or line of work.
+@export var employment_months: int = 0
 @export var loan_purpose: String = ""
 @export var risk_tier: RiskTier = RiskTier.MEDIUM
 
-## Computed (Phase 4c), not pre-set like risk_tier above — a naive read of
-## the raw numbers via calculate_risk_assessment(), cached here the first
-## time a screen runs the credit check math so it only needs computing
-## once per applicant. Never shown to the player; grade_decision() grades
-## the player's decision against this alone — risk_tier is not read by
-## grading (see the class doc above). Deliberately can disagree with
-## risk_tier on borderline applicants, which is the point of keeping the
-## two separate.
+## Computed from the worksheet by calculate_risk_assessment() (cached here
+## the first time a screen runs the credit check math). Never shown to the
+## player; grade_decision() grades the player's decision against this alone.
 var risk_assessment: RiskTier = RiskTier.MEDIUM
 
-## The player's decision (Phase 4d) — grade_decision() grades this against
-## risk_assessment (not risk_tier; see that field's doc comment above).
-## decision_amount holds the approved/countered amount; for APPROVE it's
-## always requested_amount, for REJECT it's unused (0.0), for
-## COUNTER_OFFER it's whatever amount the player proposed.
+## The decision (Phase 4d) — grade_decision() grades this against
+## risk_assessment. decision_amount holds the approved/countered amount; for
+## APPROVE it's always requested_amount, for REJECT it's unused (0.0), for
+## COUNTER_OFFER it's whatever amount was proposed.
 var decision: DecisionType = DecisionType.NONE
 var decision_amount: float = 0.0
 
-## Standard (monthly) DTI: monthly_debt_payments as a fraction of gross
-## monthly income (e.g. 0.25 == 25%). Previously this divided the existing
-## debt *balance* by *annual* income, which isn't what DTI measures.
-##
-## Non-housing only: there's no rent/mortgage payment field yet, so this
-## excludes housing (the review screen labels it "non-housing, monthly").
-## A housing-payment field and a total (back-end) DTI are deferred to the
-## later Loan Officer rework — when they land, calculate_risk_assessment()'s
-## DTI bands will need recalibrating to the total-DTI scale.
-func debt_to_income_ratio() -> float:
-	if annual_income <= 0.0:
-		return 0.0
-	return monthly_debt_payments / (annual_income / 12.0)
+# --- terms and payments ----------------------------------------------------------
 
-## requested_amount as a fraction of annual_income (e.g. 1.5 == 150%).
-func loan_to_income_ratio() -> float:
+func term_months() -> int:
+	return _terms().get("months", 60)
+
+func annual_rate() -> float:
+	return _terms().get("rate", 0.10)
+
+func policy_maximum() -> float:
+	return _terms().get("max", 0.0)
+
+func _terms() -> Dictionary:
+	return PURPOSE_TERMS.get(loan_purpose, {})
+
+## The standard amortization formula: the fixed monthly payment that repays
+## `principal` over `months` at `annual_rate` (r = rate / 12):
+## payment = principal × r / (1 − (1 + r)^−months).
+static func monthly_payment(principal: float, rate: float, months: int) -> float:
+	if months <= 0 or principal <= 0.0:
+		return 0.0
+	var r := rate / 12.0
+	if r <= 0.0:
+		return principal / months
+	return principal * r / (1.0 - pow(1.0 + r, -months))
+
+## The inverse: the principal a fixed monthly `payment` repays over `months`.
+static func principal_for_payment(payment: float, rate: float, months: int) -> float:
+	if months <= 0 or payment <= 0.0:
+		return 0.0
+	var r := rate / 12.0
+	if r <= 0.0:
+		return payment * months
+	return payment * (1.0 - pow(1.0 + r, -months)) / r
+
+func monthly_income() -> float:
+	return annual_income / 12.0
+
+## The new loan's monthly payment for `amount` (the requested amount by
+## default) at this purpose's term and rate.
+func new_loan_payment(amount: float = -1.0) -> float:
+	return monthly_payment(requested_amount if amount < 0.0 else amount, annual_rate(), term_months())
+
+func replaces_housing() -> bool:
+	return loan_purpose == HOME_PURPOSE
+
+## A home loan's mortgage payment replaces the current rent or mortgage.
+func housing_payment_after_loan(amount: float = -1.0) -> float:
+	return new_loan_payment(amount) if replaces_housing() else monthly_housing_payment
+
+# --- ratios ------------------------------------------------------------------
+
+## Front-end DTI: housing ÷ gross monthly income (housing after the loan, so
+## a home loan's new mortgage payment).
+func front_end_dti(amount: float = -1.0) -> float:
 	if annual_income <= 0.0:
 		return 0.0
-	return requested_amount / annual_income
+	return housing_payment_after_loan(amount) / monthly_income()
+
+## Total (back-end) DTI: housing + existing debt payments + the new loan's
+## payment, ÷ gross monthly income. A debt *balance* never enters it (B9).
+func total_dti(amount: float = -1.0) -> float:
+	if annual_income <= 0.0:
+		return 0.0
+	var monthly := housing_payment_after_loan(amount) + monthly_debt_payments
+	if not replaces_housing():
+		monthly += new_loan_payment(amount)
+	return monthly / monthly_income()
+
+## Total DTI before the new loan: today's housing and debt payments.
+func dti_before_loan() -> float:
+	if annual_income <= 0.0:
+		return 0.0
+	return (monthly_housing_payment + monthly_debt_payments) / monthly_income()
+
+## The new loan's payment as a share of income.
+func new_payment_share() -> float:
+	if annual_income <= 0.0:
+		return 0.0
+	return new_loan_payment() / monthly_income()
+
+## The largest amount the applicant could carry at HEALTHY_DTI total DTI,
+## rounded down to $100 and capped at the policy maximum; 0 when today's
+## payments already use up the healthy share.
+func affordable_amount() -> float:
+	var room := HEALTHY_DTI * monthly_income() - monthly_debt_payments
+	if not replaces_housing():
+		room -= monthly_housing_payment
+	if room <= 0.0:
+		return 0.0
+	var amount := floorf(principal_for_payment(room, annual_rate(), term_months()) / 100.0) * 100.0
+	return minf(amount, policy_maximum())
+
+## What a counter-offer is measured against: the affordable amount, or the
+## request when that's smaller.
+func counter_offer_reference() -> float:
+	return minf(affordable_amount(), requested_amount)
+
+# --- the risk assessment ----------------------------------------------------------
 
 ## Standard FICO-style band label for a credit score. Purely descriptive
 ## terminology (not a risk verdict) — safe to show to the player.
 static func credit_score_band(score: int) -> String:
 	if score >= 800:
 		return "Excellent"
-	elif score >= 740:
+	elif score >= VERY_GOOD_CREDIT:
 		return "Very Good"
-	elif score >= 670:
+	elif score >= GOOD_CREDIT:
 		return "Good"
-	elif score >= 580:
+	elif score >= FAIR_CREDIT:
 		return "Fair"
 	else:
 		return "Poor"
 
-## Naive point-based read of credit score + debt-to-income + loan-to-income,
-## independent of the pre-set risk_tier. Each factor contributes 0-4 points
-## (lower = safer); the summed total is bucketed into a RiskTier. Tune the
-## thresholds below as the loan review mini-game gets balanced.
-func calculate_risk_assessment() -> RiskTier:
+## Risk points from the worksheet (lower = safer), summed into a tier by
+## calculate_risk_assessment():
+## - Credit score: 740+ 0 · 670-739 1 · 580-669 3 · under 580 5.
+## - Total DTI: up to 36% 0 · up to 43% 1 · up to 50% 3 · over 50% 5.
+## - Employment: two years or more 0 · under two years 2.
+## A factor at its weak level (credit under 670, DTI over 43%, under two
+## years) costs 2 points or more, and the 1-point levels together reach only
+## 2, so every MEDIUM or HIGH application has at least one weak point.
+func risk_points() -> int:
 	var points := 0
-
-	if credit_score >= 800:
-		points += 0
-	elif credit_score >= 740:
-		points += 1
-	elif credit_score >= 670:
-		points += 2
-	elif credit_score >= 580:
+	if credit_score < FAIR_CREDIT:
+		points += 5
+	elif credit_score < GOOD_CREDIT:
 		points += 3
-	else:
-		points += 4
-
-	## Bands for the monthly DTI above. monthly_debt_payments only covers
-	## payments on existing (non-housing) debt — there's no rent/mortgage
-	## field — so these sit on a consumer-debt scale rather than the
-	## ~36%/~50% bands usually quoted for total DTI including housing: under
-	## ~5% is a light load, ~10% is where non-housing payments start to
-	## weigh, and ~20%+ is heavy. Rough game-balance guides, not lending
-	## rules. Calibrated so each sample application keeps the same DTI points
-	## (and so the same risk_assessment) it had under the old balance-based
-	## ratio — see loan_applications_data.gd.
-	var dti := debt_to_income_ratio()
-	if dti < 0.05:
-		points += 0
-	elif dti < 0.10:
+	elif credit_score < VERY_GOOD_CREDIT:
 		points += 1
-	elif dti < 0.20:
-		points += 2
-	else:
-		points += 3
 
-	var lti := loan_to_income_ratio()
-	if lti < 1.0:
-		points += 0
-	elif lti < 2.5:
+	var dti := total_dti()
+	if dti > HIGH_DTI:
+		points += 5
+	elif dti > STRETCHED_DTI:
+		points += 3
+	elif dti > HEALTHY_DTI:
 		points += 1
-	elif lti < 5.0:
-		points += 2
-	else:
-		points += 3
 
+	if employment_months < STEADY_EMPLOYMENT_MONTHS:
+		points += 2
+	return points
+
+## 0-2 points LOW, 3-4 MEDIUM, 5 or more HIGH.
+func calculate_risk_assessment() -> RiskTier:
+	var points := risk_points()
 	if points <= 2:
 		return RiskTier.LOW
-	elif points <= 5:
+	elif points <= 4:
 		return RiskTier.MEDIUM
-	else:
-		return RiskTier.HIGH
+	return RiskTier.HIGH
 
-## Grades decision (4d) against risk_assessment (4c) — the "hidden" naive
-## read of the numbers, not the pre-set risk_tier, since risk_assessment is
-## what the player actually had a chance to reason toward via the credit
-## check. Requires decision to already be set (not NONE); callers only
-## invoke this right after recording a decision. Thin instance wrapper
-## around the static grade() below, which is what Phase 5d's Branch
-## Manager override re-derives against a stored (decision_type,
-## risk_assessment) pair with no live LoanApplication instance to hand.
+## The application's real weak points, the right reasons for a denial:
+## - TOTAL_DTI: total DTI over 43%.
+## - CREDIT_SCORE: under 670.
+## - INCOME: the new payment alone is over 20% of income (28% for a home
+##   loan), or it's what pushes total DTI over 43% (today's payments are
+##   within it).
+## - EMPLOYMENT: under two years.
+## - AMOUNT: over the policy maximum for the purpose.
+func weak_points() -> Array[DenialReason]:
+	var weak: Array[DenialReason] = []
+	var dti := total_dti()
+	if dti > STRETCHED_DTI:
+		weak.append(DenialReason.TOTAL_DTI)
+	if credit_score < GOOD_CREDIT:
+		weak.append(DenialReason.CREDIT_SCORE)
+	var share_limit := HOME_PAYMENT_SHARE_LIMIT if replaces_housing() else NEW_PAYMENT_SHARE_LIMIT
+	var pushed_over := dti > STRETCHED_DTI and dti_before_loan() <= STRETCHED_DTI
+	if new_payment_share() > share_limit or pushed_over:
+		weak.append(DenialReason.INCOME)
+	if employment_months < STEADY_EMPLOYMENT_MONTHS:
+		weak.append(DenialReason.EMPLOYMENT)
+	if requested_amount > policy_maximum():
+		weak.append(DenialReason.AMOUNT)
+	return weak
+
+# --- grading -----------------------------------------------------------------
+
+## Grades decision (4d) against risk_assessment — the hidden read of the
+## worksheet, which the player had a chance to reason toward via the credit
+## check. A counter-offer is graded on its amount (grade_counter_offer());
+## Approve and Reject by type alone. Requires decision to already be set.
 func grade_decision() -> Grade:
+	if decision == DecisionType.COUNTER_OFFER:
+		return grade_counter_offer(decision_amount)
 	return grade(decision, risk_assessment)
 
 ## Approve/Low, Reject/High, and Counter-Offer/Medium are each the
@@ -190,7 +338,8 @@ func grade_decision() -> Grade:
 ## a bad call in the other direction (an overly cautious pass on a safe
 ## loan) and grades BAD. Everything else — Counter-Offer on Low/High, or
 ## Approve/Reject on Medium — is a reasonable call that wasn't the optimal
-## one, and grades PARTIAL.
+## one, and grades PARTIAL. By type only: used where no amount is judged
+## (staff decisions, the Branch Manager's overrides).
 static func grade(decision_type: DecisionType, risk_tier_param: RiskTier) -> Grade:
 	match decision_type:
 		DecisionType.APPROVE:
@@ -222,6 +371,57 @@ static func grade(decision_type: DecisionType, risk_tier_param: RiskTier) -> Gra
 			# silently being graded as if it were a COUNTER_OFFER.
 			assert(false, "grade() requires a recorded decision, got %s" % decision_type)
 			return Grade.PARTIAL
+
+## Is `amount` a reasonable, affordable counter-offer? Affordable: no more
+## than affordable_amount(). Reasonable: below the request and at least
+## REASONABLE_COUNTER_SHARE of the reference (counter_offer_reference()).
+func is_affordable_counter(amount: float) -> bool:
+	return amount <= affordable_amount()
+
+func is_reasonable_counter(amount: float) -> bool:
+	return amount < requested_amount and amount >= REASONABLE_COUNTER_SHARE * counter_offer_reference()
+
+## A counter-offer, graded on its amount:
+## - MEDIUM (borderline): affordable and reasonable BEST, otherwise PARTIAL.
+## - LOW: PARTIAL (they qualified for the full amount).
+## - HIGH: an affordable amount PARTIAL; more than they can carry WORST (a
+##   risky loan went through, just a smaller one).
+func grade_counter_offer(amount: float) -> Grade:
+	var affordable := is_affordable_counter(amount)
+	match risk_assessment:
+		RiskTier.MEDIUM:
+			return Grade.BEST if affordable and is_reasonable_counter(amount) else Grade.PARTIAL
+		RiskTier.HIGH:
+			return Grade.PARTIAL if affordable else Grade.WORST
+		_:
+			return Grade.PARTIAL
+
+## Player-facing note on a counter-offer's amount (shown with its grade).
+func counter_offer_note(amount: float) -> String:
+	if not is_affordable_counter(amount):
+		return "More than they can carry at a healthy total DTI."
+	if amount >= requested_amount:
+		return "Not below what they asked for."
+	if not is_reasonable_counter(amount):
+		return "Affordable, but far below what they could carry."
+	return "Affordable at a healthy total DTI."
+
+## Grades the stated reasons for a denial against weak_points(): each right
+## reason REASON_RIGHT_SCORE, each wrong one REASON_WRONG_SCORE, and each
+## real weak point left out (up to MAX_DENIAL_REASONS in all)
+## REASON_MISSING_SCORE. Returns {right, wrong, missing, score}.
+func grade_denial_reasons(reasons: Array[DenialReason]) -> Dictionary:
+	var weak := weak_points()
+	var right := 0
+	var wrong := 0
+	for reason in reasons:
+		if weak.has(reason):
+			right += 1
+		else:
+			wrong += 1
+	var missing := maxi(0, mini(MAX_DENIAL_REASONS, weak.size()) - right)
+	var score := right * REASON_RIGHT_SCORE + wrong * REASON_WRONG_SCORE + missing * REASON_MISSING_SCORE
+	return {"right": right, "wrong": wrong, "missing": missing, "score": score}
 
 static func score_for_grade(grade_value: Grade) -> int:
 	match grade_value:
@@ -287,3 +487,40 @@ static func decision_type_label(decision_type: DecisionType) -> String:
 			return "Reject"
 		_:
 			return "Counter-Offer"
+
+static func denial_reason_label(reason: DenialReason) -> String:
+	match reason:
+		DenialReason.TOTAL_DTI:
+			return "Total DTI too high"
+		DenialReason.CREDIT_SCORE:
+			return "Credit score too low"
+		DenialReason.INCOME:
+			return "Income too low for the amount"
+		DenialReason.EMPLOYMENT:
+			return "Employment too short"
+		_:
+			return "Amount too large"
+
+## "8 years", "1 year 4 months", "10 months".
+static func employment_text(months: int) -> String:
+	var years := floori(months / 12.0)
+	var rest := months % 12
+	var parts: PackedStringArray = []
+	if years > 0:
+		parts.append("%d year%s" % [years, "" if years == 1 else "s"])
+	if rest > 0 or years == 0:
+		parts.append("%d month%s" % [rest, "" if rest == 1 else "s"])
+	return " ".join(parts)
+
+## "$12,100" — whole dollars with thousands separators.
+static func dollars(amount: float) -> String:
+	var digits := str(absi(roundi(amount)))
+	var out := ""
+	while digits.length() > 3:
+		out = "," + digits.substr(digits.length() - 3) + out
+		digits = digits.substr(0, digits.length() - 3)
+	return ("-$" if roundi(amount) < 0 else "$") + digits + out
+
+## "23.8%".
+static func percent(ratio: float) -> String:
+	return "%.1f%%" % (ratio * 100.0)

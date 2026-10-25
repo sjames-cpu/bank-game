@@ -29,8 +29,8 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_right = 220.0
+offset_left = -412.0
+offset_right = 368.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -43,121 +43,179 @@ theme_type_variation = &"HeaderLabel"
 text = "Loan Application Review"
 horizontal_alignment = 1
 
-[node name="ApplicantSection" type="PanelContainer" parent="Panel/VBox"]
+[node name="Columns" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="LeftVBox" type="VBoxContainer" parent="Panel/VBox/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
+
+[node name="ApplicantSection" type="PanelContainer" parent="Panel/VBox/Columns/LeftVBox"]
 layout_mode = 2
 theme_type_variation = &"SectionPanel"
 
-[node name="ApplicantVBox" type="VBoxContainer" parent="Panel/VBox/ApplicantSection"]
+[node name="ApplicantVBox" type="VBoxContainer" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection"]
 layout_mode = 2
+theme_override_constants/separation = 2
 
-[node name="ApplicantNameLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
+[node name="ApplicantNameLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
 theme_type_variation = &"HeaderLabel"
 text = "Applicant Name"
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="RequestedAmountLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
+[node name="RequestedAmountLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
-text = "Requested Amount: $0.00"
-horizontal_alignment = 1
+text = "Requested: $0 loan"
 autowrap_mode = 2
 
-[node name="CreditScoreLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
-layout_mode = 2
-text = "Credit Score: 0"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="AnnualIncomeLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
-layout_mode = 2
-text = "Annual Income: $0.00"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="ExistingDebtLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
-layout_mode = 2
-text = "Existing Debt (balance): $0.00"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="MonthlyDebtPaymentsLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
-layout_mode = 2
-text = "Monthly Debt Payments: $0.00"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="LoanPurposeLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
-layout_mode = 2
-text = "Loan Purpose"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="DebtToIncomeLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
+[node name="TermsLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
-visible = false
-text = "Debt-to-Income (non-housing, monthly): 0.0%"
-horizontal_alignment = 1
+text = "Terms"
+autowrap_mode = 2
 
-[node name="LoanToIncomeLabel" type="Label" parent="Panel/VBox/ApplicantSection/ApplicantVBox"]
+[node name="CreditScoreLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
-theme_type_variation = &"MutedLabel"
-visible = false
-text = "Loan-to-Income: 0.0%"
-horizontal_alignment = 1
+text = "Credit score: 0"
+autowrap_mode = 2
 
-[node name="RunCreditCheckButton" type="Button" parent="Panel/VBox"]
+[node name="AnnualIncomeLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+text = "Annual income: $0"
+autowrap_mode = 2
+
+[node name="HousingPaymentLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+text = "Housing (rent or mortgage): $0/mo"
+autowrap_mode = 2
+
+[node name="ExistingDebtLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+text = "Existing debt: $0 balance · $0/mo"
+autowrap_mode = 2
+
+[node name="EmploymentLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+text = "Employment: 0 months"
+autowrap_mode = 2
+
+[node name="RunCreditCheckButton" type="Button" parent="Panel/VBox/Columns/LeftVBox"]
 layout_mode = 2
 text = "Run Credit Check"
 
-[node name="DecisionHBox" type="HBoxContainer" parent="Panel/VBox"]
-layout_mode = 2
+[node name="DecisionHBox" type="HBoxContainer" parent="Panel/VBox/Columns/LeftVBox"]
 visible = false
+layout_mode = 2
 alignment = 1
 
-[node name="ApproveButton" type="Button" parent="Panel/VBox/DecisionHBox"]
+[node name="ApproveButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/DecisionHBox"]
 layout_mode = 2
 theme_type_variation = &"PrimaryButton"
 text = "Approve"
 
-[node name="RejectButton" type="Button" parent="Panel/VBox/DecisionHBox"]
+[node name="RejectButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/DecisionHBox"]
 layout_mode = 2
 theme_type_variation = &"PrimaryButton"
 text = "Reject"
 
-[node name="CounterOfferButton" type="Button" parent="Panel/VBox/DecisionHBox"]
+[node name="CounterOfferButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/DecisionHBox"]
 layout_mode = 2
 theme_type_variation = &"PrimaryButton"
 text = "Counter-Offer"
 
-[node name="CounterOfferHBox" type="HBoxContainer" parent="Panel/VBox"]
-layout_mode = 2
+[node name="CounterOfferVBox" type="VBoxContainer" parent="Panel/VBox/Columns/LeftVBox"]
 visible = false
+layout_mode = 2
+
+[node name="CounterOfferReferenceLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/CounterOfferVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Affordable at 36% total DTI: $0"
+autowrap_mode = 2
+
+[node name="CounterOfferHBox" type="HBoxContainer" parent="Panel/VBox/Columns/LeftVBox/CounterOfferVBox"]
+layout_mode = 2
 alignment = 1
 
-[node name="CounterOfferAmountSpinBox" type="SpinBox" parent="Panel/VBox/CounterOfferHBox"]
+[node name="CounterOfferAmountSpinBox" type="SpinBox" parent="Panel/VBox/Columns/LeftVBox/CounterOfferVBox/CounterOfferHBox"]
 layout_mode = 2
 min_value = 100.0
 max_value = 1000000.0
 step = 100.0
 prefix = "$"
 
-[node name="SubmitCounterOfferButton" type="Button" parent="Panel/VBox/CounterOfferHBox"]
+[node name="SubmitCounterOfferButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/CounterOfferVBox/CounterOfferHBox"]
 layout_mode = 2
 theme_type_variation = &"PrimaryButton"
-text = "Submit Counter-Offer"
+text = "Offer"
 
-[node name="CancelCounterOfferButton" type="Button" parent="Panel/VBox/CounterOfferHBox"]
+[node name="CancelCounterOfferButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/CounterOfferVBox/CounterOfferHBox"]
 layout_mode = 2
 text = "Cancel"
 
-[node name="DecisionStatusLabel" type="Label" parent="Panel/VBox"]
-layout_mode = 2
+[node name="ReasonsVBox" type="VBoxContainer" parent="Panel/VBox/Columns/LeftVBox"]
 visible = false
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="ReasonsLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ReasonsVBox"]
+layout_mode = 2
+text = "Main reasons for the denial (1 or 2):"
+autowrap_mode = 2
+
+[node name="ReasonChecks" type="VBoxContainer" parent="Panel/VBox/Columns/LeftVBox/ReasonsVBox"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="ReasonsHBox" type="HBoxContainer" parent="Panel/VBox/Columns/LeftVBox/ReasonsVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="SubmitDenialButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/ReasonsVBox/ReasonsHBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Reject Application"
+
+[node name="CancelDenialButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/ReasonsVBox/ReasonsHBox"]
+layout_mode = 2
+text = "Cancel"
+
+[node name="DecisionStatusLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox"]
+visible = false
+layout_mode = 2
 text = "Decision recorded"
+autowrap_mode = 2
+
+[node name="WorksheetSection" type="PanelContainer" parent="Panel/VBox/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.15
+theme_type_variation = &"SectionPanel"
+
+[node name="WorksheetVBox" type="VBoxContainer" parent="Panel/VBox/Columns/WorksheetSection"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="WorksheetTitleLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Underwriting Worksheet"
+horizontal_alignment = 1
+
+[node name="WorksheetPlaceholderLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Run the credit check to fill in the worksheet."
 horizontal_alignment = 1
 autowrap_mode = 2
+
+[node name="WorksheetRows" type="VBoxContainer" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
+layout_mode = 2
+theme_override_constants/separation = 1
 
 [node name="CloseButton" type="Button" parent="Panel/VBox"]
 layout_mode = 2
