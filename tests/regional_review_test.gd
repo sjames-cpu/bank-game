@@ -543,13 +543,20 @@ func test_the_regional_manager_visits_on_review_day() -> void:
 	await frames(2)
 	assert_object(room.regional_visitor).is_null()
 	set_clock(6, 10, 0)
-	await frames(1)
+	# The visit starts in the room's own update; called here directly, so the
+	# checks below don't depend on how far a frame lets them walk.
+	room._update_regional_visit()
 	var visitor := room.regional_visitor
 	assert_object(visitor).is_not_null()
 	assert_str((visitor.get_node("NameLabel") as Label).text).is_equal("Regional Manager")
 	var sprite: AnimatedSprite2D = visitor.get_node("AnimatedSprite2D")
 	assert_str(sprite.sprite_frames.resource_path).is_equal(StaffLooks.frames_path(StaffLooks.REGIONAL_MANAGER_LOOK))
-	assert_bool(visitor.global_position.distance_to(TellerRoom.VISIT_ENTRANCE) < 8.0).is_true()
+	# They start at the entrance and walk in.
+	assert_vector(visitor.global_position).is_equal(TellerRoom.VISIT_ENTRANCE)
+	assert_int(visitor.state).is_equal(StaffNPC.State.WALKING)
+	# A frame later they're still the one visitor, on their way.
+	await frames(1)
+	assert_object(room.regional_visitor).is_same(visitor)
 
 	# Walks in and stands outside the Manager's Office, facing it.
 	Engine.time_scale = 4.0
