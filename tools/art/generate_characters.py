@@ -19,6 +19,10 @@ Outputs, all in assets/sprites/:
   - regional_manager: the Regional Manager who visits on review days, the
     player's body and suit recoloured (light grey suit, burgundy tie,
     silver hair).
+  - guard_1, guard_2: the armored truck crew (CashSupply part 2): the
+    player's body in a guard uniform (olive jacket, dark shirt and
+    trousers, a silver badge on the chest), two looks so the pair can be
+    told apart from each other, the staff and the Regional Manager.
   - customer_{a,b,c}2 .. 4: recolours of each customer design (hair, skin,
     clothing), nine new looks alongside the three originals.
 
@@ -227,6 +231,31 @@ REGIONAL_MANAGER_COLOURS = {
     PLAYER_SKIN: "#c68c62",
 }
 
+# --- the armored truck crew ---------------------------------------------------
+
+# The guards who deliver and collect the vault's cash (the armored truck
+# visit): an olive jacket over a dark shirt, dark trousers and a silver badge
+# where staff wear their gold name tag. Unlike the staff's blue blazers and the
+# Regional Manager's grey suit, so a crew walking in reads as outsiders.
+GUARD_JACKET = "#4b5a33"
+GUARD_SHIRT = "#1b1d21"
+GUARD_TROUSERS = "#23252a"
+GUARD_BADGE = "#c9ced6"
+
+# Look id -> (hair colour, skin colour), on the player's short cut.
+GUARD_LOOKS = {
+    "guard_1": ("#1c1a1a", "#8d5a3b"),
+    "guard_2": ("#8a3b22", "#f2c9a6"),
+}
+
+
+def guard_uniform():
+    sheet = recolour(load_sheet("player"), {PLAYER_SUIT: GUARD_JACKET, PLAYER_TIE: GUARD_SHIRT})
+    recolour_below(sheet, LEGS_FROM_ROW, GUARD_JACKET, GUARD_TROUSERS)
+    for direction, points in NAME_TAG_PIXELS.items():
+        set_in_frames(sheet, direction, points, GUARD_JACKET, GUARD_BADGE)
+    return sheet
+
 # --- customer variants ---------------------------------------------------------
 
 # Each design's colours by role, and the recolours: three per design, for 12
@@ -274,6 +303,9 @@ def outputs():
     for look, (style, hair, skin) in STAFF_LOOKS.items():
         add(look, recolour(bases[style], {PLAYER_HAIR: hair, PLAYER_SKIN: skin}))
     add("regional_manager", recolour(load_sheet("player"), REGIONAL_MANAGER_COLOURS))
+    guard = guard_uniform()
+    for look, (hair, skin) in GUARD_LOOKS.items():
+        add(look, recolour(guard, {PLAYER_HAIR: hair, PLAYER_SKIN: skin}))
     for name, (design, colours) in CUSTOMER_VARIANTS.items():
         roles = CUSTOMER_ROLES[design]
         add(name, recolour(load_sheet(design), {roles[role]: colour for role, colour in colours.items()}))

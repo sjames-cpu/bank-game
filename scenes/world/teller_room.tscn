@@ -37,6 +37,7 @@
 [ext_resource type="Script" path="res://scripts/world/exit_door.gd" id="exit_door_script"]
 [ext_resource type="Script" path="res://scripts/world/vault_door.gd" id="vault_door_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/vault_transfer_screen.tscn" id="vault_transfer_screen_scene"]
+[ext_resource type="PackedScene" path="res://scenes/ui/armored_truck_screen.tscn" id="armored_truck_screen_scene"]
 [ext_resource type="Script" path="res://scripts/world/npc_customer_line.gd" id="npc_customer_line_script"]
 [ext_resource type="Script" path="res://scripts/world/npc_loan_desk_worker.gd" id="npc_loan_desk_worker_script"]
 [ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
@@ -694,6 +695,9 @@ layout_mode = 3
 layout_mode = 3
 
 [node name="VaultTransferScreen" parent="UI" instance=ExtResource("vault_transfer_screen_scene")]
+layout_mode = 3
+
+[node name="ArmoredTruckScreen" parent="UI" instance=ExtResource("armored_truck_screen_scene")]
 layout_mode = 3
 
 [node name="DeskNotice" type="PanelContainer" parent="UI"]

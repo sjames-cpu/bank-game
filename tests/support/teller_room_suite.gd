@@ -30,6 +30,7 @@ func before_test() -> void:
 	use_test_save_path()
 	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
 	CareerReset.reset_all()
+	fix_truck_rolls()
 	room = instantiate_room()
 	get_tree().root.add_child(room)
 	get_tree().current_scene = room
@@ -56,6 +57,14 @@ func _fix_id_rolls(line: CustomerQueue) -> void:
 	line.kyc_rng.seed = RNG_SEED
 	line.id_problem_chance = 0.0
 	line.account_opening_chance = 0.0
+
+## The armored truck in tests: the scheduled crew and good bags every time,
+## unless a test asks (armored_truck_test.gd sets the chances), with its own
+## generator seeded so crews and seals are the same every run.
+func fix_truck_rolls() -> void:
+	VaultManager.visit_rng.seed = RNG_SEED
+	VaultManager.fake_crew_chance = 0.0
+	VaultManager.shipment_problem_chance = 0.0
 
 ## A fresh, not yet added, teller room.
 func instantiate_room() -> TellerRoom:

@@ -156,13 +156,21 @@ func test_a_close_out_of_range_is_recorded() -> void:
 
 # --- orders --------------------------------------------------------------------------------
 
-func test_an_order_arrives_at_opening_on_the_next_business_day() -> void:
+## The NPC branch manager receives the armored truck (armored_truck_test.gd
+## covers the visit itself).
+func truck_comes(day: int) -> void:
+	if VaultManager.has_visit_due(day):
+		VaultManager.npc_handle_visit(day)
+
+func test_an_order_comes_on_the_next_business_day() -> void:
 	assert_str(VaultManager.place_order(5 * VaultManager.STRAP_CENTS, 2)).is_empty()
 	assert_int(VaultManager.pending_orders[0]["delivery_day"]).is_equal(3)
 	assert_int(VaultManager.expected_cents).is_equal(START)
-	VaultManager.receive_deliveries(2)
+	assert_bool(VaultManager.has_visit_due(2)).is_false()
+	truck_comes(2)
 	assert_int(VaultManager.expected_cents).is_equal(START)
-	VaultManager.receive_deliveries(3)
+	assert_bool(VaultManager.has_visit_due(3)).is_true()
+	truck_comes(3)
 	assert_int(VaultManager.expected_cents).is_equal(START + 5 * VaultManager.STRAP_CENTS)
 	assert_array(VaultManager.pending_orders).is_empty()
 
@@ -172,16 +180,16 @@ func test_orders_skip_weekends_and_holidays() -> void:
 	VaultManager.place_order(VaultManager.STRAP_CENTS, 5)
 	var delivery_day: int = VaultManager.pending_orders[0]["delivery_day"]
 	assert_str(BankCalendar.short_text(GameClock.date_of_day(delivery_day))).is_equal("Mon 12 Jan")
-	VaultManager.receive_deliveries(delivery_day)
+	truck_comes(delivery_day)
 	# Day 10 is Friday 16 January, before Martin Luther King, Jr. Day (Monday
 	# 19th, closed): a shipment goes on Tuesday 20th.
 	VaultManager.place_order(-2 * VaultManager.STRAP_CENTS, 10)
 	delivery_day = VaultManager.pending_orders[0]["delivery_day"]
 	assert_str(BankCalendar.short_text(GameClock.date_of_day(delivery_day))).is_equal("Tue 20 Jan")
-	VaultManager.receive_deliveries(delivery_day)
+	truck_comes(delivery_day)
 	assert_int(VaultManager.expected_cents).is_equal(START + VaultManager.STRAP_CENTS - 2 * VaultManager.STRAP_CENTS)
 
-func test_the_room_receives_orders_as_the_branch_opens_after_a_weekend() -> void:
+func test_the_truck_brings_an_order_after_a_weekend() -> void:
 	set_day_and_time(5, 10, 0) # Friday
 	VaultManager.place_order(3 * VaultManager.STRAP_CENTS, 5)
 	room._on_exit_door_interacted()
@@ -195,9 +203,15 @@ func test_the_room_receives_orders_as_the_branch_opens_after_a_weekend() -> void
 	assert_int(GameClock.day).is_equal(6)
 	assert_str(BankCalendar.short_text(GameClock.today_date())).is_equal("Mon 12 Jan")
 	await frames(2)
-	assert_int(VaultManager.expected_cents).is_equal(START) # 8:30, before opening
 	GameClock.minutes = BusinessDay.OPEN_MINUTES
 	await frames(2)
+	assert_int(VaultManager.expected_cents).is_equal(START) # not at opening
+	# Mid-morning the truck comes; the NPC branch manager receives it.
+	GameClock.minutes = ArmoredTruckVisit.ARRIVAL_MINUTES
+	await frames(2)
+	assert_int(room.armored_visit.guards.size()).is_equal(2)
+	for guard in room.armored_visit.guards:
+		guard.finish_route()
 	assert_int(VaultManager.expected_cents).is_equal(START + 3 * VaultManager.STRAP_CENTS)
 
 func test_one_order_a_day_in_whole_straps_and_no_more_than_the_vault_holds() -> void:
@@ -251,7 +265,7 @@ func simulate_month(days: int) -> int:
 	rng.seed = 20261025
 	var orders := 0
 	for day in range(1, days + 1):
-		VaultManager.receive_deliveries(day)
+		truck_comes(day)
 		assert_bool(VaultManager.is_in_range()).override_failure_message("Day %d opened at %s" % [day, MoneyMath.format(VaultManager.expected_cents)]).is_true()
 		var close := VaultManager.close_day(day, rng.randi_range(-300000, 300000), false)
 		assert_bool(close["in_range"]).override_failure_message("Day %d closed at %s" % [day, MoneyMath.format(VaultManager.expected_cents)]).is_true()
@@ -274,7 +288,7 @@ func test_the_npc_branch_manager_rescues_a_low_or_high_vault() -> void:
 	VaultManager.close_day(1, 3000000, false) # a big day takes it over
 	assert_int(VaultManager.pending_orders.size()).is_equal(1)
 	assert_int(VaultManager.pending_orders[0]["cents"]).is_less(0)
-	VaultManager.receive_deliveries(2)
+	truck_comes(2)
 	assert_bool(VaultManager.is_in_range()).is_true()
 
 # --- save, load, reset ----------------------------------------------------------------------

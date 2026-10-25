@@ -86,6 +86,7 @@ func _ready() -> void:
 	RegionalManager.review_completed.connect(_on_regional_review_completed)
 	RegionalManager.demoted.connect(_on_demoted)
 	RegionalManager.zero_reputation_warning.connect(_on_zero_reputation_warning)
+	RegionalManager.security_warning.connect(_on_security_warning)
 
 ## The Regional Manager's review of the Branch Manager (RegionalManager), at
 ## a review day's End of Day: the rating, each area and the outcome.
@@ -95,6 +96,10 @@ func _on_regional_review_completed(result: Dictionary) -> void:
 ## Reputation fell to 0 while Branch Manager.
 func _on_zero_reputation_warning(warnings_now: int) -> void:
 	_enqueue(Mode.WARNING, "Regional Warning — %d of %d" % [warnings_now, RegionalManager.WARNINGS_FOR_DEMOTION], RegionalManager.zero_reputation_body(warnings_now), RegionalManager.SENDER)
+
+## Cash handled with an unscheduled armored crew (a critical breach).
+func _on_security_warning(warnings_now: int) -> void:
+	_enqueue(Mode.WARNING, "Regional Warning — %d of %d" % [warnings_now, RegionalManager.WARNINGS_FOR_DEMOTION], RegionalManager.security_warning_body(warnings_now), RegionalManager.SENDER)
 
 ## Three regional warnings: back to Loan Officer (after the review letter).
 func _on_demoted(warnings_reached: int) -> void:

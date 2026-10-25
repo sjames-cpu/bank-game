@@ -20,7 +20,7 @@ class_name VaultDualControl
 ##
 ## Mid-shift state, never saved. teller_room.gd owns one of these.
 
-enum Purpose { TRANSFER, RECONCILIATION }
+enum Purpose { TRANSFER, RECONCILIATION, ARMORED }
 enum Phase { IDLE, FINISHING, WALKING_IN, AT_VAULT, OPEN }
 
 const NO_ONE_FREE_TEXT: String = "No one is free to witness the vault right now."
@@ -29,6 +29,8 @@ const NEEDS_TWO_TEXT: String = "Dual control: the vault needs two people."
 
 ## Both are at the door: open the vault action for `purpose`.
 signal ready_to_open(purpose: Purpose, witness_name: String)
+## The call was called off before the vault opened (the player walked away).
+signal called_off(purpose: Purpose)
 ## A witness is back at their desk after `minutes` of game time away.
 signal witness_returned(witness_name: String, minutes: float)
 
@@ -156,6 +158,8 @@ func finish() -> void:
 
 ## Called off before the vault opened.
 func cancel() -> void:
+	if is_waiting():
+		called_off.emit(purpose)
 	if phase == Phase.FINISHING:
 		if witness_line != null:
 			witness_line.paused_for_vault = false

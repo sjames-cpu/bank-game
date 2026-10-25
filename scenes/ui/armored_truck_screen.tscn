@@ -1,0 +1,123 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/armored_truck_screen.gd" id="screen_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
+
+[node name="ArmoredTruckScreen" type="Control"]
+process_mode = 2
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("banking_theme")
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_right = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Armored Truck"
+horizontal_alignment = 1
+
+[node name="PolicyLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Bank security policy"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="CrewSection" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="CrewVBox" type="VBoxContainer" parent="Panel/VBox/CrewSection"]
+layout_mode = 2
+
+[node name="CrewGrid" type="GridContainer" parent="Panel/VBox/CrewSection/CrewVBox"]
+layout_mode = 2
+columns = 3
+
+[node name="CrewButtonsHBox" type="HBoxContainer" parent="Panel/VBox/CrewSection/CrewVBox"]
+layout_mode = 2
+
+[node name="AcceptCrewButton" type="Button" parent="Panel/VBox/CrewSection/CrewVBox/CrewButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Crew matches — continue"
+
+[node name="RefuseCrewButton" type="Button" parent="Panel/VBox/CrewSection/CrewVBox/CrewButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Refuse and call it in"
+
+[node name="ShipmentSection" type="PanelContainer" parent="Panel/VBox"]
+visible = false
+layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="ShipmentVBox" type="VBoxContainer" parent="Panel/VBox/ShipmentSection"]
+layout_mode = 2
+
+[node name="ShipmentLabel" type="Label" parent="Panel/VBox/ShipmentSection/ShipmentVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Verify Shipment: each bag on the manifest against the bag delivered"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="BagsScroll" type="ScrollContainer" parent="Panel/VBox/ShipmentSection/ShipmentVBox"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="BagsVBox" type="VBoxContainer" parent="Panel/VBox/ShipmentSection/ShipmentVBox/BagsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PickupLabel" type="Label" parent="Panel/VBox/ShipmentSection/ShipmentVBox"]
+visible = false
+layout_mode = 2
+text = "Pickup"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="SignButton" type="Button" parent="Panel/VBox/ShipmentSection/ShipmentVBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Sign the Manifest"
+
+[node name="ResultLabel" type="Label" parent="Panel/VBox"]
+visible = false
+layout_mode = 2
+text = "Result"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
+visible = false
+layout_mode = 2
+text = "Close"

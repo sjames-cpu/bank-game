@@ -105,6 +105,9 @@ static func vault_text(vault: Dictionary) -> String:
 	if not in_range:
 		standing += " — out of range"
 	lines.append(standing)
+	var truck: String = vault.get("truck", "")
+	if truck != "":
+		lines.append(truck)
 	var order: Dictionary = vault["order"]
 	if not order.is_empty():
 		var cents: int = order["cents"]

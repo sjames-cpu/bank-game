@@ -46,7 +46,7 @@ horizontal_alignment = 1
 [node name="SourceLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
-text = "Federal Reserve Bank · delivered next business day"
+text = "Federal Reserve Bank · by armored truck, next business day"
 horizontal_alignment = 1
 autowrap_mode = 2
 

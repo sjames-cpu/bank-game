@@ -143,6 +143,8 @@ const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 ## Every vault action happens here, under dual control (vault_control).
 @onready var vault_door: VaultDoor = $VaultDoor
 @onready var vault_transfer_screen: VaultTransferScreen = $UI/VaultTransferScreen
+## The armored truck's crew check, bag verification and pickup.
+@onready var armored_truck_screen: ArmoredTruckScreen = $UI/ArmoredTruckScreen
 @onready var end_of_day_screen: EndOfDayScreen = $UI/EndOfDayScreen
 
 ## How long the "X is working this window" notice stays up.
@@ -203,6 +205,8 @@ var _customers_awaiting_farewell: Array[CustomerNPC] = []
 var vault_control: VaultDualControl
 ## The waiting notice is up (shown and cleared in _update_vault_notice()).
 var _vault_notice_shown: bool = false
+## The armored truck's visit on delivery and pickup days (ArmoredTruckVisit).
+var armored_visit: ArmoredTruckVisit
 
 func _ready() -> void:
 	# The camera stays inside the room, walls and sidewalk included.
@@ -252,6 +256,12 @@ func _ready() -> void:
 	vault_transfer_screen.teller_screen = teller_screen
 	vault_transfer_screen.closed.connect(vault_control.finish)
 	branch_manager_screen.vault_visit_closed.connect(vault_control.finish)
+	vault_control.called_off.connect(_on_vault_call_called_off)
+	armored_visit = ArmoredTruckVisit.new()
+	armored_visit.name = "ArmoredTruckVisit"
+	armored_visit.room = self
+	add_child(armored_visit)
+	armored_truck_screen.closed.connect(_on_armored_truck_screen_closed)
 	end_of_day_screen.go_home_confirmed.connect(_on_go_home_confirmed)
 	end_of_day_screen.next_day_requested.connect(_on_next_day_requested)
 	# Customers the staff serve count toward today's branch total; those who
@@ -304,14 +314,13 @@ func is_player_on_shift() -> bool:
 var _was_open: bool = BusinessDay.is_open()
 
 ## At 9:00 every line taking customers restarts its spawn timer, so the day's
-## first customers arrive within a few game minutes of opening, and the day's
-## cash orders arrive at the vault (VaultManager).
+## first customers arrive within a few game minutes of opening. (Cash orders
+## come with the armored truck, mid-morning: ArmoredTruckVisit.)
 func _check_branch_opening() -> void:
 	var open := BusinessDay.is_open()
 	if open and not _was_open:
 		for line: CustomerQueue in [customer_queue, window1_npc_line, window2_line, window3_line]:
 			line.open_for_the_day()
-		VaultManager.receive_deliveries(GameClock.day)
 	_was_open = open
 
 ## Nobody from any line is still in the building.
@@ -341,6 +350,7 @@ func _check_end_of_day() -> void:
 ## staff windows' net cash, any ATM restock and the NPC branch manager's
 ## order (before promotion), shown in the summary.
 func show_end_of_day() -> void:
+	armored_visit.settle_day()
 	VaultManager.close_day(BusinessDay.stats_day, BusinessDay.staff_net_cash_cents, XPManager.is_branch_manager_unlocked)
 	end_regional_visit()
 	if RegionalManager.demote_if_due():
@@ -449,6 +459,7 @@ func _on_go_home_confirmed() -> void:
 	_customers_awaiting_farewell.clear()
 	_customer_being_served = null
 	end_regional_visit()
+	armored_visit.clear()
 	show_end_of_day()
 
 ## "Start Day N+1": 8:30 AM the next morning, saved.
@@ -479,7 +490,10 @@ func _on_vault_door_interacted() -> void:
 		return
 	hud.show_hint_once(HintManager.Hint.VAULT_DOOR)
 	var purpose := VaultDualControl.Purpose.TRANSFER
-	if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
+	# The armored truck waiting comes first: only the Branch Manager receives it.
+	if armored_visit.is_waiting() and XPManager.is_branch_manager_unlocked:
+		purpose = VaultDualControl.Purpose.ARMORED
+	elif teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
 		purpose = VaultDualControl.Purpose.TRANSFER
 	elif branch_manager_screen.is_clocked_in():
 		if branch_manager_screen.is_vault_reconciled():
@@ -492,16 +506,33 @@ func _on_vault_door_interacted() -> void:
 	var refused := vault_control.start(purpose)
 	if refused != "":
 		_show_notice(refused)
+	elif purpose == VaultDualControl.Purpose.ARMORED:
+		armored_visit.begin_receiving()
 
 ## Both people are at the door. The waiting notice goes now: the vault
 ## screen pauses the room, so _update_vault_notice() won't run to clear it.
 func _on_vault_ready_to_open(purpose: VaultDualControl.Purpose, witness_name: String) -> void:
 	desk_notice.visible = false
 	_vault_notice_shown = false
-	if purpose == VaultDualControl.Purpose.TRANSFER:
-		vault_transfer_screen.show_screen(witness_name)
-	else:
-		branch_manager_screen.open_vault_reconciliation(witness_name)
+	match purpose:
+		VaultDualControl.Purpose.TRANSFER:
+			vault_transfer_screen.show_screen(witness_name)
+		VaultDualControl.Purpose.ARMORED:
+			armored_truck_screen.show_screen(VaultManager.today_visit, witness_name)
+		_:
+			branch_manager_screen.open_vault_reconciliation(witness_name)
+
+## The armored truck has been dealt with (signed, or the crew refused): the
+## witness and the crew leave.
+func _on_armored_truck_screen_closed() -> void:
+	vault_control.finish()
+	armored_visit.leave()
+
+## The witness call was called off: a crew waiting for the Branch Manager
+## goes on waiting (if there's still time).
+func _on_vault_call_called_off(purpose: VaultDualControl.Purpose) -> void:
+	if purpose == VaultDualControl.Purpose.ARMORED:
+		armored_visit.resume_waiting()
 
 ## "Dual control: … Waiting for [Name]…" stays up while the witness comes.
 func _update_vault_notice() -> void:
@@ -627,6 +658,8 @@ func interaction_prompt_text(desk: Interactable) -> String:
 		# The full "Dual control: …" line is the notice; the prompt stays short.
 		if vault_control.is_waiting():
 			return VAULT_WAITING_PROMPT % vault_control.witness.staff.staff_name
+		if armored_visit.is_waiting() and XPManager.is_branch_manager_unlocked:
+			return "%s — Receive the armored truck (dual control)" % key
 		if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
 			return "%s — Vault transfer (dual control)" % key
 		if branch_manager_screen.is_clocked_in():
@@ -1048,10 +1081,14 @@ func _show_desk_notice(slot_name: String, template: String) -> void:
 
 ## `text` over the room for DESK_NOTICE_SECONDS.
 func _show_notice(text: String) -> void:
+	show_timed_notice(text, DESK_NOTICE_SECONDS)
+
+## `text` over the room for `seconds` of unpaused time.
+func show_timed_notice(text: String, seconds: float) -> void:
 	desk_notice_label.text = text
 	desk_notice.visible = true
 	_desk_notice_token += 1
-	get_tree().create_timer(DESK_NOTICE_SECONDS, false).timeout.connect(_hide_desk_notice.bind(_desk_notice_token))
+	get_tree().create_timer(seconds, false).timeout.connect(_hide_desk_notice.bind(_desk_notice_token))
 
 func _hide_desk_notice(token: int) -> void:
 	if token == _desk_notice_token:

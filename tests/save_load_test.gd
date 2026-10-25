@@ -176,12 +176,22 @@ func build_full_career() -> void:
 	# on its way, a day out of range, and today's movements so far.
 	VaultManager.expected_cents = 18765432
 	VaultManager.last_closed_day = 2
-	VaultManager.last_close = {"day": 2, "delivered": 0, "shipped": 2000000, "staff_net": -4321, "atm_restock": 0, "expected": 18765432, "in_range": true, "order": {"placed_day": 2, "delivery_day": 3, "cents": 3000000}}
+	VaultManager.last_close = {"day": 2, "delivered": 0, "shipped": 2000000, "staff_net": -4321, "atm_restock": 0, "expected": 18765432, "in_range": true, "order": {"placed_day": 2, "delivery_day": 3, "cents": 3000000}, "truck": "Armored truck: 2 of 2 bags accepted."}
 	assert_str(VaultManager.place_order(3 * VaultManager.STRAP_CENTS, 3)).is_empty()
 	VaultManager.out_of_range_days.append(1)
 	VaultManager.delivered_today_cents = 1000000
 	VaultManager.shipped_today_cents = 2000000
 	BusinessDay.staff_net_cash_cents = -4321
+	# The armored truck: today's visit built (a problem bag among them), a
+	# rescheduled shipment, and the Regional review's record of visits.
+	VaultManager.pending_orders.append({"placed_day": 1, "delivery_day": 3, "cents": 7 * VaultManager.STRAP_CENTS})
+	VaultManager.fake_crew_chance = 1.0
+	VaultManager.prepare_visit(3)
+	var visit_bags: Array = VaultManager.today_visit["bags"]
+	var spoiled: Dictionary = visit_bags[1]
+	VaultManager._spoil(spoiled, VaultManager.BagProblem.SEAL_MISMATCH)
+	VaultManager.visit_note = "Armored truck: missed; shipment rescheduled for Day 3."
+	RegionalManager.shipment_verdicts.assign([VaultManager.ShipmentVerdict.SERIOUS, VaultManager.ShipmentVerdict.CORRECT])
 
 # --- round trip ------------------------------------------------------------------
 
@@ -252,13 +262,19 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_int(RegionalManager.vault_by_day[2]).is_equal(VaultReconciliationScreen.DiscrepancyResult.MINOR)
 	assert_float(RegionalManager.vacant_desk_minutes).is_equal(75.5)
 	assert_int(VaultManager.expected_cents).is_equal(18765432)
-	assert_int(VaultManager.pending_orders.size()).is_equal(1)
+	assert_int(VaultManager.pending_orders.size()).is_equal(2) # the order, and the rescheduled shipment
 	assert_int(VaultManager.pending_orders[0]["delivery_day"]).is_equal(4)
 	assert_array(Array(VaultManager.out_of_range_days)).is_equal([1])
 	assert_int(VaultManager.last_order_day).is_equal(3)
 	assert_int(VaultManager.last_closed_day).is_equal(2)
 	assert_int(VaultManager.delivered_today_cents).is_equal(1000000)
 	assert_int(BusinessDay.staff_net_cash_cents).is_equal(-4321)
+	assert_int(VaultManager.today_visit["day"]).is_equal(3)
+	assert_bool(VaultManager.today_visit["fake"]).is_true()
+	var loaded_bags: Array = VaultManager.today_visit["bags"]
+	var loaded_bag: Dictionary = loaded_bags[1]
+	assert_int(VaultManager.bag_problem(loaded_bag)).is_equal(VaultManager.BagProblem.SEAL_MISMATCH)
+	assert_array(RegionalManager.shipment_verdicts).is_equal([VaultManager.ShipmentVerdict.SERIOUS, VaultManager.ShipmentVerdict.CORRECT])
 
 ## Game time builds up from frame deltas, so it can be any float; a value
 ## the JSON parser can't read back exactly once made a CI round trip fail

@@ -18,6 +18,10 @@ const FALLBACK_LOOK: String = "staff_01"
 ## suit, not the uniform, so not one of all_looks() (nobody on staff wears it).
 const REGIONAL_MANAGER_LOOK: String = "regional_manager"
 
+## The armored truck crew (ArmoredTruckVisit): a guard uniform, one look per
+## guard of the pair. Not staff looks either.
+const GUARD_LOOKS: Array[String] = ["guard_1", "guard_2"]
+
 static func all_looks() -> Array[String]:
 	var looks: Array[String] = []
 	looks.append_array(ROSTER_LOOKS)
@@ -28,7 +32,7 @@ static func frames_path(look: String) -> String:
 	return "res://assets/sprites/%s_frames.tres" % look
 
 static func frames_for(look: String) -> SpriteFrames:
-	var known := all_looks().has(look) or look == REGIONAL_MANAGER_LOOK
+	var known := all_looks().has(look) or look == REGIONAL_MANAGER_LOOK or GUARD_LOOKS.has(look)
 	return load(frames_path(look if known else FALLBACK_LOOK)) as SpriteFrames
 
 ## A hire look nobody on `roster` wears yet, in HIRE_LOOKS order; once all

@@ -204,13 +204,15 @@ func test_a_neglected_week_of_going_home_early_is_unsatisfactory() -> void:
 		await go_home_and_start_next_day()
 	assert_int(reviews.size()).is_equal(1)
 	var result := reviews[0]
-	# Vault 0 (25%), serious errors 2 unreviewed = 50 (20%), vacancies 100
-	# (5%); nothing else to rate: (0 + 1000 + 500) / 50 = 30.
+	# Vault 0 (20%), serious errors 2 unreviewed = 50 (15%), vacancies 100
+	# (5%); nothing else to rate (no truck visits, the vault in range): (0 +
+	# 750 + 500) / 40 = 31.25.
 	assert_float(area_of(result, RegionalManager.AREA_VAULT)["score"]).is_equal(0.0)
 	assert_str(area_of(result, RegionalManager.AREA_VAULT)["detail"]).is_equal("Reconciled on 0 of 5 days; 5 days with no count.")
 	assert_float(area_of(result, RegionalManager.AREA_IGNORED)["score"]).is_equal(50.0)
 	assert_bool(area_of(result, RegionalManager.AREA_UNFAIR)["rated"]).is_false()
-	assert_float(result["score"]).is_equal_approx(30.0, 0.01)
+	assert_float(result["score"]).is_equal_approx(31.25, 0.01)
+	assert_bool(area_of(result, RegionalManager.AREA_CASH)["rated"]).is_false()
 	assert_int(result["rating"]).is_equal(Rating.UNSATISFACTORY)
 	assert_int(result["reputation_change"]).is_equal(RegionalManager.UNSATISFACTORY_REPUTATION)
 	assert_int(RegionalManager.warnings).is_equal(1)
@@ -229,8 +231,8 @@ func test_a_week_of_unfair_reports_needs_improvement() -> void:
 	var unfair := area_of(result, RegionalManager.AREA_UNFAIR)
 	assert_str(unfair["detail"]).is_equal("8 reviews, 3 unfair reports.")
 	assert_float(unfair["score"]).is_equal(0.0)
-	# Everything else perfect: (100 x 70 + 0 x 25) / 95 = 73.7.
-	assert_float(result["score"]).is_equal_approx(7000.0 / 95.0, 0.01)
+	# Everything else perfect: (100 x 60 + 0 x 20) / 80 = 75.
+	assert_float(result["score"]).is_equal_approx(6000.0 / 80.0, 0.01)
 	assert_int(result["rating"]).is_equal(Rating.NEEDS_IMPROVEMENT)
 	assert_int(RegionalManager.warnings).is_equal(1)
 
@@ -252,6 +254,11 @@ func test_each_area_follows_its_weights() -> void:
 	RegionalManager.staff_line_abandoned = 2 # 10% of 20: 60
 	RegionalManager.vacant_desk_minutes = 240.0 # 4 desk-hours: 90
 	RegionalManager.hire_verdicts.assign([HiringManager.Verdict.BEST, HiringManager.Verdict.WEAKEST])
+	# Cash: a day out of range (80) and two truck visits, one right, one with a
+	# problem bag signed for (60): (80 + 60) / 2 = 70.
+	VaultManager.out_of_range_days.append(RegionalManager.window_first_day + 1)
+	VaultManager.out_of_range_days.append(RegionalManager.window_first_day + RegionalManager.REVIEW_INTERVAL_DAYS) # after the window
+	RegionalManager.shipment_verdicts.assign([VaultManager.ShipmentVerdict.CORRECT, VaultManager.ShipmentVerdict.SERIOUS])
 	var result := RegionalManager.evaluate()
 	var expected: Dictionary[String, float] = {
 		RegionalManager.AREA_VAULT: (70.0 + 100.0) / 5.0,
@@ -262,6 +269,7 @@ func test_each_area_follows_its_weights() -> void:
 		RegionalManager.AREA_ABANDONED: 60.0,
 		RegionalManager.AREA_VACANCY: 90.0,
 		RegionalManager.AREA_HIRING: 60.0,
+		RegionalManager.AREA_CASH: 70.0,
 	}
 	var weighted := 0.0
 	for key: String in expected:
@@ -373,8 +381,10 @@ func test_the_review_letter_breaks_down_each_area() -> void:
 	eod.go_home_button.pressed.emit()
 	var body := letters.body_label.text
 	assert_str(body).contains("This is your review for your last 5 days as Branch Manager (Days 2-6).")
-	assert_str(body).contains("Rating: Unsatisfactory (17 / 100)")
-	assert_str(body).contains("Vault reconciliation — 0/100 (weight 25%)")
+	# Vault 0 (20%) and vacancies 100 (5%): 500 / 25 = 20.
+	assert_str(body).contains("Rating: Unsatisfactory (20 / 100)")
+	assert_str(body).contains("Vault reconciliation — 0/100 (weight 20%)")
+	assert_str(body).contains("Cash management — not rated")
 	assert_str(body).contains("To improve: reconcile the vault every day, even on a short one.")
 	assert_str(body).contains("Vacant desks — 100/100 (weight 5%)")
 	assert_str(body).contains("Well done: no desk stood empty.")

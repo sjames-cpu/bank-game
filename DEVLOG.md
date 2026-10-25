@@ -249,6 +249,15 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Before promotion** an NPC branch manager orders at each close: up to the middle when tomorrow looks low, down to it when high, a strap inside each limit to allow for the staff windows' swing. A simulated month stays in range.
 - Part 2 will bring the armored truck that delivers and collects the cash.
 
+## Session 29 — Oct 25, 2026: Cash supply, part 2 — the armored truck
+
+- **The truck comes to the branch**: on a day with cash to deliver or collect, two guards in their own uniform (olive jacket, silver badge; new generated art) walk in at 10:30 AM, a carrier's mid-morning stop, and wait by the vault door. Deliveries come as sealed bags of up to $50,000; pickups go out the same way.
+- **Before promotion** the NPC branch manager receives them. **As Branch Manager** you do, at the vault door with a witness: first the crew's ID badges against the scheduled crew (bank security policy: if anything doesn't match, refuse and call it in), then each bag on the manifest against the bag delivered (a broken seal, a seal number that doesn't match, a missing bag), then you sign. Only accepted bags reach the vault; refused ones come back the next business day. Nobody there by 11:15 AM, and the crew leaves until tomorrow.
+- **About 1 in 20 crews** isn't the scheduled one, and **about 1 in 10 deliveries** has a problem bag.
+- **Grading**: a visit handled right +8 Score and +1 Reputation, +3 more per problem bag caught, +10/+2 for refusing an unscheduled crew; signing for a problem bag −10/−3 (the vault comes up short); refusing a good bag −3; refusing the genuine crew −5/−1; missing the truck −3; cash handled with an unscheduled crew −20/−8 and a regional warning.
+- **Regional review**: a new Cash management area (15%) covers days the vault closed out of range and how each visit was handled, rated only when there was something to judge; vault reconciliation, unreviewed errors and fairness of reports gave up 5% each.
+- Walking the crew in for real caught two things the tests skipped: a guard caught on the vault doorway's corner, and a second guard placed inside the sidewalk. A test now walks them in and out.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

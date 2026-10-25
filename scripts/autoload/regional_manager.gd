@@ -24,6 +24,9 @@ extends Node
 ##   from the room's staff lines)
 ## - desks left vacant during opening hours (sample_vacancies())
 ## - hires and how good they were (HiringManager.staff_hired)
+## - cash management: days the vault closed out of its limits
+##   (VaultManager.out_of_range_days) and how each armored truck visit was
+##   handled (note_shipment())
 ##
 ## Rating (evaluate()): each area scores 0-100, or isn't rated when there
 ## was nothing to judge (no hires, no serious items, ...). The overall score
@@ -52,6 +55,9 @@ signal review_completed(result: Dictionary)
 signal demoted(warnings: int)
 ## A regional warning for Reputation falling to 0, with the warnings now.
 signal zero_reputation_warning(warnings: int)
+## A regional warning for handing cash to an unscheduled armored crew (a
+## critical security breach), with the warnings now.
+signal security_warning(warnings: int)
 
 const REVIEW_INTERVAL_DAYS: int = 5
 const WARNINGS_FOR_DEMOTION: int = 3
@@ -73,15 +79,19 @@ const AREA_MISTAKES: String = "mistakes"
 const AREA_ABANDONED: String = "abandoned"
 const AREA_VACANCY: String = "vacancy"
 const AREA_HIRING: String = "hiring"
+const AREA_CASH: String = "cash"
+## Cash management (15) was added with the armored truck; vault
+## reconciliation, unreviewed errors and fairness gave up 5 each.
 const AREA_WEIGHTS: Dictionary[String, int] = {
-	AREA_VAULT: 25,
-	AREA_IGNORED: 20,
-	AREA_UNFAIR: 25,
+	AREA_VAULT: 20,
+	AREA_IGNORED: 15,
+	AREA_UNFAIR: 20,
 	AREA_EXCUSED: 10,
 	AREA_MISTAKES: 5,
 	AREA_ABANDONED: 5,
 	AREA_VACANCY: 5,
 	AREA_HIRING: 5,
+	AREA_CASH: 15,
 }
 const AREA_NAMES: Dictionary[String, String] = {
 	AREA_VAULT: "Vault reconciliation",
@@ -92,6 +102,7 @@ const AREA_NAMES: Dictionary[String, String] = {
 	AREA_ABANDONED: "Customers who gave up at staffed windows",
 	AREA_VACANCY: "Vacant desks",
 	AREA_HIRING: "Hiring",
+	AREA_CASH: "Cash management",
 }
 
 ## Vault: each day of the window scores its best reconciliation that day.
@@ -120,6 +131,19 @@ const HIRE_SCORES: Dictionary[int, float] = {
 	HiringManager.Verdict.MIDDLE: 60.0,
 	HiringManager.Verdict.WEAKEST: 20.0,
 	HiringManager.Verdict.RED_FLAG: 0.0,
+}
+
+## Cash management: points off per day the vault closed outside its limits
+## (a window has REVIEW_INTERVAL_DAYS days, so one day costs a fifth), and
+## each armored truck visit's handling (VaultManager.ShipmentVerdict); the
+## area is the average of the two parts (the visits only when there were any),
+## and isn't rated when there was neither a visit nor a day out of range.
+const OUT_OF_RANGE_DAY_PENALTY: float = 20.0
+const SHIPMENT_SCORES: Dictionary[int, float] = {
+	VaultManager.ShipmentVerdict.CORRECT: 100.0,
+	VaultManager.ShipmentVerdict.DELAY: 60.0,
+	VaultManager.ShipmentVerdict.SERIOUS: 20.0,
+	VaultManager.ShipmentVerdict.CRITICAL: 0.0,
 }
 
 ## Consequences. Pitched above a single shift's best result (a Perfect
@@ -164,6 +188,8 @@ var staff_line_abandoned: int = 0
 var vacant_desk_minutes: float = 0.0
 ## HiringManager.Verdict of each hire.
 var hire_verdicts: Array[int] = []
+## VaultManager.ShipmentVerdict of each armored truck visit the manager handled.
+var shipment_verdicts: Array[int] = []
 
 ## Where sample_vacancies() last looked at the clock (-1 day: not yet).
 var _sample_day: int = -1
@@ -201,6 +227,7 @@ func _clear_window() -> void:
 	staff_line_abandoned = 0
 	vacant_desk_minutes = 0.0
 	hire_verdicts.clear()
+	shipment_verdicts.clear()
 	_sample_day = -1
 
 # --- schedule ----------------------------------------------------------------------
@@ -296,6 +323,26 @@ func _on_staff_hired(result: Dictionary) -> void:
 	var verdict: HiringManager.Verdict = result["verdict"]
 	hire_verdicts.append(verdict)
 
+## An armored truck visit the Branch Manager handled (or missed), as a
+## VaultManager.ShipmentVerdict.
+func note_shipment(verdict: int) -> void:
+	if is_collecting() and SHIPMENT_SCORES.has(verdict):
+		shipment_verdicts.append(verdict)
+
+## Cash handed to (or taken from) an armored crew that wasn't scheduled: a
+## critical breach of security policy, and a regional warning. A third one
+## demotes at the End of Day, like a zero-Reputation warning.
+func add_security_warning() -> void:
+	if not is_collecting():
+		return
+	warnings = mini(warnings + 1, WARNINGS_FOR_DEMOTION)
+	HistoryManager.add_record(
+		DecisionRecord.Role.DISCIPLINARY,
+		"Regional warning from the Regional Manager: cash handled with an unscheduled armored crew (regional warnings %d/%d)" % [warnings, WARNINGS_FOR_DEMOTION],
+		"Regional warning"
+	)
+	security_warning.emit(warnings)
+
 ## Adds the opening time since the last look, times the desks vacant now.
 ## Called every frame, and by the review (going home skips the clock straight
 ## to closing, and the vacancy covers the skipped time too).
@@ -364,6 +411,7 @@ func evaluate() -> Dictionary:
 		_abandoned_area(),
 		_vacancy_area(),
 		_hiring_area(),
+		_cash_area(),
 	]
 	var weighted := 0.0
 	var weights := 0
@@ -576,6 +624,40 @@ func _hiring_area() -> Dictionary:
 	var comment := "Well done: you picked strong candidates." if good == count else "To improve: compare the candidates' answers carefully before hiring."
 	return _area(AREA_HIRING, true, total / count, detail, comment)
 
+## Days the vault closed out of range in this window.
+func out_of_range_days_in_window() -> int:
+	var days := 0
+	for day in VaultManager.out_of_range_days:
+		if day >= window_first_day and day < window_first_day + REVIEW_INTERVAL_DAYS:
+			days += 1
+	return days
+
+## Rated when there was cash to manage: an armored truck visit, or a day the
+## vault closed out of range (a quiet week with neither has nothing to judge).
+func _cash_area() -> Dictionary:
+	var out_days := out_of_range_days_in_window()
+	if out_days == 0 and shipment_verdicts.is_empty():
+		return _area(AREA_CASH, false, 0.0, "No armored truck visits, and the vault stayed within its limits.", "")
+	var range_score := 100.0 - OUT_OF_RANGE_DAY_PENALTY * out_days
+	var detail := "The vault stayed within its limits every day." if out_days == 0 else "The vault closed outside its limits on %d day%s." % [out_days, "" if out_days == 1 else "s"]
+	var area_score := range_score
+	var handled_badly := 0
+	if not shipment_verdicts.is_empty():
+		var total := 0.0
+		for verdict in shipment_verdicts:
+			total += SHIPMENT_SCORES[verdict]
+			if verdict != VaultManager.ShipmentVerdict.CORRECT:
+				handled_badly += 1
+		area_score = (range_score + total / shipment_verdicts.size()) / 2.0
+		var count := shipment_verdicts.size()
+		detail += " %d armored truck visit%s, %d handled correctly." % [count, "" if count == 1 else "s", count - handled_badly]
+	var comment := "Well done: the vault's cash was well managed."
+	if out_days > 0:
+		comment = "To improve: order cash or ship it out before the vault leaves its limits."
+	elif handled_badly > 0:
+		comment = "To improve: check every crew and every bag before you sign."
+	return _area(AREA_CASH, true, area_score, detail, comment)
+
 # --- letters -----------------------------------------------------------------------------
 
 ## The review letter's title and body for run_review()'s result.
@@ -636,6 +718,14 @@ func zero_reputation_body(warnings_now: int) -> String:
 		text += " At %d you'll return to the Loan Officer role." % WARNINGS_FOR_DEMOTION
 	return text
 
+func security_warning_body(warnings_now: int) -> String:
+	var text := "Cash was handled with an armored crew that wasn't scheduled. Bank security policy is to check every guard's ID badge against the scheduled crew, and to refuse and call it in if anything doesn't match. This is a critical breach, and it earns a regional warning.\n\nRegional warnings: %d of %d." % [warnings_now, WARNINGS_FOR_DEMOTION]
+	if warnings_now >= WARNINGS_FOR_DEMOTION:
+		text += " That is the limit: at the end of today you'll return to the Loan Officer role."
+	else:
+		text += " At %d you'll return to the Loan Officer role." % WARNINGS_FOR_DEMOTION
+	return text
+
 func demotion_body(warnings_reached: int) -> String:
 	return "Following %d regional warnings, you are no longer the Branch Manager, effective immediately. You return to the Loan Officer role.\n\nThe Player Teller Window and the Loan Desk are yours to work again, and the branch's disciplinary reports apply to you again, starting from none. Your staff, your hires and their records stay as they are.\n\nTo be promoted again you'll need %d more XP (%d in total) and Reputation of at least %d." % [
 		warnings_reached, XPManager.REPROMOTION_XP, XPManager.repromotion_xp_target, XPManager.REPUTATION_UNLOCK_FLOOR_BRANCH_MANAGER,
@@ -665,6 +755,7 @@ func save_data() -> Dictionary:
 			"staff_line_abandoned": staff_line_abandoned,
 			"vacant_desk_minutes": SaveGame.time_for_save(vacant_desk_minutes),
 			"hire_verdicts": hire_verdicts.duplicate(),
+			"shipment_verdicts": shipment_verdicts.duplicate(),
 		},
 	}
 
@@ -704,3 +795,6 @@ func load_data(data: Dictionary) -> void:
 	for verdict in SaveGame.ints_of(SaveGame.array_of(window, "hire_verdicts")):
 		if HIRE_SCORES.has(verdict):
 			hire_verdicts.append(verdict)
+	for verdict in SaveGame.ints_of(SaveGame.array_of(window, "shipment_verdicts")):
+		if SHIPMENT_SCORES.has(verdict):
+			shipment_verdicts.append(verdict)
