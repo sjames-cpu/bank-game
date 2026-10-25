@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/branch_manager_screen.gd" id="screen_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/staff_scheduling_screen.tscn" id="staff_scheduling_screen_scene"]
@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/vault_reconciliation_screen.tscn" id="vault_reconciliation_screen_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ui/staff_review_screen.tscn" id="staff_review_screen_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hiring_screen.tscn" id="hiring_screen_scene"]
+[ext_resource type="PackedScene" path="res://scenes/ui/cash_orders_screen.tscn" id="cash_orders_screen_scene"]
 [ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
 
 [node name="BranchManagerScreen" type="Control"]
@@ -75,6 +76,11 @@ layout_mode = 2
 disabled = true
 text = "Vault Reconciliation"
 
+[node name="CashOrdersButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+disabled = true
+text = "Cash Orders"
+
 [node name="ClockInButton" type="Button" parent="Panel/VBox"]
 layout_mode = 2
 text = "Clock In"
@@ -109,6 +115,9 @@ layout_mode = 1
 layout_mode = 1
 
 [node name="HiringScreen" parent="." instance=ExtResource("hiring_screen_scene")]
+layout_mode = 1
+
+[node name="CashOrdersScreen" parent="." instance=ExtResource("cash_orders_screen_scene")]
 layout_mode = 1
 
 [node name="ShiftSummaryPanel" type="PanelContainer" parent="."]

@@ -231,6 +231,11 @@ func _complete_service() -> void:
 	else:
 		applied = AccountManager.withdraw(customer.account, customer.intent_amount_cents)
 
+	# Cash moves through the window's till and on to the vault at the day's
+	# close; a card transaction doesn't.
+	if applied and customer.payment_method == ShiftTransaction.PaymentMethod.CASH:
+		BusinessDay.note_staff_cash(customer.intent_amount_cents if deposit else -customer.intent_amount_cents)
+
 	var what := "%s %s %s %s's account" % ["deposited" if deposit else "withdrew", MoneyMath.format(customer.intent_amount_cents, true), "into" if deposit else "from", customer.display_name]
 	if not applied:
 		what = "couldn't withdraw %s from %s's account (insufficient funds)" % [MoneyMath.format(customer.intent_amount_cents, true), customer.display_name]

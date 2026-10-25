@@ -304,12 +304,14 @@ func is_player_on_shift() -> bool:
 var _was_open: bool = BusinessDay.is_open()
 
 ## At 9:00 every line taking customers restarts its spawn timer, so the day's
-## first customers arrive within a few game minutes of opening.
+## first customers arrive within a few game minutes of opening, and the day's
+## cash orders arrive at the vault (VaultManager).
 func _check_branch_opening() -> void:
 	var open := BusinessDay.is_open()
 	if open and not _was_open:
 		for line: CustomerQueue in [customer_queue, window1_npc_line, window2_line, window3_line]:
 			line.open_for_the_day()
+		VaultManager.receive_deliveries(GameClock.day)
 	_was_open = open
 
 ## Nobody from any line is still in the building.
@@ -334,7 +336,12 @@ func _check_end_of_day() -> void:
 ## _check_end_of_day() comes back here for the summary. A demotion due from a
 ## third regional warning for Reputation 0 comes first instead, and then
 ## there's no review (the player is no longer Branch Manager).
+##
+## The vault's day closes first (VaultManager.close_day(), once a day): the
+## staff windows' net cash, any ATM restock and the NPC branch manager's
+## order (before promotion), shown in the summary.
 func show_end_of_day() -> void:
+	VaultManager.close_day(BusinessDay.stats_day, BusinessDay.staff_net_cash_cents, XPManager.is_branch_manager_unlocked)
 	end_regional_visit()
 	if RegionalManager.demote_if_due():
 		save_career()
@@ -345,7 +352,9 @@ func show_end_of_day() -> void:
 		save_career()
 		if letter_screen.visible:
 			return
-	end_of_day_screen.show_summary(BusinessDay.summary(), BusinessDay.closures_before_next_day())
+	var figures := BusinessDay.summary()
+	figures["vault"] = VaultManager.last_close
+	end_of_day_screen.show_summary(figures, BusinessDay.closures_before_next_day())
 	save_career()
 
 # --- the Regional Manager's visit (RegionalManager) --------------------------------

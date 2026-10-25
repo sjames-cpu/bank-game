@@ -76,6 +76,14 @@ text = "Drawer over limit — send excess cash to the vault"
 horizontal_alignment = 1
 autowrap_mode = 2
 
+[node name="VaultWarningLabel" type="Label" parent="Panel/VBox"]
+visible = false
+modulate = Color(1, 0.8, 0.3, 1)
+layout_mode = 2
+text = "Vault low — order cash from the Federal Reserve"
+horizontal_alignment = 1
+autowrap_mode = 2
+
 [node name="AmountSpinBox" type="SpinBox" parent="Panel/VBox"]
 layout_mode = 2
 max_value = 999999.0

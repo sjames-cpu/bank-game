@@ -52,6 +52,9 @@ signal shift_clocked_out
 @onready var hire_staff_button: Button = $Panel/VBox/HireStaffButton
 @onready var review_approvals_button: Button = $Panel/VBox/ReviewApprovalsButton
 @onready var vault_reconciliation_button: Button = $Panel/VBox/VaultReconciliationButton
+## Cash orders from the Federal Reserve Bank (CashOrdersScreen, VaultManager).
+@onready var cash_orders_button: Button = $Panel/VBox/CashOrdersButton
+@onready var cash_orders_screen: CashOrdersScreen = $CashOrdersScreen
 @onready var clock_in_button: Button = $Panel/VBox/ClockInButton
 @onready var clock_out_button: Button = $Panel/VBox/ClockOutButton
 @onready var error_label: Label = $Panel/VBox/ErrorLabel
@@ -146,6 +149,7 @@ func _ready() -> void:
 	hire_staff_button.pressed.connect(_on_hire_staff_button_pressed)
 	review_approvals_button.pressed.connect(_on_review_approvals_button_pressed)
 	vault_reconciliation_button.pressed.connect(_on_vault_reconciliation_button_pressed)
+	cash_orders_button.pressed.connect(_on_cash_orders_button_pressed)
 	shift_summary_done_button.pressed.connect(_on_shift_summary_done_pressed)
 
 	staff_scheduling_screen.closed.connect(_on_sub_screen_closed)
@@ -153,6 +157,7 @@ func _ready() -> void:
 	hiring_screen.closed.connect(_on_sub_screen_closed)
 	approvals_screen.closed.connect(_on_sub_screen_closed)
 	vault_reconciliation_screen.closed.connect(_on_sub_screen_closed)
+	cash_orders_screen.closed.connect(_on_sub_screen_closed)
 
 	approvals_screen.review_completed.connect(_on_activity_completed)
 	staff_review_screen.review_completed.connect(_on_activity_completed)
@@ -245,6 +250,10 @@ func _on_hire_staff_button_pressed() -> void:
 func _on_review_approvals_button_pressed() -> void:
 	main_panel.visible = false
 	approvals_screen.show_screen()
+
+func _on_cash_orders_button_pressed() -> void:
+	main_panel.visible = false
+	cash_orders_screen.show_screen()
 
 ## Blocks starting a new visit at all once this shift's one allowed
 ## reconciliation has already been graded — see
@@ -521,6 +530,7 @@ func _update_shift_controls() -> void:
 	hire_staff_button.disabled = not clocked_in
 	hire_staff_button.text = hire_button_text(vacancies)
 	review_approvals_button.disabled = not clocked_in
+	cash_orders_button.disabled = not clocked_in
 	vault_reconciliation_button.disabled = true
 	vault_reconciliation_button.text = "Vault Reconciliation (Done This Shift)" if _vault_reconciled_this_shift else VAULT_AT_DOOR_TEXT
 

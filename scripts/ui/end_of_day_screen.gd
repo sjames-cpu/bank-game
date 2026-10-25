@@ -74,10 +74,43 @@ static func summary_text(figures: Dictionary) -> String:
 		shifts,
 		figures["score"], figures["reputation"], figures["xp"],
 	]
+	var vault: Dictionary = figures.get("vault", {})
+	if not vault.is_empty():
+		text += "\n\n" + vault_text(vault)
 	var after_cutoff: Array = figures["after_cutoff"]
 	if not after_cutoff.is_empty():
 		text += "\n\n" + cutoff_text(after_cutoff)
 	return text
+
+## The vault's day (VaultManager.close_day()): what moved, where it stands
+## against its limits, and any order placed for tomorrow, e.g.
+## "Vault: staff windows +$1234.50 · ATM restock -$24000.00" then
+## "Vault now $177234.50 (limits $100000–$300000)".
+static func vault_text(vault: Dictionary) -> String:
+	var staff_net: int = vault["staff_net"]
+	var restock: int = vault["atm_restock"]
+	var delivered: int = vault["delivered"]
+	var shipped: int = vault["shipped"]
+	var expected: int = vault["expected"]
+	var in_range: bool = vault["in_range"]
+	var moves: PackedStringArray = ["staff windows %s%s" % ["+" if staff_net >= 0 else "", MoneyMath.format(staff_net)]]
+	if restock > 0:
+		moves.append("ATM restock -%s" % MoneyMath.format(restock))
+	if delivered > 0:
+		moves.append("delivered +%s" % MoneyMath.format(delivered))
+	if shipped > 0:
+		moves.append("shipped -%s" % MoneyMath.format(shipped))
+	var lines: PackedStringArray = ["Vault: %s" % " · ".join(moves)]
+	var standing := "Vault now %s (limits %s–%s)" % [MoneyMath.format(expected), MoneyMath.format(VaultManager.VAULT_MIN_CENTS, true), MoneyMath.format(VaultManager.VAULT_MAX_CENTS, true)]
+	if not in_range:
+		standing += " — out of range"
+	lines.append(standing)
+	var order: Dictionary = vault["order"]
+	if not order.is_empty():
+		var cents: int = order["cents"]
+		var delivery_day: int = order["delivery_day"]
+		lines.append("Branch manager's cash order: %s %s for %s" % ["in" if cents > 0 else "out", MoneyMath.format(absi(cents), true), BankCalendar.short_text(GameClock.date_of_day(delivery_day))])
+	return "\n".join(lines)
 
 ## "After the 2:00 PM cutoff, posting Tue 6 Jan: 2" and a line each.
 static func cutoff_text(after_cutoff: Array) -> String:

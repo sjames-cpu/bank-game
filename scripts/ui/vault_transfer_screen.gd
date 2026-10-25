@@ -22,6 +22,9 @@ var witness_name: String = ""
 @onready var cash_label: Label = $Panel/VBox/DrawerSection/DrawerVBox/CashLabel
 @onready var limits_label: Label = $Panel/VBox/DrawerSection/DrawerVBox/LimitsLabel
 @onready var warning_label: Label = $Panel/VBox/DrawerSection/DrawerVBox/WarningLabel
+## "Vault low" / "Vault over limit" (VaultManager.limit_warning()). Get Cash
+## from Vault still can't take the vault below zero (pay_to_drawer()).
+@onready var vault_warning_label: Label = $Panel/VBox/VaultWarningLabel
 @onready var amount_input: SpinBox = $Panel/VBox/AmountSpinBox
 @onready var send_button: Button = $Panel/VBox/ButtonsHBox/SendButton
 @onready var get_button: Button = $Panel/VBox/ButtonsHBox/GetButton
@@ -75,3 +78,5 @@ func _refresh() -> void:
 	cash_label.text = "Drawer cash: %s" % MoneyMath.format(teller_screen.drawer_cash_cents())
 	warning_label.text = teller_screen.drawer_limit_warning()
 	warning_label.visible = warning_label.text != ""
+	vault_warning_label.text = VaultManager.limit_warning()
+	vault_warning_label.visible = vault_warning_label.text != ""

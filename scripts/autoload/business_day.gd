@@ -53,6 +53,10 @@ var xp_at_start: int = 0
 ## "type" ("Deposit"/"Withdrawal"), "amount_cents", "account",
 ## "posting_day"}.
 var after_cutoff: Array[Dictionary] = []
+## Today's net cash at the staff windows, in cents: cash deposits minus cash
+## withdrawals the staff actually served (cards excluded). It goes into the
+## vault at the day's close (VaultManager.close_day()).
+var staff_net_cash_cents: int = 0
 
 ## Registered after GameClock and the Score/Reputation/XP managers, so a run
 ## that starts straight in the room (no start screen) has today's baseline.
@@ -71,6 +75,7 @@ func _start_totals() -> void:
 	reputation_at_start = ReputationManager.reputation
 	xp_at_start = XPManager.total_xp
 	after_cutoff.clear()
+	staff_net_cash_cents = 0
 
 # --- hours ----------------------------------------------------------------------
 
@@ -135,6 +140,11 @@ func note_customer_served_by_player() -> void:
 func note_customer_served_by_staff() -> void:
 	customers_served_by_staff += 1
 
+## A staff window served a cash transaction (NpcCustomerLine): `cents` in
+## for a deposit, out (negative) for a withdrawal.
+func note_staff_cash(cents: int) -> void:
+	staff_net_cash_cents += cents
+
 func note_shift_completed() -> void:
 	shifts_completed += 1
 
@@ -181,6 +191,7 @@ func save_data() -> Dictionary:
 		"reputation_at_start": reputation_at_start,
 		"xp_at_start": xp_at_start,
 		"after_cutoff": after_cutoff.duplicate(true),
+		"staff_net_cash_cents": staff_net_cash_cents,
 	}
 
 ## Loaded after the other managers and GameClock. A save from before the
@@ -196,6 +207,7 @@ func load_data(data: Dictionary) -> void:
 	score_at_start = SaveGame.int_of(data, "score_at_start", ScoreManager.total_score)
 	reputation_at_start = SaveGame.int_of(data, "reputation_at_start", ReputationManager.reputation)
 	xp_at_start = SaveGame.int_of(data, "xp_at_start", XPManager.total_xp)
+	staff_net_cash_cents = SaveGame.int_of(data, "staff_net_cash_cents", 0)
 	after_cutoff.clear()
 	for entry in SaveGame.dicts_of(SaveGame.array_of(data, "after_cutoff")):
 		after_cutoff.append({

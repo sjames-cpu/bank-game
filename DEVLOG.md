@@ -241,6 +241,14 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Records**: receipts read "Sold $500 to the vault · witnessed by Walter Higgins", history entries name both people, and the Branch summary shows each staff member's time at the vault. A one-time hint explains dual control at the first visit.
 - **Accounting** is unchanged and exact: the drawer, its closing count and the vault's expected total move by the same transfers as before.
 
+## Session 28 — Oct 25, 2026: Cash supply, part 1 — vault levels and orders
+
+- **Vault limits**: the vault should hold between $100,000 (about two weeks of ATM restocks plus refilling the teller drawers) and $300,000 (idle cash at risk capped at 1.5× the $200,000 start, which sits in the middle). The vault door warns "Vault low" or "Vault over limit", and a day that closes outside the limits is recorded for the Regional Manager (part 2).
+- **The branch's day of cash**: at each day's close the vault takes in the staff windows' net cash (their real cash deposits and withdrawals; cards don't count), and every third business day gives $24,000 to restock the ATM (a busy branch machine pays out about $8,000 a day). The End of Day summary shows it all.
+- **Cash Orders**: a new Branch Manager screen orders cash from the Federal Reserve Bank, or ships excess out, in $10,000 straps of $100 notes, one order a day, delivered at opening the next business day (weekends and holidays skipped, since day numbers count business days). It shows the vault, its limits, what's pending and a forecast for tomorrow.
+- **Before promotion** an NPC branch manager orders at each close: up to the middle when tomorrow looks low, down to it when high, a strap inside each limit to allow for the staff windows' swing. A simulated month stays in range.
+- Part 2 will bring the armored truck that delivers and collects the cash.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

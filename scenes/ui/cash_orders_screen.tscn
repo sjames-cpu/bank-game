@@ -1,0 +1,137 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/cash_orders_screen.gd" id="screen_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
+
+[node name="CashOrdersScreen" type="Control"]
+process_mode = 2
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("banking_theme")
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_right = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Cash Orders"
+horizontal_alignment = 1
+
+[node name="SourceLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Federal Reserve Bank · delivered next business day"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="VaultSection" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="VaultVBox" type="VBoxContainer" parent="Panel/VBox/VaultSection"]
+layout_mode = 2
+
+[node name="ExpectedLabel" type="Label" parent="Panel/VBox/VaultSection/VaultVBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Vault: $200000.00"
+horizontal_alignment = 1
+
+[node name="LimitsLabel" type="Label" parent="Panel/VBox/VaultSection/VaultVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Limits"
+horizontal_alignment = 1
+
+[node name="WarningLabel" type="Label" parent="Panel/VBox/VaultSection/VaultVBox"]
+visible = false
+modulate = Color(1, 0.8, 0.3, 1)
+layout_mode = 2
+text = "Vault low"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="PendingLabel" type="Label" parent="Panel/VBox/VaultSection/VaultVBox"]
+layout_mode = 2
+text = "Pending: none"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ForecastLabel" type="Label" parent="Panel/VBox/VaultSection/VaultVBox"]
+layout_mode = 2
+text = "Forecast"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="StrapsLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Straps of $100 notes ($10000 each)"
+horizontal_alignment = 1
+
+[node name="StrapsHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="StrapsSpinBox" type="SpinBox" parent="Panel/VBox/StrapsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 30.0
+value = 5.0
+
+[node name="AmountLabel" type="Label" parent="Panel/VBox/StrapsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "= $50000"
+horizontal_alignment = 1
+
+[node name="ButtonsHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="OrderInButton" type="Button" parent="Panel/VBox/ButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Order Cash In"
+
+[node name="ShipOutButton" type="Button" parent="Panel/VBox/ButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Ship Cash Out"
+
+[node name="StatusLabel" type="Label" parent="Panel/VBox"]
+visible = false
+layout_mode = 2
+text = "Status"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Close"

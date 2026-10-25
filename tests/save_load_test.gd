@@ -172,6 +172,17 @@ func build_full_career() -> void:
 	RegionalManager.vacant_desk_minutes = 75.5
 	RegionalManager.hire_verdicts.assign([HiringManager.Verdict.MIDDLE])
 
+	# The vault's cash supply: a total moved by transfers and closes, an order
+	# on its way, a day out of range, and today's movements so far.
+	VaultManager.expected_cents = 18765432
+	VaultManager.last_closed_day = 2
+	VaultManager.last_close = {"day": 2, "delivered": 0, "shipped": 2000000, "staff_net": -4321, "atm_restock": 0, "expected": 18765432, "in_range": true, "order": {"placed_day": 2, "delivery_day": 3, "cents": 3000000}}
+	assert_str(VaultManager.place_order(3 * VaultManager.STRAP_CENTS, 3)).is_empty()
+	VaultManager.out_of_range_days.append(1)
+	VaultManager.delivered_today_cents = 1000000
+	VaultManager.shipped_today_cents = 2000000
+	BusinessDay.staff_net_cash_cents = -4321
+
 # --- round trip ------------------------------------------------------------------
 
 func test_save_then_load_restores_every_saved_value() -> void:
@@ -240,6 +251,14 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_int(RegionalManager.warnings).is_equal(2)
 	assert_int(RegionalManager.vault_by_day[2]).is_equal(VaultReconciliationScreen.DiscrepancyResult.MINOR)
 	assert_float(RegionalManager.vacant_desk_minutes).is_equal(75.5)
+	assert_int(VaultManager.expected_cents).is_equal(18765432)
+	assert_int(VaultManager.pending_orders.size()).is_equal(1)
+	assert_int(VaultManager.pending_orders[0]["delivery_day"]).is_equal(4)
+	assert_array(Array(VaultManager.out_of_range_days)).is_equal([1])
+	assert_int(VaultManager.last_order_day).is_equal(3)
+	assert_int(VaultManager.last_closed_day).is_equal(2)
+	assert_int(VaultManager.delivered_today_cents).is_equal(1000000)
+	assert_int(BusinessDay.staff_net_cash_cents).is_equal(-4321)
 
 ## Game time builds up from frame deltas, so it can be any float; a value
 ## the JSON parser can't read back exactly once made a CI round trip fail
