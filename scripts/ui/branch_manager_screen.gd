@@ -71,11 +71,11 @@ signal shift_clocked_out
 @onready var shift_end_time_label: Label = $ShiftSummaryPanel/VBox/EndTimeLabel
 @onready var shift_actions_completed_label: Label = $ShiftSummaryPanel/VBox/ActionsCompletedLabel
 @onready var shift_schedule_label: Label = $ShiftSummaryPanel/VBox/ScheduleLabel
-@onready var shift_score_label: Label = $ShiftSummaryPanel/VBox/ShiftScoreLabel
-@onready var shift_total_score_label: Label = $ShiftSummaryPanel/VBox/TotalScoreLabel
+@onready var shift_score_label: Label = $ShiftSummaryPanel/VBox/PointsHBox/ShiftScoreLabel
+@onready var shift_total_score_label: Label = $ShiftSummaryPanel/VBox/TotalsHBox/TotalScoreLabel
 @onready var shift_reputation_label: Label = $ShiftSummaryPanel/VBox/ReputationLabel
-@onready var shift_xp_label: Label = $ShiftSummaryPanel/VBox/ShiftXPLabel
-@onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalXPLabel
+@onready var shift_xp_label: Label = $ShiftSummaryPanel/VBox/PointsHBox/ShiftXPLabel
+@onready var shift_total_xp_label: Label = $ShiftSummaryPanel/VBox/TotalsHBox/TotalXPLabel
 ## Branch and Staff Review sit side by side so the summary stays within the
 ## 648px window.
 @onready var shift_branch_label: Label = $ShiftSummaryPanel/VBox/SectionsHBox/BranchVBox/BranchLabel
@@ -486,8 +486,10 @@ static func branch_summary_text(records: Array[DecisionRecord]) -> String:
 		for staff_name in names:
 			var done := 0
 			var mistakes := 0
+			var own: Array[DecisionRecord] = []
 			for record in records:
 				if record.staff_slot == slot_name and record.staff_name == staff_name:
+					own.append(record)
 					done += 1
 					if record.grade_label == "Mistake":
 						mistakes += 1
@@ -495,15 +497,43 @@ static func branch_summary_text(records: Array[DecisionRecord]) -> String:
 				wrong_loans += mistakes
 				lines.append("%s — %s: %d decision%s, %d correct" % [slot_name, staff_name, done, "" if done == 1 else "s", done - mistakes])
 			else:
-				total_served += done
+				var ids := id_check_counts(own)
+				# A customer refused for a bad ID wasn't served.
+				var caught: int = ids["caught"]
+				var served := done - caught
+				total_served += served
 				teller_mistakes += mistakes
-				lines.append("%s — %s: %d served, %d mistake%s" % [slot_name, staff_name, done, mistakes, "" if mistakes == 1 else "s"])
+				lines.append("%s — %s: %d served, %d mistake%s" % [slot_name, staff_name, served, mistakes, "" if mistakes == 1 else "s"])
+				var needed: int = ids["needed"]
+				if needed > 0:
+					lines.append("IDs: %d checked, %d caught, %d skipped, %d missed" % [ids["checked"], ids["caught"], ids["skipped"], ids["missed"]])
 	lines.append("Total: %d customer%s served by staff, %d teller mistake%s, %d wrong loan decision%s" % [
 		total_served, "" if total_served == 1 else "s",
 		teller_mistakes, "" if teller_mistakes == 1 else "s",
 		wrong_loans, "" if wrong_loans == 1 else "s",
 	])
 	return "\n".join(lines)
+
+## A staff teller's ID checks in `records` (KycPolicy.StaffCheck): needed
+## (customers who had to show ID), checked (asked to see it: CHECKED, CAUGHT,
+## MISSED), caught (bad IDs refused), skipped (SKIPPED, SKIPPED_BAD) and
+## missed (bad IDs served either way: MISSED, SKIPPED_BAD).
+static func id_check_counts(records: Array[DecisionRecord]) -> Dictionary:
+	var counts := {"needed": 0, "checked": 0, "caught": 0, "skipped": 0, "missed": 0}
+	for record in records:
+		var check := record.staff_id_check
+		if check == KycPolicy.StaffCheck.NOT_NEEDED:
+			continue
+		counts["needed"] += 1
+		if check == KycPolicy.StaffCheck.CHECKED or check == KycPolicy.StaffCheck.CAUGHT or check == KycPolicy.StaffCheck.MISSED:
+			counts["checked"] += 1
+		if check == KycPolicy.StaffCheck.CAUGHT:
+			counts["caught"] += 1
+		if check == KycPolicy.StaffCheck.SKIPPED or check == KycPolicy.StaffCheck.SKIPPED_BAD:
+			counts["skipped"] += 1
+		if KycPolicy.is_bad_id_served(check):
+			counts["missed"] += 1
+	return counts
 
 ## The summary's "Staff Review" section.
 static func staff_review_summary_text(stats: Dictionary, still_waiting: int) -> String:

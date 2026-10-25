@@ -40,6 +40,7 @@ func before_test() -> void:
 	# Customers in these tests are spawned explicitly (spawn()).
 	cq.spawn_timer.stop()
 	_fix_id_rolls(cq)
+	_fix_staff_id_rolls()
 
 ## Makes `new_room` (one a scene change loaded, e.g. from the slot screen)
 ## the room the helpers below drive, as before_test() does for the first.
@@ -49,6 +50,23 @@ func adopt_room(new_room: TellerRoom) -> void:
 	cq = room.get_node("CustomerQueue")
 	cq.spawn_timer.stop()
 	_fix_id_rolls(cq)
+	_fix_staff_id_rolls()
+
+## The staff windows in tests: the same (every ID valid, no account
+## openers), and staff who always check correctly, unless a test asks
+## (staff_id_checks_test.gd sets the real chances).
+func _fix_staff_id_rolls() -> void:
+	for line in staff_lines():
+		_fix_id_rolls(line)
+		line.staff_id_slips = false
+
+## Every staff-served teller line in the room.
+func staff_lines() -> Array[NpcCustomerLine]:
+	var lines: Array[NpcCustomerLine] = []
+	for child in room.get_children():
+		if child is NpcCustomerLine:
+			lines.append(child as NpcCustomerLine)
+	return lines
 
 ## The player's line in tests: every ID valid and nobody opening an account
 ## unless a test asks (kyc_test.gd sets the chances), with its own generator

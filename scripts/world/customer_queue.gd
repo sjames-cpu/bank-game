@@ -342,20 +342,21 @@ func _uses_staff_line_accounts() -> bool:
 	return false
 
 ## Whether this line's customers carry ID and may come to open an account
-## (KycPolicy): the player's line only. NpcCustomerLine overrides it, so
-## staff windows are unchanged and draw nothing from kyc_rng.
+## (KycPolicy). Every line does (staff windows too, see NpcCustomerLine);
+## the draws come from this line's own kyc_rng.
 func _checks_ids() -> bool:
 	return true
 
-## `preferred` if nobody by that name banks in the player's line yet, else
-## another name from the pool that doesn't (kyc_rng), or "" if every name
-## already has an account.
+## `preferred` if nobody by that name banks in this line's account namespace
+## yet, else another name from the pool that doesn't (kyc_rng), or "" if
+## every name already has an account.
 func _unused_customer_name(preferred: String) -> String:
-	if AccountManager.find_account_by_name(preferred) == null:
+	var staff_line := _uses_staff_line_accounts()
+	if AccountManager.find_account_by_name(preferred, staff_line) == null:
 		return preferred
 	var unused: Array[String] = []
 	for candidate in CUSTOMER_NAMES:
-		if AccountManager.find_account_by_name(candidate) == null:
+		if AccountManager.find_account_by_name(candidate, staff_line) == null:
 			unused.append(candidate)
 	if unused.is_empty():
 		return ""

@@ -59,6 +59,8 @@ enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY, STAFF, DRAWER_VA
 ## (ScheduleManager.SLOT_*).
 @export var staff_name: String = ""
 @export var staff_slot: String = ""
+## STAFF teller records only: what they did about the customer's ID.
+@export var staff_id_check: KycPolicy.StaffCheck = KycPolicy.StaffCheck.NOT_NEEDED
 
 @export var has_loan_context: bool = false
 @export var risk_assessment: LoanApplication.RiskTier = LoanApplication.RiskTier.MEDIUM

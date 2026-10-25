@@ -60,11 +60,12 @@ var _staff_record_count: int = 0
 signal staff_record_added(record: DecisionRecord)
 
 ## An NPC coworker's transaction or loan decision at desk `slot_name`.
-## grade_label is "Correct" or "Mistake".
-func add_staff_record(staff_name: String, slot_name: String, description: String, grade_label: String) -> DecisionRecord:
+## grade_label is "Correct" or "Mistake"; id_check is a teller's ID check.
+func add_staff_record(staff_name: String, slot_name: String, description: String, grade_label: String, id_check: KycPolicy.StaffCheck = KycPolicy.StaffCheck.NOT_NEEDED) -> DecisionRecord:
 	var record := add_record(DecisionRecord.Role.STAFF, description, grade_label)
 	record.staff_name = staff_name
 	record.staff_slot = slot_name
+	record.staff_id_check = id_check
 	staff_record_added.emit(record)
 	_staff_record_count += 1
 	if _staff_record_count > MAX_STAFF_RECORDS:

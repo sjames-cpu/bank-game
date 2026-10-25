@@ -64,6 +64,28 @@ func mistake_fix_seconds() -> float:
 func mistake_chance() -> float:
 	return lerpf(MISTAKE_CHANCE_BEST, MISTAKE_CHANCE_WORST, 1.0 - _stat_t(mini(skill, reliability)))
 
+## ID checks at a staff window (KycPolicy), each from one stat's weakness
+## w = (10 - stat) / 9, squared so a strong staff member rarely slips and a
+## weak one clearly does:
+## - skipping the check, from reliability (cutting a corner): 1% + 39% x w²,
+##   1% at reliability 10, 5% at 7, 13% at 5, 25% at 3, 40% at 1;
+## - missing a bad ID once checked, from skill (not spotting the problem):
+##   2% + 58% x w², 2% at skill 10, 8% at 7, 20% at 5, 37% at 3, 60% at 1.
+const ID_SKIP_CHANCE_BEST: float = 0.01
+const ID_SKIP_CHANCE_WORST: float = 0.40
+const ID_MISS_CHANCE_BEST: float = 0.02
+const ID_MISS_CHANCE_WORST: float = 0.60
+
+static func _weakness_squared(value: int) -> float:
+	var weakness := 1.0 - _stat_t(value)
+	return weakness * weakness
+
+func id_skip_chance() -> float:
+	return lerpf(ID_SKIP_CHANCE_BEST, ID_SKIP_CHANCE_WORST, _weakness_squared(reliability))
+
+func id_miss_chance() -> float:
+	return lerpf(ID_MISS_CHANCE_BEST, ID_MISS_CHANCE_WORST, _weakness_squared(skill))
+
 ## Seconds between background loan decisions: 40s at speed 1 down to 15s.
 func loan_decision_seconds() -> float:
 	return lerpf(LOAN_SECONDS_SLOWEST, LOAN_SECONDS_FASTEST, _stat_t(speed))

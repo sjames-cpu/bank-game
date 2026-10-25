@@ -11,7 +11,9 @@ class_name StaffReviewItem
 ## loan grade) that decide its severity. Those hidden facts are only shown
 ## to the manager after they've acted (StaffReviewScreen).
 
-enum Kind { TELLER, LOAN }
+## ID_CHECK: a staff teller's ID slip (KycPolicy.StaffCheck SKIPPED, MISSED
+## or SKIPPED_BAD), appended last so saved kinds keep their values.
+enum Kind { TELLER, LOAN, ID_CHECK }
 
 ## How serious the work was, decided when the item is queued. A MINOR item
 ## can still be judged as REPEATED_MINOR at decision time (see
@@ -35,6 +37,25 @@ enum TellerMistake { AMOUNT_SHORT, AMOUNT_OVER, WRONG_TYPE, WRONG_ACCOUNT }
 @export var teller_mistake: TellerMistake = TellerMistake.AMOUNT_SHORT
 ## What the staff member actually did wrong, e.g. "came up $30 short".
 @export var mistake_detail: String = ""
+
+## --- ID check items (customer_name, request_type and request_amount_cents
+## above give the request) ---
+@export var opens_account: bool = false
+## The customer's own look (CustomerNPC.look_index), to compare with the
+## card's photo.
+@export var customer_look: int = 0
+## The card as shown (IdCard's fields), frozen; today's date when served.
+@export var id_presented: bool = true
+@export var id_holder_name: String = ""
+@export var id_number: String = ""
+@export var id_date_of_birth: int = 0
+@export var id_expiry_date: int = 0
+@export var id_portrait_look: int = 0
+@export var served_on_date: int = 0
+## Hidden until the manager has decided: what was wrong with the card, and
+## what the staff member actually did.
+@export var id_problem: IdCard.Problem = IdCard.Problem.NONE
+@export var id_check: KycPolicy.StaffCheck = KycPolicy.StaffCheck.SKIPPED
 
 ## --- Loan items ---
 @export var applicant_name: String = ""

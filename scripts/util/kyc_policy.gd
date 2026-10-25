@@ -6,7 +6,9 @@ class_name KycPolicy
 ## cards themselves. Presented in game as bank policy, not as any law.
 ##
 ## ID is required for a withdrawal (cash or card) and for opening an account;
-## deposits don't need it. Staff windows and the ATM don't check ID (yet).
+## deposits don't need it. The staff windows follow the same policy
+## (NpcCustomerLine, with StaffMember.id_skip_chance()/id_miss_chance()); the
+## ATM doesn't check ID.
 ##
 ## Every roll here uses the line's own RandomNumberGenerator
 ## (CustomerQueue.kyc_rng), never the global one, so adding IDs didn't change
@@ -46,6 +48,58 @@ const LOOKS_PER_DESIGN: int = 4
 
 const POLICY_TEXT: String = "Bank policy: withdrawals and new accounts need a valid photo ID — unexpired, in the account holder's name, with their photo. Deposits don't."
 const REFUSAL_LINE: String = "I'm sorry, I can't process this without valid ID."
+
+## What a staff teller did about a customer's ID (NpcCustomerLine), kept on
+## the staff record (DecisionRecord.staff_id_check) and any review item:
+## - NOT_NEEDED: a deposit, no ID required;
+## - CHECKED: a valid ID checked, then served (correct);
+## - CAUGHT: a bad ID checked and refused (correct, never queued);
+## - SKIPPED: served without checking a valid ID (Minor);
+## - MISSED: a bad ID checked but not spotted, and served (Serious);
+## - SKIPPED_BAD: served without checking, on a bad ID (Serious).
+enum StaffCheck { NOT_NEEDED, CHECKED, CAUGHT, SKIPPED, MISSED, SKIPPED_BAD }
+
+## Said at a staff window.
+const STAFF_ASK_LINE: String = "May I see your ID, please?"
+const STAFF_ID_OK_LINE: String = "Thank you, that's fine."
+const CUSTOMER_SHOWS_ID_LINE: String = "Here you go."
+const CUSTOMER_NO_ID_LINE: String = "Oh — I don't have it on me."
+const REFUSED_FAREWELL: String = "I'll come back with the right ID."
+
+## Whether `check` let a bad ID through.
+static func is_bad_id_served(check: StaffCheck) -> bool:
+	return check == StaffCheck.MISSED or check == StaffCheck.SKIPPED_BAD
+
+## Whether `check` was a slip (anything a review would look at).
+static func is_slip(check: StaffCheck) -> bool:
+	return check == StaffCheck.SKIPPED or is_bad_id_served(check)
+
+## A staff teller's refusal, saying what's wrong (kept short for the
+## speech label above them).
+static func staff_refusal_line(problem: IdCard.Problem) -> String:
+	match problem:
+		IdCard.Problem.EXPIRED:
+			return "Sorry, this ID has expired."
+		IdCard.Problem.NAME_MISMATCH:
+			return "Sorry, the name on this ID doesn't match."
+		IdCard.Problem.WRONG_PORTRAIT:
+			return "Sorry, this isn't your photo."
+		_:
+			return "Sorry, I need a photo ID for this."
+
+## What was wrong with a card, for review text: "had expired".
+static func problem_text(problem: IdCard.Problem) -> String:
+	match problem:
+		IdCard.Problem.EXPIRED:
+			return "had expired"
+		IdCard.Problem.NAME_MISMATCH:
+			return "was in someone else's name"
+		IdCard.Problem.WRONG_PORTRAIT:
+			return "had someone else's photo"
+		IdCard.Problem.NO_ID:
+			return "wasn't there (no ID shown)"
+		_:
+			return "was valid"
 
 ## Whether serving `customer` needs their ID checked first.
 static func requires_id(customer: CustomerNPC) -> bool:

@@ -24,6 +24,11 @@ signal review_completed(score_delta: int, reputation_delta: int, xp_delta: int)
 @onready var staff_label: Label = $Panel/VBox/ItemSection/ItemVBox/StaffLabel
 @onready var record_label: Label = $Panel/VBox/ItemSection/ItemVBox/RecordLabel
 @onready var details_label: Label = $Panel/VBox/ItemSection/ItemVBox/DetailsLabel
+## ID check items: the customer beside the photo on their ID.
+@onready var id_hbox: HBoxContainer = $Panel/VBox/ItemSection/ItemVBox/IdHBox
+@onready var customer_portrait: TextureRect = $Panel/VBox/ItemSection/ItemVBox/IdHBox/CustomerVBox/CustomerPortrait
+@onready var card_portrait: TextureRect = $Panel/VBox/ItemSection/ItemVBox/IdHBox/CardVBox/CardPortrait
+@onready var card_caption: Label = $Panel/VBox/ItemSection/ItemVBox/IdHBox/CardVBox/CardCaption
 @onready var actions_hbox: HBoxContainer = $Panel/VBox/ActionsHBox
 @onready var report_button: Button = $Panel/VBox/ActionsHBox/ReportButton
 @onready var feedback_button: Button = $Panel/VBox/ActionsHBox/FeedbackButton
@@ -101,6 +106,14 @@ func _refresh() -> void:
 		staff_label.text = "%s — %s — %s" % [item.staff_name, item.staff_slot, item.timestamp]
 		record_label.text = StaffReviewManager.record_text(item.staff_name)
 		details_label.text = details_text(item)
+	var id_item := item != null and item.kind == StaffReviewItem.Kind.ID_CHECK
+	id_hbox.visible = id_item
+	if id_item:
+		customer_portrait.texture = CustomerNPC.portrait_of(item.customer_look)
+		card_portrait.visible = item.id_presented
+		card_caption.text = "Photo on the ID" if item.id_presented else "No ID shown"
+		if item.id_presented:
+			card_portrait.texture = CustomerNPC.portrait_of(item.id_portrait_look)
 	_refresh_terminations()
 
 func _refresh_terminations() -> void:
@@ -128,6 +141,8 @@ static func details_text(item: StaffReviewItem) -> String:
 		return "Customer %s asked to %s %s.\nThe staff member %s; the customer pointed it out and it was fixed on the spot." % [
 			item.customer_name, verb, MoneyMath.format(item.request_amount_cents, true), item.mistake_detail,
 		]
+	if item.kind == StaffReviewItem.Kind.ID_CHECK:
+		return id_details_text(item)
 	var decision := LoanApplication.decision_type_label(item.decision)
 	if item.decision != LoanApplication.DecisionType.REJECT:
 		decision += " (%s)" % LoanApplication.dollars(item.decision_amount)
@@ -147,6 +162,17 @@ static func details_text(item: StaffReviewItem) -> String:
 		decision,
 	]
 
+## An ID slip: the request, the card as shown and what the staff member did
+## — never what was wrong with the card (the manager reads the card).
+static func id_details_text(item: StaffReviewItem) -> String:
+	var request := "open an account with %s" % MoneyMath.format(item.request_amount_cents, true) if item.opens_account \
+		else "%s %s" % ["deposit" if item.request_type == ShiftTransaction.Type.DEPOSIT else "withdraw", MoneyMath.format(item.request_amount_cents, true)]
+	var card := "No ID shown."
+	if item.id_presented:
+		card = "ID: %s · No. %s · born %s · expires %s" % [item.id_holder_name, item.id_number, IdCard.date_text(item.id_date_of_birth), IdCard.date_text(item.id_expiry_date)]
+	var did := "served them without checking ID." if item.id_check != KycPolicy.StaffCheck.MISSED else "checked the ID and served them."
+	return "Customer %s asked to %s (served %s).\n%s\nThe staff member %s" % [item.customer_name, request, IdCard.date_text(item.served_on_date), card, did]
+
 ## Revealed only after the decision: severity, the verdict and points, and
 ## for loans the grade the decision got.
 static func _result_text(item: StaffReviewItem, result: Dictionary) -> String:
@@ -165,4 +191,6 @@ static func _result_text(item: StaffReviewItem, result: Dictionary) -> String:
 		text += " (%s)" % ", ".join(points)
 	if item.kind == StaffReviewItem.Kind.LOAN:
 		text += "\nGraded: %s." % LoanApplication.grade_description(item.grade)
+	elif item.kind == StaffReviewItem.Kind.ID_CHECK:
+		text += "\nThe ID %s." % KycPolicy.problem_text(item.id_problem)
 	return text

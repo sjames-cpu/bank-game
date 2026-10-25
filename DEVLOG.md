@@ -268,6 +268,15 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - Staff loan officers decide with the same skill-based odds against the new assessment, countering at the affordable amount. The Branch Manager's staff review shows the worksheet; review items in older saves still load and say they have no worksheet.
 - The screen's fit test caught it running off the window with the reasons open. The fix was compact checkboxes and a wider panel that still ends 8 px short of the HUD column.
 
+## Session 31 — Oct 25, 2026: ID checks at the staff windows
+
+- **Same bank policy for staff**: customers at Teller Windows 1-3 now carry IDs at the same rate and mix as the player's line (about 1 in 7 with a problem), and about 1 in 10 comes to open an account, which the staff member opens. Withdrawals and new accounts need an ID check; deposits don't.
+- **How staff do it, from their stats**: skipping the check comes from low reliability (1% at reliability 10, 25% at 3, 40% at 1); missing a bad card once checked comes from low skill (2% at skill 10, 20% at 5, 37% at 3, 60% at 1). Having no ID at all is never missed. Derek Voss cuts corners (skips about a quarter of checks); Nina Ortiz checks every time but misses more bad cards. Derek's overall mistake rate rises to about 27%.
+- **On the floor**: the staff member asks "May I see your ID, please?" and, on a refusal, says why ("Sorry, this ID has expired."); the customer leaves unserved.
+- **Staff review**: serving on a bad ID is Serious, skipping the check on a valid one Minor (it counts toward repeated minor); a correct refusal is correct work and never queued. The item shows the request, the card as shown and the customer's portrait beside the card's photo, but not what was wrong until the manager decides.
+- **Branch summary and Regional review**: each teller's line adds IDs checked, caught, skipped and missed (refused customers aren't counted as served), and ID slips count in the Regional staff mistake rate. The shift summary pairs Score with XP to make room.
+- **Hiring** needed nothing new: a weak teller candidate's weakness is reliability, so they skip checks, and red-flag answers only come from reliability 2 or lower.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

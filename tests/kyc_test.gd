@@ -94,18 +94,6 @@ func test_each_problem_shows_on_the_card() -> void:
 	give_id(customer, Problem.NO_ID)
 	assert_bool(customer.id_card.presented).is_false()
 
-func test_staff_lines_and_their_customers_carry_no_id() -> void:
-	var line: NpcCustomerLine = room.window1_npc_line
-	line.id_problem_chance = 1.0
-	line.account_opening_chance = 1.0
-	for i in 10:
-		line._spawn_customer()
-		var c: CustomerNPC = line.queue.pop_back()
-		assert_object(c.id_card).is_null()
-		assert_bool(c.opens_account).is_false()
-		assert_object(c.account).is_not_null()
-		c.free()
-
 # --- when ID is required -----------------------------------------------------------
 
 func test_id_is_required_only_for_withdrawals_and_account_opening() -> void:

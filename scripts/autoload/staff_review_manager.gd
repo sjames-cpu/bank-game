@@ -127,6 +127,36 @@ func add_teller_mistake(staff: StaffMember, slot_name: String, customer: Custome
 	_enqueue(item)
 	return item
 
+## Called by NpcCustomerLine when a staff teller slipped on an ID check:
+## serving on a bad ID (MISSED, SKIPPED_BAD) is Serious, skipping the check
+## on a valid one (SKIPPED) Minor (so it counts toward repeated minor).
+func add_id_slip(staff: StaffMember, slot_name: String, customer: CustomerNPC, check: KycPolicy.StaffCheck) -> StaffReviewItem:
+	if not is_collecting() or not KycPolicy.is_slip(check):
+		return null
+	var item := StaffReviewItem.new()
+	item.kind = StaffReviewItem.Kind.ID_CHECK
+	item.staff_name = staff.staff_name
+	item.staff_slot = slot_name
+	item.timestamp = GameClock.timestamp()
+	item.customer_name = customer.display_name
+	item.request_type = customer.intent_type
+	item.request_amount_cents = customer.intent_amount_cents
+	item.opens_account = customer.opens_account
+	item.customer_look = customer.look_index
+	var card := customer.id_card
+	item.id_presented = card.presented
+	item.id_holder_name = card.holder_name
+	item.id_number = card.id_number
+	item.id_date_of_birth = card.date_of_birth
+	item.id_expiry_date = card.expiry_date
+	item.id_portrait_look = card.portrait_look
+	item.served_on_date = GameClock.today_date()
+	item.id_problem = card.problem
+	item.id_check = check
+	item.severity = StaffReviewItem.Severity.SERIOUS if KycPolicy.is_bad_id_served(check) else StaffReviewItem.Severity.MINOR
+	_enqueue(item)
+	return item
+
 ## Called by NpcLoanDeskWorker after every decision; BEST decisions are
 ## correct work and don't enter the queue.
 func add_loan_decision(staff: StaffMember, slot_name: String, application: LoanApplication, grade: LoanApplication.Grade) -> StaffReviewItem:
@@ -365,6 +395,8 @@ func severity_label(severity: StaffReviewItem.Severity) -> String:
 static func short_description(item: StaffReviewItem) -> String:
 	if item.kind == StaffReviewItem.Kind.TELLER:
 		return "%s on %s's %s %s" % [item.mistake_detail, item.customer_name, MoneyMath.format(item.request_amount_cents, true), "deposit" if item.request_type == ShiftTransaction.Type.DEPOSIT else "withdrawal"]
+	if item.kind == StaffReviewItem.Kind.ID_CHECK:
+		return "ID check on %s's %s" % [item.customer_name, id_request_text(item)]
 	return "%s decision on %s's $%.0f loan" % [LoanApplication.decision_type_label(item.decision), item.applicant_name, item.requested_amount]
 
 func _verdict(severity: StaffReviewItem.Severity, action: Action, fair: bool) -> String:
@@ -376,7 +408,23 @@ func _verdict(severity: StaffReviewItem.Severity, action: Action, fair: bool) ->
 		return "Not needed"
 	return "Too lenient"
 
+## "$200 withdrawal", "new account with $200".
+static func id_request_text(item: StaffReviewItem) -> String:
+	var amount := MoneyMath.format(item.request_amount_cents, true)
+	if item.opens_account:
+		return "new account with %s" % amount
+	return "%s %s" % [amount, "deposit" if item.request_type == ShiftTransaction.Type.DEPOSIT else "withdrawal"]
+
 func _what_happened(item: StaffReviewItem) -> String:
+	if item.kind == StaffReviewItem.Kind.ID_CHECK:
+		var problem := KycPolicy.problem_text(item.id_problem)
+		match item.id_check:
+			KycPolicy.StaffCheck.MISSED:
+				return "serving on an ID that %s" % problem
+			KycPolicy.StaffCheck.SKIPPED_BAD:
+				return "serving without checking an ID that %s" % problem
+			_:
+				return "skipping the ID check (the ID was valid)"
 	if item.kind == StaffReviewItem.Kind.TELLER:
 		match item.teller_mistake:
 			StaffReviewItem.TellerMistake.WRONG_ACCOUNT:

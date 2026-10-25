@@ -165,22 +165,32 @@ text = "Schedule Confirmed: No"
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="ShiftScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="PointsHBox" type="HBoxContainer" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="ShiftScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox/PointsHBox"]
 layout_mode = 2
 text = "Shift Score: +0"
 horizontal_alignment = 1
 
-[node name="TotalScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
-layout_mode = 2
-text = "Total Score: 0"
-horizontal_alignment = 1
-
-[node name="ShiftXPLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="ShiftXPLabel" type="Label" parent="ShiftSummaryPanel/VBox/PointsHBox"]
 layout_mode = 2
 text = "Shift XP: +0"
 horizontal_alignment = 1
 
-[node name="TotalXPLabel" type="Label" parent="ShiftSummaryPanel/VBox"]
+[node name="TotalsHBox" type="HBoxContainer" parent="ShiftSummaryPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="TotalScoreLabel" type="Label" parent="ShiftSummaryPanel/VBox/TotalsHBox"]
+layout_mode = 2
+text = "Total Score: 0"
+horizontal_alignment = 1
+
+[node name="TotalXPLabel" type="Label" parent="ShiftSummaryPanel/VBox/TotalsHBox"]
 layout_mode = 2
 text = "Total XP: 0"
 horizontal_alignment = 1
