@@ -146,6 +146,7 @@ const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 ## The armored truck's crew check, bag verification and pickup.
 @onready var armored_truck_screen: ArmoredTruckScreen = $UI/ArmoredTruckScreen
 @onready var end_of_day_screen: EndOfDayScreen = $UI/EndOfDayScreen
+@onready var onboarding_screen: OnboardingScreen = $UI/OnboardingScreen
 
 ## How long the "X is working this window" notice stays up.
 const DESK_NOTICE_SECONDS: float = 3.5
@@ -207,6 +208,8 @@ var vault_control: VaultDualControl
 var _vault_notice_shown: bool = false
 ## The armored truck's visit on delivery and pickup days (ArmoredTruckVisit).
 var armored_visit: ArmoredTruckVisit
+## A new career's onboarding (OnboardingFlow).
+var onboarding_flow: OnboardingFlow
 
 func _ready() -> void:
 	# The camera stays inside the room, walls and sidewalk included.
@@ -286,6 +289,16 @@ func _ready() -> void:
 	if XPManager.is_branch_manager_unlocked:
 		_apply_branch_manager_desks()
 
+	# A new career's onboarding first (at once if it's done), then the
+	# first-run hints.
+	onboarding_flow = OnboardingFlow.new()
+	onboarding_flow.name = "OnboardingFlow"
+	onboarding_flow.room = self
+	add_child(onboarding_flow)
+	onboarding_flow.finished.connect(_show_arrival_hints)
+	onboarding_flow.start()
+
+func _show_arrival_hints() -> void:
 	hud.show_hint_once(HintManager.Hint.ARRIVAL)
 	hud.show_hint_once(HintManager.Hint.OPENING_HOURS)
 
@@ -488,7 +501,6 @@ const VAULT_WAITING_PROMPT: String = "Waiting for %s…"
 func _on_vault_door_interacted() -> void:
 	if vault_transfer_screen.visible or vault_control.is_busy():
 		return
-	hud.show_hint_once(HintManager.Hint.VAULT_DOOR)
 	var purpose := VaultDualControl.Purpose.TRANSFER
 	# The armored truck waiting comes first: only the Branch Manager receives it.
 	if armored_visit.is_waiting() and XPManager.is_branch_manager_unlocked:
@@ -1167,10 +1179,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key_event := event as InputEventKey
 	if key_event == null or not key_event.pressed or key_event.echo:
 		return
-	if key_event.keycode == DEBUG_UNLOCK_KEY:
+	apply_debug_key(key_event.keycode)
+
+## What F1 or F2 does (OnboardingFlow also calls this after skipping
+## onboarding with either key).
+func apply_debug_key(keycode: Key) -> void:
+	if not debug_cheats_enabled:
+		return
+	if keycode == DEBUG_UNLOCK_KEY:
 		ReputationManager.add_reputation(100)
 		XPManager.add_shift_xp(200)
-	elif key_event.keycode == DEBUG_LOAN_OFFICER_KEY:
+	elif keycode == DEBUG_LOAN_OFFICER_KEY:
 		# Raised only up to the Loan Officer thresholds, never down, through
 		# the normal unlock checks; Reputation 50 stays under Branch Manager's.
 		var xp_short := XPManager.XP_UNLOCK_THRESHOLD - XPManager.total_xp

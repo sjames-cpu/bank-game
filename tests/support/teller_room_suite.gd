@@ -30,6 +30,8 @@ func before_test() -> void:
 	use_test_save_path()
 	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
 	CareerReset.reset_all()
+	# Onboarding done unless a test asks (onboarding_test.gd).
+	OnboardingManager.skip()
 	fix_truck_rolls()
 	room = instantiate_room()
 	get_tree().root.add_child(room)
@@ -43,9 +45,12 @@ func before_test() -> void:
 	_fix_staff_id_rolls()
 
 ## Makes `new_room` (one a scene change loaded, e.g. from the slot screen)
-## the room the helpers below drive, as before_test() does for the first.
-func adopt_room(new_room: TellerRoom) -> void:
+## the room the helpers below drive, as before_test() does for the first. A
+## new career's onboarding there is skipped unless `keep_onboarding`.
+func adopt_room(new_room: TellerRoom, keep_onboarding: bool = false) -> void:
 	room = new_room
+	if not keep_onboarding:
+		room.onboarding_flow.skip()
 	ts = room.get_node("UI/TellerScreen")
 	cq = room.get_node("CustomerQueue")
 	cq.spawn_timer.stop()

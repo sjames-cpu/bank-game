@@ -142,6 +142,8 @@ func build_full_career() -> void:
 	GameClock.minutes = 642.75
 	HintManager.mark_shown(HintManager.Hint.FIRST_CLOCK_OUT)
 	HintManager.mark_shown(HintManager.Hint.LOAN_OFFICER_UNLOCKED)
+	# Part-way through onboarding.
+	OnboardingManager.step = OnboardingManager.Step.LESSON_VAULT
 
 	# Hiring: a hire, a vacancy's candidates part-way through their
 	# interviews, and a rejected vacancy.
@@ -553,19 +555,21 @@ func press_slot(screen: StartScreen, slot: int) -> Node:
 func slot_file_text(slot: int) -> String:
 	return FileAccess.get_file_as_string(SaveGame.slot_path(slot))
 
-## A fresh career's saved data, without the clock (the room runs it on) and
-## hints (the room shows its arrival hint), which tests check on their own.
+## A fresh career's saved data, without the clock (the room runs it on),
+## hints (the room shows its arrival hint) and onboarding (skipped in rooms
+## these tests load; onboarding_test.gd covers it), which tests check on
+## their own.
 func fresh_career_without_clock() -> Dictionary:
 	CareerReset.reset_all()
 	var fresh := SaveGame.capture()
-	fresh.erase("clock")
-	fresh.erase("hints")
+	for key: String in ["clock", "hints", "onboarding"]:
+		fresh.erase(key)
 	return fresh
 
 func current_career_without_clock() -> Dictionary:
 	var career := SaveGame.capture()
-	career.erase("clock")
-	career.erase("hints")
+	for key: String in ["clock", "hints", "onboarding"]:
+		career.erase(key)
 	return career
 
 ## Nothing of an earlier career (build_full_career()) or its room is left.
@@ -863,7 +867,13 @@ func test_mistyped_values_load_as_new_game_defaults() -> void:
 		"staff_review": {"queue": {}, "staff_reports": {"Derek Voss": "bad"}, "staff_feedbacks": {"Nina Ortiz": "two"}},
 		"hints": {"shown": ["ARRIVAL", 99, -1]},
 	})
-	assert_dict(SaveGame.capture()).is_equal(fresh)
+	# A save without onboarding (from before it existed) counts it as done;
+	# everything else is a new game's.
+	assert_bool(OnboardingManager.is_complete()).is_true()
+	var loaded := SaveGame.capture()
+	loaded.erase("onboarding")
+	fresh.erase("onboarding")
+	assert_dict(loaded).is_equal(fresh)
 
 	# Inside a saved resource, a mistyped field keeps its default and the rest load.
 	SaveGame.restore({"accounts": {"accounts": [{"customer_name": 7, "balance_cents": 500}, {"customer_name": "Rosa", "balance_cents": "x"}]}})

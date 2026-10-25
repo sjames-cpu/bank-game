@@ -277,6 +277,14 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Branch summary and Regional review**: each teller's line adds IDs checked, caught, skipped and missed (refused customers aren't counted as served), and ID slips count in the Regional staff mistake rate. The shift summary pairs Score with XP to make room.
 - **Hiring** needed nothing new: a weak teller candidate's weakness is reliability, so they skip checks, and red-flag answers only come from reliability 2 or lower.
 
+## Session 32 — Oct 25, 2026: Onboarding
+
+- **Every new career starts with onboarding**, presented as bank policy: after the interview's hire with the interview on, and at career start with it off. First a letter saying the background check has cleared, then the employment contract (the Teller role, hours, probation terms if hired on probation, what leads to a report and to dismissal) with an "I agree" button.
+- **Compliance training**: four short lessons, each with a two-question quiz that must be passed: ID checks before withdrawals and new accounts; the $3,350 drawer limit and sending the excess to the vault; dual control (you and one witness); customer privacy and handling complaints calmly. Every figure comes from the rules the game grades with, and a test checks each right answer against them. A wrong answer is explained and cleared, retries are unlimited, and the answers are shuffled every time a question is shown, so the right one isn't always in the same place. Finishing the training gives 50 XP, about one correctly served customer.
+- **Saved step by step**, so quitting mid-onboarding resumes where it left off; a new game or career reset starts it over, and older saves count it as done. The arrival hints wait until it's over.
+- **Fewer repeated hints**: the vault door hint is retired, and the ID and drawer hints now just point at where to act, since the training explains the policy.
+- F1 and F2 (debug builds) skip onboarding, then do what they always do.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

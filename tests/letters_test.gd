@@ -201,6 +201,8 @@ func test_the_orientation_letter_returns_in_a_new_career() -> void:
 	# Fired and hired again: a new career, in a fresh room.
 	CareerReset.reset_all()
 	assert_bool(XPManager.has_seen_branch_orientation).is_false()
+	# Past the new career's onboarding (onboarding_test.gd).
+	OnboardingManager.skip()
 	room.free()
 	room = instantiate_room()
 	get_tree().root.add_child(room)

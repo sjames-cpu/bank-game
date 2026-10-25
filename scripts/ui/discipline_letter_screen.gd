@@ -11,7 +11,9 @@ class_name DisciplineLetterScreen
 ## clock-in (show_branch_orientation_once()), and the termination letter
 ## the Branch Manager sends a staff member (StaffReviewManager), and the
 ## "Probation Complete" letter (InterviewManager.probation_completed), and
-## the Regional Manager's review and demotion letters (RegionalManager). Lives in
+## the Regional Manager's review and demotion letters (RegionalManager), and
+## onboarding's background check and contract (show_notice(), with their own
+## button text and an on-close call; OnboardingFlow). Lives in
 ## teller_room's UI layer (last, so it draws on top); process_mode ALWAYS so
 ## it works whether or not a desk screen has the tree paused.
 ##
@@ -68,8 +70,12 @@ const MAX_HEIGHT_SHARE: float = 0.72
 var _mode: Mode = Mode.NONE
 var _paused_by_self: bool = false
 
-## Letters waiting behind the one currently shown, as [Mode, title, body, sender].
+## Letters waiting behind the one currently shown, as [Mode, title, body,
+## sender, button text, on-close Callable].
 var _queue: Array = []
+
+## Called once the letter on screen is closed with its button (show_notice()).
+var _on_close: Callable = Callable()
 
 func _ready() -> void:
 	visible = false
@@ -177,26 +183,40 @@ func show_branch_orientation_once() -> bool:
 	_enqueue(Mode.NOTICE, "Welcome to Branch Management", ORIENTATION_BODY, PROMOTION_SENDER)
 	return true
 
+## A notice with its own button text (e.g. "I agree") that calls `on_close`
+## when its button is pressed: the onboarding's letters (OnboardingFlow).
+func show_notice(title: String, body: String, sender: String, button_text: String, on_close: Callable) -> void:
+	_enqueue(Mode.NOTICE, title, body, sender, button_text, on_close)
+
+## Closes the letter on screen without its on-close call (the debug skip of
+## onboarding); the next waiting letter, if any, comes up.
+func dismiss_current() -> void:
+	if not visible or _mode == Mode.TERMINATION:
+		return
+	_on_close = Callable()
+	_on_action_button_pressed()
+
 ## The termination letter covers the whole window (opaque backdrop); the
 ## room's HUD hides while it's up.
 func is_full_screen_letter_shown() -> bool:
 	return visible and _mode == Mode.TERMINATION
 
-func _enqueue(mode: Mode, title: String, body: String, sender: String = BRANCH_MANAGER_SENDER) -> void:
+func _enqueue(mode: Mode, title: String, body: String, sender: String = BRANCH_MANAGER_SENDER, button_text: String = "", on_close: Callable = Callable()) -> void:
 	if _mode == Mode.TERMINATION:
 		return
 	if visible:
-		_queue.append([mode, title, body, sender])
+		_queue.append([mode, title, body, sender, button_text, on_close])
 	else:
-		_show(mode, title, body, sender)
+		_show(mode, title, body, sender, button_text, on_close)
 
-func _show(mode: Mode, title: String, body: String, sender: String = BRANCH_MANAGER_SENDER) -> void:
+func _show(mode: Mode, title: String, body: String, sender: String = BRANCH_MANAGER_SENDER, button_text: String = "", on_close: Callable = Callable()) -> void:
 	_mode = mode
+	_on_close = on_close
 	title_label.text = title
 	from_label.text = "From: " + sender
 	body_label.text = body
 	backdrop.color = TERMINATION_BACKDROP if mode == Mode.TERMINATION else WARNING_BACKDROP
-	action_button.text = termination_button_text() if mode == Mode.TERMINATION else "Acknowledge"
+	action_button.text = termination_button_text() if mode == Mode.TERMINATION else (button_text if button_text != "" else "Acknowledge")
 	visible = true
 	body_scroll.scroll_vertical = 0
 	_fit_to_body()
@@ -209,19 +229,25 @@ func _on_action_button_pressed() -> void:
 	if _mode == Mode.TERMINATION:
 		_end_career()
 		return
+	var closed_call := _on_close
+	_on_close = Callable()
 	if not _queue.is_empty():
 		var next: Array = _queue.pop_front()
 		var mode: Mode = next[0]
 		var title: String = next[1]
 		var body: String = next[2]
 		var sender: String = next[3]
-		_show(mode, title, body, sender)
-		return
-	visible = false
-	_mode = Mode.NONE
-	if _paused_by_self:
-		get_tree().paused = false
-		_paused_by_self = false
+		var button_text: String = next[4]
+		var on_close: Callable = next[5]
+		_show(mode, title, body, sender, button_text, on_close)
+	else:
+		visible = false
+		_mode = Mode.NONE
+		if _paused_by_self:
+			get_tree().paused = false
+			_paused_by_self = false
+	if closed_call.is_valid():
+		closed_call.call()
 
 ## The tallest the letter panel may be: MAX_HEIGHT_SHARE of the window's
 ## design height (648), or of the viewport if that's shorter. A window

@@ -34,6 +34,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/atm_screen.tscn" id="atm_screen_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ui/discipline_letter_screen.tscn" id="discipline_letter_screen_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ui/end_of_day_screen.tscn" id="end_of_day_screen_scene"]
+[ext_resource type="PackedScene" path="res://scenes/ui/onboarding_screen.tscn" id="onboarding_screen_scene"]
 [ext_resource type="Script" path="res://scripts/world/exit_door.gd" id="exit_door_script"]
 [ext_resource type="Script" path="res://scripts/world/vault_door.gd" id="vault_door_script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/vault_transfer_screen.tscn" id="vault_transfer_screen_scene"]
@@ -723,6 +724,8 @@ vertical_alignment = 1
 autowrap_mode = 2
 
 [node name="EndOfDayScreen" parent="UI" instance=ExtResource("end_of_day_screen_scene")]
+
+[node name="OnboardingScreen" parent="UI" instance=ExtResource("onboarding_screen_scene")]
 
 [node name="DisciplineLetterScreen" parent="UI" instance=ExtResource("discipline_letter_screen_scene")]
 layout_mode = 3

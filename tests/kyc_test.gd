@@ -426,7 +426,7 @@ func test_the_id_hint_shows_once_when_a_customer_first_needs_id() -> void:
 	open_desk()
 	assert_bool(HintManager.has_shown(HintManager.Hint.ID_CHECK)).is_true()
 	assert_bool(room.hud.current_hint == HintManager.Hint.ID_CHECK or room.hud._hint_queue.has(HintManager.Hint.ID_CHECK)).is_true()
-	assert_str(HintManager.text_for(HintManager.Hint.ID_CHECK)).contains("Bank policy")
+	assert_str(HintManager.text_for(HintManager.Hint.ID_CHECK)).contains("Check ID")
 	assert_bool(room.hud.show_hint_once(HintManager.Hint.ID_CHECK)).is_false()
 
 # --- fit ------------------------------------------------------------------------------

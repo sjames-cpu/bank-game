@@ -311,21 +311,19 @@ func test_accounting_stays_exact_through_the_vault_door() -> void:
 
 # --- the hint and the screen ------------------------------------------------------------
 
-func test_the_vault_door_hint_shows_once() -> void:
+## Retired: onboarding's dual-control lesson covers it (HintManager.RETIRED),
+## so the vault door shows no hint.
+func test_the_vault_door_shows_no_hint() -> void:
 	HintManager.reset()
-	for hint: int in HintManager.Hint.values():
-		if hint != HintManager.Hint.VAULT_DOOR:
-			HintManager.mark_shown(hint)
 	while room.hud.current_hint != -1:
 		room.hud.dismiss_hint()
 	clock_in()
+	while room.hud.current_hint != -1:
+		room.hud.dismiss_hint()
 	vault_transfer(true, 10)
-	assert_bool(HintManager.has_shown(HintManager.Hint.VAULT_DOOR)).is_true()
-	assert_int(room.hud.current_hint).is_equal(HintManager.Hint.VAULT_DOOR)
-	assert_str(room.hud.hint_label.text).contains("nobody opens the vault alone")
-	room.hud.dismiss_hint()
-	vault_transfer(true, 10)
+	assert_bool(HintManager.has_shown(HintManager.Hint.VAULT_DOOR)).is_false()
 	assert_int(room.hud.current_hint).is_equal(-1)
+	assert_bool(HintManager.RETIRED.has(HintManager.Hint.VAULT_DOOR)).is_true()
 
 func test_the_vault_transfer_screen_fits_the_window() -> void:
 	var window_before := get_tree().root.size

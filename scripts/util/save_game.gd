@@ -198,6 +198,7 @@ static func capture() -> Dictionary:
 		"staff_review": StaffReviewManager.save_data(),
 		"hiring": HiringManager.save_data(),
 		"hints": HintManager.save_data(),
+		"onboarding": OnboardingManager.save_data(),
 		"clock": GameClock.save_data(),
 		"business_day": BusinessDay.save_data(),
 		"regional": RegionalManager.save_data(),
@@ -224,6 +225,7 @@ static func restore(career: Dictionary) -> void:
 	# After ScheduleManager: candidates are kept per desk slot.
 	HiringManager.load_data(dict_of(career, "hiring"))
 	HintManager.load_data(dict_of(career, "hints"))
+	OnboardingManager.load_data(dict_of(career, "onboarding"))
 	GameClock.load_data(dict_of(career, "clock"))
 	# Today's totals are measured against the loaded career and clock.
 	BusinessDay.load_data(dict_of(career, "business_day"))

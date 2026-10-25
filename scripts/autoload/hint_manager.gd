@@ -10,6 +10,10 @@ extends Node
 ## New hints go at the end: saves store them by value.
 enum Hint { ARRIVAL, FIRST_CUSTOMER, FIRST_CLOCK_OUT, LOAN_OFFICER_UNLOCKED, BRANCH_MANAGER_UNLOCKED, OPENING_HOURS, ID_CHECK, DRAWER_LIMIT, VAULT_DOOR }
 
+## Hints onboarding's training now covers in full (OnboardingData), so they
+## are never shown. Kept in the enum: saves store hints by value.
+const RETIRED: Array[Hint] = [Hint.VAULT_DOOR]
+
 ## Hint -> true once shown.
 var _shown: Dictionary = {}
 
@@ -56,10 +60,12 @@ func text_for(hint: Hint) -> String:
 			return "Branch Manager unlocked! Your desk is in the Manager's Office at the back."
 		Hint.OPENING_HOURS:
 			return "The branch is open 9:00 AM to 5:00 PM. You can clock in early for the opening count, but not after 4:30 PM. Done for the day? Walk to the entrance doormat and press %s to go home." % key
+		# The policy behind these two is in the training; they only point at
+		# where to act.
 		Hint.ID_CHECK:
-			return "Bank policy: ID for withdrawals and new accounts. Check ID first: name, photo, expiry. Anything wrong? Refuse Service."
+			return "This customer needs ID: press Check ID before anything else. Refuse Service is on the card."
 		Hint.DRAWER_LIMIT:
-			return "Drawer over its limit. Bank policy caps teller cash so less is at risk: take the excess to the vault door before you clock out."
+			return "Your drawer is over its limit. The vault door is in the Vault room, at the back left."
 		Hint.VAULT_DOOR:
-			return "Dual control: nobody opens the vault alone. A free coworker comes to witness; their window waits while they're here."
+			return "" # Retired (RETIRED).
 	return ""

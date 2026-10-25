@@ -57,11 +57,19 @@ func promote() -> void:
 	XPManager._grant_branch_manager()
 	acknowledge_letters()
 
+## Every hint that can still be shown (not HintManager.RETIRED).
+func shown_hints() -> Array[Hint]:
+	var hints: Array[Hint] = []
+	for hint: Hint in Hint.values():
+		if not HintManager.RETIRED.has(hint):
+			hints.append(hint)
+	return hints
+
 ## The hint whose panel is tallest as laid out (each shown in turn).
 func tallest_hint() -> Hint:
 	var tallest: Hint = Hint.ARRIVAL
 	var tallest_height := -1.0
-	for hint: Hint in Hint.values():
+	for hint: Hint in shown_hints():
 		hud._show_hint(hint)
 		await settle()
 		if hud.hint_panel.size.y > tallest_height:
@@ -248,7 +256,7 @@ func test_hud_column_never_overlaps_a_screen_panel() -> void:
 			node = node.get_parent()
 	# Every hint, measured as laid out (not picked by its text), so a new or
 	# reworded hint can't overflow unnoticed.
-	for hint: Hint in Hint.values():
+	for hint: Hint in shown_hints():
 		hud._show_hint(hint)
 		await settle()
 		var column: Rect2 = (hud.get_node("RightColumn") as Control).get_global_rect()
@@ -466,6 +474,8 @@ func reload_room(new_career: bool) -> void:
 	room.free()
 	if new_career:
 		CareerReset.reset_all()
+		# Past onboarding (onboarding_test.gd), whose end brings the hints.
+		OnboardingManager.skip()
 	room = instantiate_room()
 	get_tree().root.add_child(room)
 	get_tree().current_scene = room

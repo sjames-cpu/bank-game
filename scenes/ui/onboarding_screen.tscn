@@ -1,0 +1,81 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/onboarding_screen.gd" id="screen_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
+
+[node name="OnboardingScreen" type="Control"]
+process_mode = 3
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("banking_theme")
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_right = 360.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="HeaderLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Compliance Training — Lesson 1 of 4"
+horizontal_alignment = 1
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Lesson"
+horizontal_alignment = 1
+
+[node name="ContentScroll" type="ScrollContainer" parent="Panel/VBox"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="ContentVBox" type="VBoxContainer" parent="Panel/VBox/ContentScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="LessonTextLabel" type="Label" parent="Panel/VBox/ContentScroll/ContentVBox"]
+layout_mode = 2
+text = "Lesson text"
+autowrap_mode = 2
+
+[node name="QuizSeparator" type="HSeparator" parent="Panel/VBox/ContentScroll/ContentVBox"]
+layout_mode = 2
+
+[node name="QuestionsVBox" type="VBoxContainer" parent="Panel/VBox/ContentScroll/ContentVBox"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="FeedbackLabel" type="Label" parent="Panel/VBox"]
+visible = false
+layout_mode = 2
+text = "Feedback"
+autowrap_mode = 2
+
+[node name="ActionButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Check Answers"

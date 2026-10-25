@@ -191,7 +191,8 @@ func _hide_unlock_notification(label: Label) -> void:
 ## Shows `hint` unless this career has already seen it (HintManager). Queued
 ## behind any hint still on screen. Returns whether it was new.
 func show_hint_once(hint: HintManager.Hint) -> bool:
-	if not HintManager.mark_shown(hint):
+	# Retired hints (the onboarding training covers them) never show.
+	if HintManager.RETIRED.has(hint) or not HintManager.mark_shown(hint):
 		return false
 	if current_hint == -1:
 		_show_hint(hint)
