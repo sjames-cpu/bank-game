@@ -1,0 +1,117 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/vault_transfer_screen.gd" id="screen_script"]
+[ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
+
+[node name="VaultTransferScreen" type="Control"]
+process_mode = 2
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("banking_theme")
+script = ExtResource("screen_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -190.0
+offset_right = 190.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Vault"
+horizontal_alignment = 1
+
+[node name="DualControlLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Dual control: you and —"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="DrawerSection" type="PanelContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"SectionPanel"
+
+[node name="DrawerVBox" type="VBoxContainer" parent="Panel/VBox/DrawerSection"]
+layout_mode = 2
+
+[node name="CashLabel" type="Label" parent="Panel/VBox/DrawerSection/DrawerVBox"]
+layout_mode = 2
+text = "Drawer cash: $3000.00"
+horizontal_alignment = 1
+
+[node name="LimitsLabel" type="Label" parent="Panel/VBox/DrawerSection/DrawerVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Min · Max"
+horizontal_alignment = 1
+
+[node name="WarningLabel" type="Label" parent="Panel/VBox/DrawerSection/DrawerVBox"]
+visible = false
+modulate = Color(1, 0.8, 0.3, 1)
+layout_mode = 2
+text = "Drawer over limit — send excess cash to the vault"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="AmountSpinBox" type="SpinBox" parent="Panel/VBox"]
+layout_mode = 2
+max_value = 999999.0
+prefix = "$"
+
+[node name="ButtonsHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="SendButton" type="Button" parent="Panel/VBox/ButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Send to Vault"
+
+[node name="GetButton" type="Button" parent="Panel/VBox/ButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PrimaryButton"
+text = "Get Cash from Vault"
+
+[node name="ReceiptLabel" type="Label" parent="Panel/VBox"]
+visible = false
+layout_mode = 2
+modulate = Color(0.3, 1, 0.3, 1)
+text = "Sold $500 to the vault · witnessed by —"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ErrorLabel" type="Label" parent="Panel/VBox"]
+visible = false
+modulate = Color(1, 0.3, 0.3, 1)
+layout_mode = 2
+text = "Error"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Close"

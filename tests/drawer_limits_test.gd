@@ -18,19 +18,13 @@ func before_test() -> void:
 func cash_deposit(dollars: float) -> void:
 	serve_correctly(spawn(ShiftTransaction.Type.DEPOSIT, dollars))
 
-## Each transfer is made at the desk, which is then closed (the next
-## customer comes to the desk when it's opened again).
+## Each transfer is made at the vault door, under dual control
+## (teller_room_suite.gd's vault_transfer()).
 func send_to_vault(dollars: int) -> void:
-	open_desk()
-	ts.transfer_input.value = dollars
-	ts.send_to_vault_button.pressed.emit()
-	close_desk()
+	vault_transfer(true, dollars)
 
 func get_from_vault(dollars: int) -> void:
-	open_desk()
-	ts.transfer_input.value = dollars
-	ts.get_from_vault_button.pressed.emit()
-	close_desk()
+	vault_transfer(false, dollars)
 
 ## The rest of the shift's customers walk out, so clock-out is allowed.
 func abandon_the_rest() -> void:
@@ -109,10 +103,10 @@ func test_transfers_move_cash_and_keep_the_closing_count_exact() -> void:
 	card.payment_method = ShiftTransaction.PaymentMethod.CARD
 	serve_correctly(card)
 	send_to_vault(1000)
-	assert_str(ts.transfer_receipt_label.text).is_equal("Sold $1000 to the vault")
+	assert_str(ts.transfer_receipt_label.text).starts_with("Sold $1000 to the vault · witnessed by ")
 	assert_bool(ts.transfer_receipt_label.visible).is_true()
 	get_from_vault(250)
-	assert_str(ts.transfer_receipt_label.text).is_equal("Bought $250 from the vault")
+	assert_str(ts.transfer_receipt_label.text).starts_with("Bought $250 from the vault · witnessed by ")
 	# Float + net cash - sold + bought, to the cent; the card deposit isn't cash.
 	var expected := FLOAT + 51200 - 100000 + 25000
 	assert_int(ts.drawer_cash_cents()).is_equal(expected)
@@ -123,7 +117,9 @@ func test_transfers_move_cash_and_keep_the_closing_count_exact() -> void:
 	for record in HistoryManager.records:
 		if record.grade_label == "Vault transfer":
 			receipts.append(record.description)
-	assert_array(receipts).contains_exactly(["Sold $1000 to the vault", "Bought $250 from the vault"])
+	assert_int(receipts.size()).is_equal(2)
+	assert_str(receipts[0]).starts_with("Sold $1000 to the vault — dual control: you and ")
+	assert_str(receipts[1]).starts_with("Bought $250 from the vault — dual control: you and ")
 	abandon_the_rest()
 	assert_bool(clock_out()).is_true()
 	# Counted exactly: Perfect, nothing off.
@@ -136,14 +132,14 @@ func test_transfers_move_cash_and_keep_the_closing_count_exact() -> void:
 func test_transfers_are_checked_against_what_there_is() -> void:
 	clock_in()
 	send_to_vault(3001)
-	assert_bool(ts.error_label.visible).is_true()
+	assert_bool(room.vault_transfer_screen.error_label.visible).is_true()
 	assert_int(ts.drawer_cash_cents()).is_equal(FLOAT)
 	assert_int(VaultManager.expected_cents).is_equal(VaultReconciliationScreen.STARTING_VAULT_CENTS)
 	get_from_vault(200001) # a dollar more than the vault holds
-	assert_bool(ts.error_label.visible).is_true()
+	assert_bool(room.vault_transfer_screen.error_label.visible).is_true()
 	assert_int(ts.drawer_cash_cents()).is_equal(FLOAT)
 	send_to_vault(0)
-	assert_bool(ts.error_label.visible).is_true()
+	assert_bool(room.vault_transfer_screen.error_label.visible).is_true()
 	assert_int(VaultManager.expected_cents).is_equal(VaultReconciliationScreen.STARTING_VAULT_CENTS)
 
 func test_the_vaults_expected_total_follows_transfers() -> void:
@@ -166,16 +162,14 @@ func test_the_vaults_expected_total_follows_transfers() -> void:
 	bm.clock_in_button.pressed.emit()
 	while room.letter_screen.visible and room.letter_screen.action_button.text == "Acknowledge":
 		room.letter_screen.action_button.pressed.emit()
-	bm.vault_reconciliation_button.pressed.emit()
+	reconcile_vault()
 	var vault := bm.vault_reconciliation_screen
-	var count := CashDenominations.fewest_pieces(VaultManager.expected_cents)
-	for i in count.size():
-		vault.quantity_inputs[i].value = count[i]
-	vault.submit_button.pressed.emit()
 	assert_str(vault.result_expected_label.text).is_equal("Expected Balance: %s" % MoneyMath.format(VaultManager.expected_cents))
 	assert_str(vault.discrepancy_label.text).is_equal("Discrepancy: $0.00")
-	var last: DecisionRecord = HistoryManager.records[-1]
-	assert_str(last.description).contains("Vault reconciliation: Perfect")
+	var reconciled := false
+	for record in HistoryManager.records:
+		reconciled = reconciled or record.description.begins_with("Vault reconciliation: Perfect")
+	assert_bool(reconciled).is_true()
 
 func test_the_vault_total_is_saved_and_loaded() -> void:
 	clock_in()
@@ -243,7 +237,7 @@ func test_the_drawer_limit_hint_shows_once() -> void:
 	cash_deposit(100)
 	assert_bool(HintManager.has_shown(HintManager.Hint.DRAWER_LIMIT)).is_true()
 	assert_int(room.hud.current_hint).is_equal(HintManager.Hint.DRAWER_LIMIT)
-	assert_str(room.hud.hint_label.text).contains("Send to Vault")
+	assert_str(room.hud.hint_label.text).contains("vault door")
 	room.hud.dismiss_hint()
 	# Back under and over again: no second hint.
 	send_to_vault(500)
@@ -257,11 +251,10 @@ func test_the_drawer_panel_fits_beside_the_teller_and_id_panels() -> void:
 	get_tree().root.size = Vector2i(1152, 648)
 	clock_in()
 	cash_deposit(500)
+	send_to_vault(20)
 	spawn(ShiftTransaction.Type.WITHDRAWAL, 100)
 	open_desk()
 	check_id()
-	ts.transfer_input.value = 20
-	ts.send_to_vault_button.pressed.emit()
 	await frames(4)
 	assert_bool(ts.drawer_warning_label.visible).is_true()
 	assert_bool(ts.transfer_receipt_label.visible).is_true()
@@ -273,8 +266,9 @@ func test_the_drawer_panel_fits_beside_the_teller_and_id_panels() -> void:
 	assert_bool(drawer.intersects(ts.main_panel.get_global_rect())).is_false()
 	assert_bool(drawer.intersects(ts.id_card_panel.get_global_rect())).is_false()
 	# The low warning wraps longer.
-	ts.transfer_input.value = 2600
-	ts.send_to_vault_button.pressed.emit()
+	close_desk()
+	send_to_vault(2600)
+	open_desk()
 	await frames(2)
 	assert_str(ts.drawer_warning_label.text).is_equal(TellerScreen.DRAWER_LOW_TEXT)
 	assert_array(layout_problems(ts.drawer_panel)).is_empty()

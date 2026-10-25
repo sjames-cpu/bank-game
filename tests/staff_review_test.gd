@@ -221,15 +221,7 @@ func _bm_clock_in() -> void:
 	acknowledge_letters() # first-shift orientation
 
 func _bm_clock_out() -> void:
-	bm.vault_reconciliation_button.pressed.emit()
-	var vault: VaultReconciliationScreen = bm.vault_reconciliation_screen
-	var remaining := VaultManager.expected_cents
-	for i in VaultReconciliationScreen.DENOMINATION_CENTS.size():
-		var denom := VaultReconciliationScreen.DENOMINATION_CENTS[i]
-		vault.quantity_inputs[i].value = floori(float(remaining) / denom)
-		remaining -= floori(float(remaining) / denom) * denom
-	vault.submit_button.pressed.emit()
-	vault.close_button.pressed.emit()
+	reconcile_vault()
 	bm.clock_out_button.pressed.emit()
 
 func test_ignored_serious_items_are_penalised_at_clock_out() -> void:

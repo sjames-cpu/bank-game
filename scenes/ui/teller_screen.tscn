@@ -368,19 +368,11 @@ text = "Drawer over limit — send excess cash to the vault"
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="TransferSpinBox" type="SpinBox" parent="DrawerPanel/VBox"]
+[node name="VaultDoorLabel" type="Label" parent="DrawerPanel/VBox"]
 layout_mode = 2
-max_value = 999999.0
-prefix = "$"
-
-[node name="SendButton" type="Button" parent="DrawerPanel/VBox"]
-layout_mode = 2
-text = "Send to Vault"
-autowrap_mode = 2
-
-[node name="GetButton" type="Button" parent="DrawerPanel/VBox"]
-layout_mode = 2
-text = "Get Cash from Vault"
+theme_type_variation = &"MutedLabel"
+text = "Transfers: at the vault door, with a witness"
+horizontal_alignment = 1
 autowrap_mode = 2
 
 [node name="ReceiptLabel" type="Label" parent="DrawerPanel/VBox"]

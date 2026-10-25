@@ -140,6 +140,9 @@ const ABANDONMENT_SCORE_PENALTY: int = TellerScreen.CUSTOMER_REQUEST_WRONG_SCORE
 @onready var camera: RoomCamera = $Player/Camera2D
 @onready var room_layer: TileMapLayer = $Room
 @onready var exit_door: ExitDoor = $ExitDoor
+## Every vault action happens here, under dual control (vault_control).
+@onready var vault_door: VaultDoor = $VaultDoor
+@onready var vault_transfer_screen: VaultTransferScreen = $UI/VaultTransferScreen
 @onready var end_of_day_screen: EndOfDayScreen = $UI/EndOfDayScreen
 
 ## How long the "X is working this window" notice stays up.
@@ -195,6 +198,12 @@ var _customer_being_served: CustomerNPC = null
 ## _serve_current_customer()), so one visit can serve several people.
 var _customers_awaiting_farewell: Array[CustomerNPC] = []
 
+## Dual control at the vault door: calls a second staff member for every
+## vault action (see VaultDualControl).
+var vault_control: VaultDualControl
+## The waiting notice is up (shown and cleared in _update_vault_notice()).
+var _vault_notice_shown: bool = false
+
 func _ready() -> void:
 	# The camera stays inside the room, walls and sidewalk included.
 	camera.set_room_bounds(room_bounds())
@@ -233,6 +242,16 @@ func _ready() -> void:
 
 	atm.interacted.connect(_on_atm_interacted)
 	exit_door.interacted.connect(_on_exit_door_interacted)
+	vault_control = VaultDualControl.new()
+	vault_control.name = "VaultDualControl"
+	vault_control.room = self
+	add_child(vault_control)
+	vault_control.ready_to_open.connect(_on_vault_ready_to_open)
+	vault_control.witness_returned.connect(branch_manager_screen.note_staff_vault_time)
+	vault_door.interacted.connect(_on_vault_door_interacted)
+	vault_transfer_screen.teller_screen = teller_screen
+	vault_transfer_screen.closed.connect(vault_control.finish)
+	branch_manager_screen.vault_visit_closed.connect(vault_control.finish)
 	end_of_day_screen.go_home_confirmed.connect(_on_go_home_confirmed)
 	end_of_day_screen.next_day_requested.connect(_on_next_day_requested)
 	# Customers the staff serve count toward today's branch total; those who
@@ -262,6 +281,7 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_update_interaction_prompt()
+	_update_vault_notice()
 	_check_branch_opening()
 	_update_regional_visit()
 	_check_end_of_day()
@@ -434,6 +454,104 @@ func _on_shift_completed() -> void:
 func _on_staff_customer_served(_customer: CustomerNPC, _staff: StaffMember, _was_mistake: bool) -> void:
 	BusinessDay.note_customer_served_by_staff()
 
+# --- the vault door (dual control) ---------------------------------------------------
+
+## The vault door's prompt off shift, and its notice when pressed then.
+const VAULT_NEEDS_SHIFT_TEXT: String = "Vault — for a teller shift's transfers or the Branch Manager's reconciliation"
+const VAULT_RECONCILED_TEXT: String = "The vault is already reconciled this shift."
+## The vault door's prompt while the witness comes (%s = their name).
+const VAULT_WAITING_PROMPT: String = "Waiting for %s…"
+
+## The vault door: a teller on shift transfers cash, a Branch Manager on
+## shift reconciles the vault, each only once a second staff member has come
+## to the door (vault_control). Nothing happens off shift.
+func _on_vault_door_interacted() -> void:
+	if vault_transfer_screen.visible or vault_control.is_busy():
+		return
+	hud.show_hint_once(HintManager.Hint.VAULT_DOOR)
+	var purpose := VaultDualControl.Purpose.TRANSFER
+	if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
+		purpose = VaultDualControl.Purpose.TRANSFER
+	elif branch_manager_screen.is_clocked_in():
+		if branch_manager_screen.is_vault_reconciled():
+			_show_notice(VAULT_RECONCILED_TEXT)
+			return
+		purpose = VaultDualControl.Purpose.RECONCILIATION
+	else:
+		_show_notice(VAULT_NEEDS_SHIFT_TEXT)
+		return
+	var refused := vault_control.start(purpose)
+	if refused != "":
+		_show_notice(refused)
+
+## Both people are at the door. The waiting notice goes now: the vault
+## screen pauses the room, so _update_vault_notice() won't run to clear it.
+func _on_vault_ready_to_open(purpose: VaultDualControl.Purpose, witness_name: String) -> void:
+	desk_notice.visible = false
+	_vault_notice_shown = false
+	if purpose == VaultDualControl.Purpose.TRANSFER:
+		vault_transfer_screen.show_screen(witness_name)
+	else:
+		branch_manager_screen.open_vault_reconciliation(witness_name)
+
+## "Dual control: … Waiting for [Name]…" stays up while the witness comes.
+func _update_vault_notice() -> void:
+	if vault_control.is_waiting():
+		desk_notice_label.text = vault_control.waiting_text()
+		desk_notice.visible = true
+		_vault_notice_shown = true
+	elif _vault_notice_shown:
+		desk_notice.visible = false
+		_vault_notice_shown = false
+
+## Staff who could witness the vault: everyone placed at a desk, and the
+## cover teller, each with their teller window line (null at a loan desk).
+## VaultDualControl.choose_witness() applies the rules.
+func vault_witness_candidates() -> Array[Dictionary]:
+	var candidates: Array[Dictionary] = []
+	for slot_name: String in _staff_by_slot:
+		var npc: StaffNPC = _staff_by_slot[slot_name]
+		candidates.append({"npc": npc, "line": _line_for_slot(slot_name)})
+	if is_window_covered():
+		candidates.append({"npc": cover_npc, "line": window3_line})
+	return candidates
+
+func _line_for_slot(slot_name: String) -> NpcCustomerLine:
+	match slot_name:
+		ScheduleManager.SLOT_TELLER_WINDOW_1:
+			return window1_npc_line
+		ScheduleManager.SLOT_TELLER_WINDOW_2:
+			return window2_line
+		ScheduleManager.SLOT_TELLER_WINDOW_3:
+			return window3_line
+	return null
+
+## Where the witness stands, beside the player at the vault door.
+func vault_witness_spot() -> Vector2:
+	return (vault_door.get_node("VaultWitnessSpot") as Node2D).global_position
+
+## The vault room's door gap (column 3 of the back-office wall), and the
+## aisle behind the desks (the break-room route's DoorOutside row).
+const VAULT_GAP: Vector2 = Vector2(112, 232)
+
+## `npc`'s way to the vault door: from the break room out through its door,
+## or from a desk up to the aisle behind the desks; then along the aisle to
+## the vault's door gap and in. Straight lines between these stay clear of
+## the walls.
+func route_to_vault(npc: StaffNPC) -> Array[Vector2]:
+	var door_outside: Vector2 = (staff_break_area.get_node("DoorOutside") as Node2D).global_position
+	var door_inside: Vector2 = (staff_break_area.get_node("DoorInside") as Node2D).global_position
+	var route: Array[Vector2] = []
+	if npc.state == StaffNPC.State.ON_BREAK:
+		route.append(door_inside)
+		route.append(door_outside)
+	else:
+		route.append(Vector2(npc.global_position.x, door_outside.y))
+	route.append(Vector2(VAULT_GAP.x, door_outside.y))
+	route.append(VAULT_GAP)
+	route.append(vault_witness_spot())
+	return route
+
 ## The whole tiled area (the room and the sidewalk outside it), in world
 ## pixels: what the camera may show (RoomCamera).
 func room_bounds() -> Rect2:
@@ -445,7 +563,7 @@ func room_bounds() -> Rect2:
 
 ## The interactables the prompt covers, in the order ties are broken.
 func _interactables() -> Array[Interactable]:
-	return [teller_desk, loan_officer_desk, branch_manager_desk, atm, exit_door]
+	return [teller_desk, loan_officer_desk, branch_manager_desk, atm, exit_door, vault_door]
 
 ## The interactable the player is standing at (the nearest, if several), or
 ## null. A hidden desk (the Branch Manager desk before promotion) doesn't count.
@@ -496,6 +614,15 @@ func interaction_prompt_text(desk: Interactable) -> String:
 		return "%s — Go home (end Day %d)" % [key, BusinessDay.stats_day]
 	if desk == atm:
 		return "%s — Use ATM" % key
+	if desk == vault_door:
+		# The full "Dual control: …" line is the notice; the prompt stays short.
+		if vault_control.is_waiting():
+			return VAULT_WAITING_PROMPT % vault_control.witness.staff.staff_name
+		if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
+			return "%s — Vault transfer (dual control)" % key
+		if branch_manager_screen.is_clocked_in():
+			return "%s — Vault reconciliation (dual control)" % key
+		return VAULT_NEEDS_SHIFT_TEXT
 	return ""
 
 ## The HUD's shift line: "Off shift", or "On shift — " and where, with

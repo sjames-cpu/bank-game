@@ -35,6 +35,8 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/discipline_letter_screen.tscn" id="discipline_letter_screen_scene"]
 [ext_resource type="PackedScene" path="res://scenes/ui/end_of_day_screen.tscn" id="end_of_day_screen_scene"]
 [ext_resource type="Script" path="res://scripts/world/exit_door.gd" id="exit_door_script"]
+[ext_resource type="Script" path="res://scripts/world/vault_door.gd" id="vault_door_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/vault_transfer_screen.tscn" id="vault_transfer_screen_scene"]
 [ext_resource type="Script" path="res://scripts/world/npc_customer_line.gd" id="npc_customer_line_script"]
 [ext_resource type="Script" path="res://scripts/world/npc_loan_desk_worker.gd" id="npc_loan_desk_worker_script"]
 [ext_resource type="Theme" path="res://themes/banking_theme.tres" id="banking_theme"]
@@ -83,6 +85,9 @@ size = Vector2(48, 48)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_exit_door"]
 size = Vector2(64, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_vault_door"]
+size = Vector2(72, 44)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_footprint_10x8"]
 size = Vector2(10, 8)
@@ -271,6 +276,19 @@ script = ExtResource("exit_door_script")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ExitDoor"]
 position = Vector2(0, 24)
 shape = SubResource("RectangleShape2D_exit_door")
+
+[node name="VaultDoor" type="Area2D" parent="."]
+position = Vector2(112, 150)
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("vault_door_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="VaultDoor"]
+position = Vector2(0, 12)
+shape = SubResource("RectangleShape2D_vault_door")
+
+[node name="VaultWitnessSpot" type="Marker2D" parent="VaultDoor"]
+position = Vector2(-44, 14)
 
 [node name="ATM" type="Area2D" parent="."]
 y_sort_enabled = true
@@ -673,6 +691,9 @@ layout_mode = 3
 layout_mode = 3
 
 [node name="ATMScreen" parent="UI" instance=ExtResource("atm_screen_scene")]
+layout_mode = 3
+
+[node name="VaultTransferScreen" parent="UI" instance=ExtResource("vault_transfer_screen_scene")]
 layout_mode = 3
 
 [node name="DeskNotice" type="PanelContainer" parent="UI"]

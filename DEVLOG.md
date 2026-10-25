@@ -233,6 +233,14 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Consequences**: going over during a shift is a warning and a one-time hint; clocking out over the limit is a procedure mistake (−3 Score, one mistake toward reports). The shift summary shows transfers and any breach.
 - **Tests** that served four $500 deposits now send the excess to the vault before clocking out, as a careful teller would.
 
+## Session 27 — Oct 25, 2026: Dual control for the vault
+
+- **No vault action with one person**: the vault door (inside the Vault room, E) is where a teller on shift sends cash to the vault or gets cash from it, and where the Branch Manager reconciles it. Either way a second staff member is called to the door, and the vault opens only once both are there ("Dual control: the vault needs two people. Waiting for [Name]…"). The teller screen keeps the drawer total, limits and warnings, and points to the vault door; the Branch Manager's hub button does the same.
+- **Who comes**: an idle staff member first (a loan officer, someone in the break room, or a teller with nobody waiting), the nearest; otherwise the teller with the shortest line, after finishing their customer; never anyone already walking, nor a closed window's staff. With nobody available, "No one is free to witness the vault right now."
+- **Their window waits**: the line keeps its customers, unserved, while patience keeps running, so a long visit can cost customers. They walk back and carry on afterwards.
+- **Records**: receipts read "Sold $500 to the vault · witnessed by Walter Higgins", history entries name both people, and the Branch summary shows each staff member's time at the vault. A one-time hint explains dual control at the first visit.
+- **Accounting** is unchanged and exact: the drawer, its closing count and the vault's expected total move by the same transfers as before.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

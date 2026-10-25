@@ -138,15 +138,60 @@ func clock_in() -> void:
 
 ## What a careful teller does before clocking out: sends whatever the
 ## drawer holds over its limit to the vault (TellerScreen.DRAWER_MAX_CENTS),
-## so the clock-out isn't a drawer-limit mistake.
+## at the vault door, so the clock-out isn't a drawer-limit mistake.
 func send_excess_to_vault() -> void:
 	var excess := ts.drawer_cash_cents() - TellerScreen.DRAWER_MAX_CENTS
-	if excess <= 0:
-		return
-	open_desk()
-	ts.transfer_input.value = ceili(excess / 100.0)
-	ts.send_to_vault_button.pressed.emit()
-	close_desk()
+	if excess > 0:
+		vault_transfer(true, ceili(excess / 100.0))
+
+# --- the vault door (dual control) ---------------------------------------------
+
+## The player at the vault door presses the interact key; the witness's walk
+## is skipped (StaffNPC.finish_route()), so the vault opens at once when they
+## come straight away. Returns the witness (null if nobody came). A witness
+## still finishing a customer is left on their way (the phase stays FINISHING).
+func call_vault_witness() -> StaffNPC:
+	if ts.visible:
+		close_desk()
+	room.vault_door.player_in_range = true
+	room._on_vault_door_interacted()
+	var control := room.vault_control
+	control._process(0.0)
+	if control.phase == VaultDualControl.Phase.WALKING_IN:
+		control.witness.finish_route()
+	var witness := control.witness
+	control._process(0.0)
+	return witness
+
+## A teller's transfer at the vault door: `dollars` sent to the vault
+## (`send`) or got from it, then the vault closed and the witness walked back.
+func vault_transfer(send: bool, dollars: int) -> void:
+	var witness := call_vault_witness()
+	var vault := room.vault_transfer_screen
+	assert_bool(vault.visible).override_failure_message("the vault didn't open").is_true()
+	vault.amount_input.value = dollars
+	(vault.send_button if send else vault.get_button).pressed.emit()
+	vault.close_button.pressed.emit()
+	if is_instance_valid(witness):
+		witness.finish_route()
+
+## The Branch Manager's vault reconciliation at the vault door, counted
+## exactly, with the witness walked back; then back at the desk, the hub open.
+func reconcile_vault() -> void:
+	var bm := room.branch_manager_screen
+	if bm.visible:
+		bm.hide_screen()
+	var witness := call_vault_witness()
+	var vault := bm.vault_reconciliation_screen
+	assert_bool(vault.is_visible_in_tree()).override_failure_message("the vault didn't open").is_true()
+	var pieces := CashDenominations.fewest_pieces(VaultManager.expected_cents)
+	for i in pieces.size():
+		vault.quantity_inputs[i].value = pieces[i]
+	vault.submit_button.pressed.emit()
+	vault.close_button.pressed.emit()
+	if is_instance_valid(witness):
+		witness.finish_route()
+	bm.show_screen()
 
 ## Presses Clock Out and, if the gate lets it through, counts the drawer.
 ## Returns false (and leaves the shift running) when clock-out was blocked.

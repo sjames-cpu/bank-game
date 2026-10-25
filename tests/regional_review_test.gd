@@ -82,15 +82,7 @@ func bm_clock_in() -> void:
 
 ## A Perfect vault count, then clock-out and the summary closed.
 func bm_clock_out() -> void:
-	bm.vault_reconciliation_button.pressed.emit()
-	var vault := bm.vault_reconciliation_screen
-	var remaining := VaultManager.expected_cents
-	for i in VaultReconciliationScreen.DENOMINATION_CENTS.size():
-		var denom := VaultReconciliationScreen.DENOMINATION_CENTS[i]
-		vault.quantity_inputs[i].value = floori(float(remaining) / denom)
-		remaining -= floori(float(remaining) / denom) * denom
-	vault.submit_button.pressed.emit()
-	vault.close_button.pressed.emit()
+	reconcile_vault()
 	bm.clock_out_button.pressed.emit()
 	bm.shift_summary_done_button.pressed.emit()
 	bm.hide_screen()

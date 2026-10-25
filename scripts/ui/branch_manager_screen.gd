@@ -105,6 +105,18 @@ var _awaiting_vault_reconciliation_result: bool = false
 ## graded" read on _awaiting_vault_reconciliation_result.
 var _vault_reconciled_this_shift: bool = false
 
+## Dual control (VaultDualControl): the reconciliation opens at the vault
+## door, from teller_room.gd (open_vault_reconciliation()), once a witness
+## is there; this is who. Closing it closes this screen and emits
+## vault_visit_closed, so the witness walks back.
+var _vault_witness: String = ""
+var _vault_opened_at_door: bool = false
+signal vault_visit_closed
+
+## Game minutes staff spent away at the vault this shift, by name
+## (VaultDualControl.witness_returned): the Branch summary's last line.
+var shift_vault_minutes: Dictionary[String, float] = {}
+
 var actions_completed: int = 0
 var schedule_confirmed_this_shift: bool = false
 var shift_score_total: int = 0
@@ -184,6 +196,7 @@ func _begin_shift() -> void:
 	shift_start_time = GameClock.timestamp()
 	_awaiting_vault_reconciliation_result = false
 	_vault_reconciled_this_shift = false
+	shift_vault_minutes.clear()
 	actions_completed = 0
 	schedule_confirmed_this_shift = false
 	shift_score_total = 0
@@ -240,12 +253,35 @@ func _on_review_approvals_button_pressed() -> void:
 ## explicit check is the authoritative guard, the same "don't just trust
 ## the UI state" approach _on_teller_desk_interacted() etc. use in
 ## teller_room.gd.
+##
+## Under dual control the hub's button only points to the vault door (it's
+## disabled); the count itself opens there, with a witness
+## (open_vault_reconciliation()).
 func _on_vault_reconciliation_button_pressed() -> void:
-	if _vault_reconciled_this_shift:
+	if _vault_reconciled_this_shift or _vault_witness == "":
 		return
 	main_panel.visible = false
 	_awaiting_vault_reconciliation_result = true
 	vault_reconciliation_screen.show_screen()
+
+## Opens the vault count at the vault door, witnessed by `witness`
+## (teller_room.gd, once both are there). Once a shift, on shift only.
+func open_vault_reconciliation(witness: String) -> void:
+	if not is_clocked_in() or _vault_reconciled_this_shift or witness.strip_edges() == "":
+		return
+	_vault_witness = witness
+	_vault_opened_at_door = true
+	visible = true
+	get_tree().paused = true
+	shift_summary_panel.visible = false
+	_on_vault_reconciliation_button_pressed()
+
+## Staff time away at the vault (VaultDualControl.witness_returned), counted
+## while this shift is on.
+func note_staff_vault_time(staff_name: String, minutes: float) -> void:
+	if is_clocked_in():
+		var so_far: float = shift_vault_minutes.get(staff_name, 0.0)
+		shift_vault_minutes[staff_name] = so_far + minutes
 
 ## Shared by ApprovalsScreen's review_completed and this hub's own
 ## _on_vault_count_submitted() below — both hand it (score_delta,
@@ -288,7 +324,7 @@ func _on_vault_count_submitted(total_cents: int) -> void:
 	ReputationManager.add_reputation(reputation_delta)
 	XPManager.add_shift_xp(score)
 
-	HistoryManager.add_record(DecisionRecord.Role.BRANCH_MANAGER, "Vault reconciliation: %s (discrepancy %s)" % [result_label, MoneyMath.format(discrepancy_cents)], result_label)
+	HistoryManager.add_record(DecisionRecord.Role.BRANCH_MANAGER, "Vault reconciliation: %s (discrepancy %s) — dual control: you and %s" % [result_label, MoneyMath.format(discrepancy_cents), _vault_witness], result_label)
 	# The Regional Manager's review counts the days the vault was reconciled.
 	RegionalManager.note_vault_result(discrepancy_result)
 
@@ -343,7 +379,15 @@ func _vault_reputation_for_result(discrepancy_result: VaultReconciliationScreen.
 func _on_schedule_confirmed(_schedule: Dictionary) -> void:
 	schedule_confirmed_this_shift = true
 
+## The vault count opened at the vault door closes the whole screen (the
+## player is at the vault, not at their desk) and lets the witness go.
 func _on_sub_screen_closed() -> void:
+	if _vault_opened_at_door:
+		_vault_opened_at_door = false
+		_vault_witness = ""
+		hide_screen()
+		vault_visit_closed.emit()
+		return
 	_show_main_panel()
 
 ## Gated on work, not time: the shift only ends once the vault has been
@@ -378,7 +422,7 @@ func _prepare_shift_summary() -> void:
 	shift_reputation_label.text = "Reputation: %+d (now %d)" % [shift_reputation_total, ReputationManager.reputation]
 	shift_xp_label.text = "Shift XP: %+d" % shift_xp_total
 	shift_total_xp_label.text = "Total XP: %d" % XPManager.total_xp
-	shift_branch_label.text = branch_summary_text(shift_staff_records)
+	shift_branch_label.text = branch_summary_text(shift_staff_records) + vault_time_summary(shift_vault_minutes)
 	shift_staff_review_label.text = staff_review_summary_text(shift_review_stats, StaffReviewManager.queue.size())
 
 	shift_state = ShiftState.CLOCKED_OUT
@@ -386,6 +430,17 @@ func _prepare_shift_summary() -> void:
 	shift_summary_panel.visible = true
 	_update_shift_controls()
 	shift_clocked_out.emit()
+
+## The Branch section's last line: staff time away at the vault, e.g.
+## "At the vault: Walter Higgins 6 min" on a line of its own, or "" with
+## none.
+static func vault_time_summary(minutes_by_name: Dictionary[String, float]) -> String:
+	if minutes_by_name.is_empty():
+		return ""
+	var parts: PackedStringArray = []
+	for staff_name: String in minutes_by_name:
+		parts.append("%s %d min" % [staff_name, roundi(minutes_by_name[staff_name])])
+	return "\nAt the vault: %s" % ", ".join(parts)
 
 ## The summary's "Branch" section — report only, no points. One line per
 ## (desk, staff member) in desk order: customers served and mistakes for a
@@ -466,8 +521,11 @@ func _update_shift_controls() -> void:
 	hire_staff_button.disabled = not clocked_in
 	hire_staff_button.text = hire_button_text(vacancies)
 	review_approvals_button.disabled = not clocked_in
-	vault_reconciliation_button.disabled = not clocked_in or _vault_reconciled_this_shift
-	vault_reconciliation_button.text = "Vault Reconciliation (Done This Shift)" if _vault_reconciled_this_shift else "Vault Reconciliation"
+	vault_reconciliation_button.disabled = true
+	vault_reconciliation_button.text = "Vault Reconciliation (Done This Shift)" if _vault_reconciled_this_shift else VAULT_AT_DOOR_TEXT
+
+## The hub's (disabled) vault button until the count is done.
+const VAULT_AT_DOOR_TEXT: String = "Vault Reconciliation — at the vault door, with a witness"
 
 ## "Hire Staff — Teller Window 2, Loan Desk".
 static func hire_button_text(vacancies: Array[String]) -> String:

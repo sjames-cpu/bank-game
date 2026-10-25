@@ -8,7 +8,7 @@ extends Node
 ## has_seen_branch_orientation, and saved with it (see SaveGame).
 
 ## New hints go at the end: saves store them by value.
-enum Hint { ARRIVAL, FIRST_CUSTOMER, FIRST_CLOCK_OUT, LOAN_OFFICER_UNLOCKED, BRANCH_MANAGER_UNLOCKED, OPENING_HOURS, ID_CHECK, DRAWER_LIMIT }
+enum Hint { ARRIVAL, FIRST_CUSTOMER, FIRST_CLOCK_OUT, LOAN_OFFICER_UNLOCKED, BRANCH_MANAGER_UNLOCKED, OPENING_HOURS, ID_CHECK, DRAWER_LIMIT, VAULT_DOOR }
 
 ## Hint -> true once shown.
 var _shown: Dictionary = {}
@@ -59,5 +59,7 @@ func text_for(hint: Hint) -> String:
 		Hint.ID_CHECK:
 			return "Bank policy: ID for withdrawals and new accounts. Check ID first: name, photo, expiry. Anything wrong? Refuse Service."
 		Hint.DRAWER_LIMIT:
-			return "Drawer over its limit. Bank policy caps teller cash so less is at risk: use Send to Vault before you clock out."
+			return "Drawer over its limit. Bank policy caps teller cash so less is at risk: take the excess to the vault door before you clock out."
+		Hint.VAULT_DOOR:
+			return "Dual control: nobody opens the vault alone. A free coworker comes to witness; their window waits while they're here."
 	return ""

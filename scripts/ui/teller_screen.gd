@@ -76,17 +76,15 @@ class_name TellerScreen
 
 @onready var drawer_count_screen: DrawerCountScreen = $DrawerCountScreen
 
-## The drawer's cash, its limits and transfers with the vault, in a narrow
-## panel right of the main one (clear of the HUD column), shown with the
-## main panel while clocked in. Beside the main panel rather than in it, so
+## The drawer's cash, its limits and warnings, and the last vault transfer,
+## in a narrow panel right of the main one (clear of the HUD column), shown
+## with the main panel while clocked in. Transfers themselves happen at the
+## vault door (VaultTransferScreen), under dual control. Beside the main panel rather than in it, so
 ## the main panel keeps its height.
 @onready var drawer_panel: PanelContainer = $DrawerPanel
 @onready var drawer_cash_label: Label = $DrawerPanel/VBox/CashLabel
 @onready var drawer_limits_label: Label = $DrawerPanel/VBox/LimitsLabel
 @onready var drawer_warning_label: Label = $DrawerPanel/VBox/WarningLabel
-@onready var transfer_input: SpinBox = $DrawerPanel/VBox/TransferSpinBox
-@onready var send_to_vault_button: Button = $DrawerPanel/VBox/SendButton
-@onready var get_from_vault_button: Button = $DrawerPanel/VBox/GetButton
 @onready var transfer_receipt_label: Label = $DrawerPanel/VBox/ReceiptLabel
 
 ## Score/Reputation/XP/Reports and the low-reputation/role-unlocked
@@ -405,8 +403,6 @@ func _ready() -> void:
 	cancel_account_button.pressed.connect(_on_cancel_account_button_pressed)
 	complaint_later_button.pressed.connect(_on_complaint_later_button_pressed)
 	respond_complaint_button.pressed.connect(_on_respond_complaint_button_pressed)
-	send_to_vault_button.pressed.connect(_on_send_to_vault_pressed)
-	get_from_vault_button.pressed.connect(_on_get_from_vault_pressed)
 	drawer_limits_label.text = "Min %s · Max %s" % [MoneyMath.format(DRAWER_MIN_CENTS, true), MoneyMath.format(DRAWER_MAX_CENTS, true)]
 	check_id_button.pressed.connect(_on_check_id_button_pressed)
 	refuse_service_button.pressed.connect(_on_refuse_service_button_pressed)
@@ -1078,45 +1074,54 @@ func drawer_limit_warning() -> String:
 		return DRAWER_LOW_TEXT
 	return ""
 
-## Send to Vault: sells whole dollars of the drawer's cash to the vault.
-func _on_send_to_vault_pressed() -> void:
-	var cents := _transfer_amount_cents()
-	if cents <= 0:
-		return
+## The last transfer's receipt line, e.g. "Sold $500 to the vault ·
+## witnessed by Walter Higgins" (VaultTransferScreen shows it too).
+var last_transfer_receipt: String = ""
+
+## Send to Vault (VaultTransferScreen, at the vault door under dual
+## control): sells `cents` of the drawer's cash to the vault, witnessed by
+## `witness`. Returns "" when done, or why not.
+func send_to_vault(cents: int, witness: String) -> String:
+	var refused := _transfer_refusal(cents, witness)
+	if refused != "":
+		return refused
 	if cents > drawer_cash_cents():
-		_show_error("The drawer only holds %s." % MoneyMath.format(drawer_cash_cents()))
-		return
+		return "The drawer only holds %s." % MoneyMath.format(drawer_cash_cents())
 	VaultManager.receive_from_drawer(cents)
 	_sent_to_vault_cents += cents
-	_finish_transfer("Sold %s to the vault" % MoneyMath.format(cents, true))
+	_finish_transfer("Sold %s to the vault" % MoneyMath.format(cents, true), witness)
+	return ""
 
-## Get Cash from Vault: buys whole dollars of cash from the vault.
-func _on_get_from_vault_pressed() -> void:
-	var cents := _transfer_amount_cents()
-	if cents <= 0:
-		return
+## Get Cash from Vault: buys `cents` of cash from the vault, witnessed by
+## `witness`. Returns "" when done, or why not.
+func get_from_vault(cents: int, witness: String) -> String:
+	var refused := _transfer_refusal(cents, witness)
+	if refused != "":
+		return refused
 	if not VaultManager.pay_to_drawer(cents):
-		_show_error("The vault only holds %s." % MoneyMath.format(VaultManager.expected_cents))
-		return
+		return "The vault only holds %s." % MoneyMath.format(VaultManager.expected_cents)
 	_received_from_vault_cents += cents
-	_finish_transfer("Bought %s from the vault" % MoneyMath.format(cents, true))
+	_finish_transfer("Bought %s from the vault" % MoneyMath.format(cents, true), witness)
+	return ""
 
-## The transfer amount: whole dollars, as cents. Only on shift.
-func _transfer_amount_cents() -> int:
+## Transfers need a teller shift (there's a drawer), a witness (dual
+## control: never one person alone) and a whole-dollar amount.
+func _transfer_refusal(cents: int, witness: String) -> String:
 	if shift_state != ShiftState.CLOCKED_IN:
-		return 0
-	var cents := roundi(transfer_input.value) * 100
+		return "Vault transfers need a teller shift."
+	if witness.strip_edges() == "":
+		return VaultDualControl.NEEDS_TWO_TEXT
 	if cents <= 0:
-		_show_error("Enter a whole-dollar amount to transfer.")
-	return cents
+		return "Enter a whole-dollar amount to transfer."
+	return ""
 
-## Logged to history, with a receipt line on the drawer panel.
-func _finish_transfer(receipt: String) -> void:
-	error_label.visible = false
-	HistoryManager.add_record(DecisionRecord.Role.TELLER, receipt, "Vault transfer")
-	transfer_receipt_label.text = receipt
+## Logged to history with both people, with a receipt line on the drawer
+## panel (and on the vault screen).
+func _finish_transfer(action: String, witness: String) -> void:
+	last_transfer_receipt = "%s · witnessed by %s" % [action, witness]
+	HistoryManager.add_record(DecisionRecord.Role.TELLER, "%s — dual control: you and %s" % [action, witness], "Vault transfer")
+	transfer_receipt_label.text = last_transfer_receipt
 	transfer_receipt_label.visible = true
-	transfer_input.value = 0
 	_refresh_drawer()
 
 func _show_main_panel() -> void:

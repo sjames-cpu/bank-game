@@ -17,7 +17,8 @@ class_name StaffNPC
 
 signal route_finished
 
-enum State { AT_DESK, WALKING, ON_BREAK }
+## AT_VAULT: standing at the vault door as a witness (VaultDualControl).
+enum State { AT_DESK, WALKING, ON_BREAK, AT_VAULT }
 
 const ARRIVAL_DISTANCE: float = 4.0
 const SPEED: float = 110.0
@@ -85,6 +86,17 @@ func follow_route(points: Array[Vector2], end_state: State) -> void:
 	_route_end_state = end_state
 	waypoints_reached = 0
 	state = State.WALKING if not _route.is_empty() else end_state
+
+## The end of the current route, the end state and route_finished, at once
+## (tests use it instead of waiting for the walk).
+func finish_route() -> void:
+	if _route.is_empty():
+		return
+	global_position = _route[-1]
+	waypoints_reached += _route.size()
+	_route.clear()
+	state = _route_end_state
+	route_finished.emit()
 
 ## Jumps straight to a spot (initial placement, or when the room is built
 ## while the player is already clocked in at this desk).

@@ -47,6 +47,12 @@ signal wound_down
 var staff_npc: StaffNPC = null
 var active: bool = false
 
+## The staff member has been called to witness the vault (VaultDualControl):
+## they finish the customer at the window but start no new one. Their line
+## keeps its customers (and takes new ones), whose patience keeps running.
+## Cleared once they're back at the desk.
+var paused_for_vault: bool = false
+
 ## Seconds the most recent completed service actually took (unpaused time),
 ## including any mistake fix — kept for tuning service speed; nothing reads
 ## it yet.
@@ -181,7 +187,7 @@ func _process(delta: float) -> void:
 				_complete_service()
 		return
 
-	if not active or not is_instance_valid(staff_npc) or staff_npc.state != StaffNPC.State.AT_DESK:
+	if not active or paused_for_vault or not is_instance_valid(staff_npc) or staff_npc.state != StaffNPC.State.AT_DESK:
 		return
 	var front := get_front_customer()
 	if front != null and front.global_position.distance_to(queue_positions[0].global_position) <= CustomerNPC.ARRIVAL_DISTANCE:

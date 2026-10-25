@@ -82,7 +82,11 @@ func test_the_branch_manager_hub_and_summary_fit() -> void:
 	await assert_fits(bm.get_node("Panel") as Control)
 	staff_work_everywhere()
 	teller_mistake()
+	# Two staff members' time at the vault: the Branch section's last line.
+	bm.note_staff_vault_time("Walter Higgins", 6.0)
+	bm.note_staff_vault_time("Marcus Chen", 4.0)
 	bm._prepare_shift_summary()
+	assert_str(bm.shift_branch_label.text).ends_with("\nAt the vault: Walter Higgins 6 min, Marcus Chen 4 min")
 	var summary: Control = bm.get_node("ShiftSummaryPanel")
 	(bm.get_node("Panel") as Control).visible = false
 	summary.visible = true

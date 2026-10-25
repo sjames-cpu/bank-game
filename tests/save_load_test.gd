@@ -442,15 +442,7 @@ func test_promotion_orientation_and_branch_manager_clock_out_save() -> void:
 	acknowledge_letters()
 
 	SaveGame.delete()
-	bm.vault_reconciliation_button.pressed.emit()
-	var vault := bm.vault_reconciliation_screen
-	var remaining := VaultManager.expected_cents
-	for i in VaultReconciliationScreen.DENOMINATION_CENTS.size():
-		var denom := VaultReconciliationScreen.DENOMINATION_CENTS[i]
-		vault.quantity_inputs[i].value = floori(float(remaining) / denom)
-		remaining -= floori(float(remaining) / denom) * denom
-	vault.submit_button.pressed.emit()
-	vault.close_button.pressed.emit()
+	reconcile_vault()
 	assert_bool(SaveGame.exists()).is_false() # nothing saved mid-shift
 	bm.clock_out_button.pressed.emit()
 	assert_bool(bm.is_clocked_in()).is_false()
