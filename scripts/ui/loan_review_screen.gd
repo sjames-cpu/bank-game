@@ -2,8 +2,9 @@ extends Control
 class_name LoanReviewScreen
 
 ## Loan review task screen: an underwriting worksheet (HANDOFF.md Phase 3).
-## Pulls from LoanApplicationsData and cycles through the sample
-## applications in order. The left column shows the application; "Run
+## Works the player's pile of applications (LoanDeskManager: the first
+## shift's teaching cases, then generated applicants), first to last. The
+## left column shows the application, with the applicant's portrait; "Run
 ## Credit Check" fills in the worksheet on the right (monthly income,
 ## housing, existing debt payments, the new loan's payment at its purpose's
 ## term and rate, front-end and total DTI, credit score band, employment
@@ -29,8 +30,9 @@ class_name LoanReviewScreen
 ## *this* screen was the one that paused), like drawer_count_screen.gd.
 
 @onready var main_panel: PanelContainer = $Panel
-@onready var applicant_name_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ApplicantNameLabel
-@onready var requested_amount_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/RequestedAmountLabel
+@onready var applicant_portrait: TextureRect = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ApplicantHBox/ApplicantPortrait
+@onready var applicant_name_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ApplicantHBox/NameVBox/ApplicantNameLabel
+@onready var requested_amount_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ApplicantHBox/NameVBox/RequestedAmountLabel
 @onready var terms_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/TermsLabel
 @onready var credit_score_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/CreditScoreLabel
 @onready var annual_income_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/AnnualIncomeLabel
@@ -62,8 +64,6 @@ signal closed(was_decided: bool)
 ## Explanation lines under the worksheet's figures: smaller than body text.
 const EXPLANATION_FONT_SIZE: int = 12
 
-var applications: Array[LoanApplication] = []
-var _next_application_index: int = 0
 var _paused_by_self: bool = false
 var _current_application: LoanApplication = null
 
@@ -100,7 +100,6 @@ func _ready() -> void:
 		check.toggled.connect(_on_reason_toggled.bind(check))
 		reason_checks_vbox.add_child(check)
 		reason_checks.append(check)
-	applications = LoanApplicationsData.get_applications()
 
 func show_screen() -> void:
 	_display_next_application()
@@ -124,18 +123,12 @@ func hide_screen() -> void:
 func current_application() -> LoanApplication:
 	return _current_application
 
-## An application closed without a decision stays current — it's shown
-## again (from a fresh, un-credit-checked state) next time rather than
-## skipped, so only an actual Approve/Reject/Counter-Offer moves on to the
-## next applicant.
+## The first application in the player's pile (LoanDeskManager). One closed
+## without a decision stays first — it's shown again (from a fresh,
+## un-credit-checked state) next time rather than skipped, so only an actual
+## Approve/Reject/Counter-Offer moves on to the next applicant.
 func _display_next_application() -> void:
-	if applications.is_empty():
-		return
-
-	var application := _current_application
-	if application == null or _decision_made_for_current:
-		application = applications[_next_application_index]
-		_next_application_index = (_next_application_index + 1) % applications.size()
+	var application := LoanDeskManager.current_player_application()
 	_current_application = application
 	_decision_made_for_current = false
 
@@ -143,6 +136,7 @@ func _display_next_application() -> void:
 	# is current — see risk_assessment on LoanApplication.
 	application.risk_assessment = application.calculate_risk_assessment()
 
+	applicant_portrait.texture = CustomerNPC.portrait_of(clampi(application.applicant_look, 0, CustomerNPC.CUSTOMER_FRAME_SETS.size() - 1))
 	applicant_name_label.text = application.applicant_name
 	requested_amount_label.text = "Requested: %s %s loan" % [LoanApplication.dollars(application.requested_amount), application.loan_purpose.to_lower()]
 	terms_label.text = terms_text(application)
@@ -292,6 +286,8 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 	application.decision = decision_type
 	application.decision_amount = amount
 	_decision_made_for_current = true
+	# Off the pile; the next one joins it.
+	LoanDeskManager.player_decided(application)
 
 	var grade := application.grade_decision()
 	var score := LoanApplication.score_for_grade(grade)
@@ -318,7 +314,7 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 	if detail != "":
 		decision_status_label.text += "\n" + detail
 
-	HistoryManager.add_loan_record(
+	var record := HistoryManager.add_loan_record(
 		_history_description(decision_type, amount, reasons),
 		LoanApplication.grade_description(grade),
 		application.risk_assessment,
@@ -326,6 +322,7 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 		application.applicant_name,
 		amount,
 	)
+	record.nothing_affordable = application.nothing_affordable()
 
 	decision_graded.emit(score, reputation_delta, xp)
 

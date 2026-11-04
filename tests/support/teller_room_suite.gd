@@ -27,6 +27,8 @@ var cq: CustomerQueue
 
 func before_test() -> void:
 	seed(RNG_SEED)
+	# Each career's loan applicants come from a seed of its own (LoanDeskManager).
+	LoanDeskManager.seed_source.seed = RNG_SEED
 	use_test_save_path()
 	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
 	CareerReset.reset_all()

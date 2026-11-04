@@ -1,10 +1,11 @@
 extends RefCounted
 class_name LoanApplicationsData
 
-## Static provider for sample loan applications (Phase 4a). Kept separate
-## from LoanApplication (the data shape) so the actual application
-## content can grow independently of it, mirroring
-## InterviewQuestionsData.
+## Static provider for the hand-written sample loan applications (Phase 4a).
+## Kept separate from LoanApplication (the data shape), mirroring
+## InterviewQuestionsData. Since the generator (LoanApplicantGenerator) the
+## player sees three of them once, as the first shift's teaching cases
+## (teaching_cases()); the rest are reference cases for the tests.
 
 ## Three clearly safe, four borderline and three clearly risky applicants.
 ## Each row's comment gives its worksheet (the new payment at the purpose's
@@ -12,6 +13,12 @@ class_name LoanApplicationsData
 ## loan_application_test.gd checks every calculate_risk_assessment() matches
 ## risk_tier. Debt payments run about 2-3% of each balance a month.
 static func get_applications() -> Array[LoanApplication]:
+	var applications := _samples()
+	for i in applications.size():
+		applications[i].applicant_look = SAMPLE_LOOKS[i % SAMPLE_LOOKS.size()]
+	return applications
+
+static func _samples() -> Array[LoanApplication]:
 	return [
 		# Payment $297 · front 20.2% · total 26.0%. Very good credit, six years
 		# in the job: safe.
@@ -42,6 +49,28 @@ static func get_applications() -> Array[LoanApplication]:
 		# Payment $396 · front 25.5% · total 41.9%: affordable, but poor credit.
 		_application("Sophie Laurent", 20000.0, 555, 40000.0, 850.0, 5000.0, 150.0, 30, "Auto", LoanApplication.RiskTier.HIGH),
 	]
+
+## The player's first Loan Officer shift of a career (LoanDeskManager): one
+## of each tier, building from clear to borderline. Maria Chen is as safe as
+## an application gets (very good credit, 26% total DTI, six years in the
+## job); Marcus Webb is plainly risky on two counts (poor credit, and today's
+## payments already take 63% of income); Angela Reyes is the borderline one,
+## good on paper until the new car pushes total DTI past 43%, so the right
+## call is a counter-offer at the $12,100 the worksheet says she can carry.
+const TEACHING_CASE_NAMES: Array[String] = ["Maria Chen", "Marcus Webb", "Angela Reyes"]
+
+static func teaching_cases() -> Array[LoanApplication]:
+	var cases: Array[LoanApplication] = []
+	var samples := get_applications()
+	for applicant_name in TEACHING_CASE_NAMES:
+		for application in samples:
+			if application.applicant_name == applicant_name:
+				cases.append(application)
+	return cases
+
+## Portraits for the samples, in order (CustomerNPC.CUSTOMER_FRAME_SETS),
+## spread over the three designs and their recolours.
+const SAMPLE_LOOKS: Array[int] = [0, 4, 8, 1, 5, 9, 2, 6, 10, 3]
 
 static func _application(applicant_name: String, requested_amount: float, credit_score: int, annual_income: float, monthly_housing_payment: float, existing_debt: float, monthly_debt_payments: float, employment_months: int, loan_purpose: String, risk_tier: LoanApplication.RiskTier) -> LoanApplication:
 	var application := LoanApplication.new()

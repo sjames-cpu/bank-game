@@ -32,19 +32,30 @@ func acknowledge_letters() -> void:
 	while room.letter_screen.visible and room.letter_screen.action_button.text == "Acknowledge":
 		room.letter_screen.action_button.pressed.emit()
 
-## Clocks in at Loan Desk 1 and opens the application named `applicant_name`.
-func open_application(applicant_name: String) -> LoanApplication:
+func sample(applicant_name: String) -> LoanApplication:
+	for application in LoanApplicationsData.get_applications():
+		if application.applicant_name == applicant_name:
+			return application
+	return null
+
+func clock_in_at_loan_desk() -> void:
 	GameClock.minutes = 10 * 60.0
 	XPManager.is_loan_officer_unlocked = true
 	room._on_loan_officer_desk_interacted()
 	lo.clock_in_button.pressed.emit()
-	for i in review.applications.size():
-		if review.applications[i].applicant_name == applicant_name:
-			review._next_application_index = i
+
+## Puts `application` on top of the player's pile and opens it.
+func open_next(application: LoanApplication) -> LoanApplication:
+	LoanDeskManager.player_queue.push_front(application)
 	lo.review_next_button.pressed.emit()
 	assert_bool(review.visible).is_true()
-	assert_str(review.current_application().applicant_name).is_equal(applicant_name)
-	return review.current_application()
+	assert_object(review.current_application()).is_same(application)
+	return application
+
+## Clocks in at Loan Desk 1 and opens the sample named `applicant_name`.
+func open_application(applicant_name: String) -> LoanApplication:
+	clock_in_at_loan_desk()
+	return open_next(sample(applicant_name))
 
 func assert_fits() -> void:
 	await frames(4)
@@ -103,12 +114,16 @@ func test_a_home_loans_mortgage_replaces_the_rent_on_the_worksheet() -> void:
 	assert_str(text).contains("Total DTI: 36.6%")
 	await assert_fits()
 
-## Every applicant's worksheet, with the screen at its tallest (the denial
-## reasons open), and after a decision, fits the window.
+## Every sample's worksheet and a run of generated ones, with the screen at
+## its tallest (the denial reasons open), and after a decision, fits the
+## window.
 func test_every_applicants_worksheet_fits() -> void:
-	open_application("Maria Chen")
-	for i in review.applications.size():
-		var application := review.current_application()
+	clock_in_at_loan_desk()
+	var cases := LoanApplicationsData.get_applications()
+	for i in 20:
+		cases.append(LoanDeskManager.generate_application())
+	for application in cases:
+		open_next(application)
 		review.run_credit_check_button.pressed.emit()
 		assert_bool(review.run_credit_check_button.visible).is_false()
 		review.reject_button.pressed.emit()
@@ -122,7 +137,6 @@ func test_every_applicants_worksheet_fits() -> void:
 		assert_array(problems).override_failure_message("%s decided:\n%s" % [application.applicant_name, "\n".join(problems)]).is_empty()
 		review.close_button.pressed.emit()
 		lo.applications_reviewed = 0
-		lo.review_next_button.pressed.emit()
 
 # --- decisions through the screen -------------------------------------------------------
 
@@ -189,11 +203,9 @@ func test_a_counter_offer_shows_the_affordable_amount_and_is_graded_on_it() -> v
 	assert_str(review.decision_status_label.text).is_equal("Decision recorded: Counter-offered at $12,000\nCorrect call (+10 Score, +1 Reputation, +100 XP)\nAffordable at a healthy total DTI.")
 	await assert_fits()
 
-	# The next borderline applicant, countered for more than they can carry.
+	# Another borderline applicant, countered for more than they can carry.
 	review.close_button.pressed.emit()
-	lo.review_next_button.pressed.emit()
-	var jamal := review.current_application()
-	assert_str(jamal.applicant_name).is_equal("Jamal Green")
+	var jamal := open_next(sample("Jamal Green"))
 	review.run_credit_check_button.pressed.emit()
 	review.counter_offer_button.pressed.emit()
 	review.counter_offer_amount_spinbox.value = jamal.affordable_amount() + 5000.0
@@ -201,6 +213,63 @@ func test_a_counter_offer_shows_the_affordable_amount_and_is_graded_on_it() -> v
 	review.submit_counter_offer_button.pressed.emit()
 	assert_int((totals() - start).x).is_equal(LoanApplication.PARTIAL_CREDIT_SCORE)
 	assert_str(review.decision_status_label.text).ends_with("More than they can carry at a healthy total DTI.")
+
+## A borderline applicant stretched by their debts, with nothing affordable
+## to offer: Reject (for total DTI) is the correct call through the screen,
+## a counter-offer only reasonable; the history record carries it for the
+## Branch Manager's Approvals, and a skilled staff officer rejects too.
+func stretched_by_debts() -> LoanApplication:
+	var application := LoanApplication.new()
+	application.applicant_name = "Dana Hollis"
+	application.loan_purpose = "Personal"
+	application.requested_amount = 5000.0
+	application.credit_score = 650
+	application.annual_income = 60000.0
+	application.monthly_housing_payment = 1300.0
+	application.existing_debt = 20000.0
+	application.monthly_debt_payments = 600.0
+	application.employment_months = 60
+	application.risk_tier = LoanApplication.RiskTier.MEDIUM
+	return application
+
+func test_a_borderline_applicant_with_nothing_affordable_is_rejected_for_total_dti() -> void:
+	clock_in_at_loan_desk()
+	open_next(stretched_by_debts())
+	review.run_credit_check_button.pressed.emit()
+	assert_str(review.worksheet_text()).contains("Affordable at 36% total DTI: $0")
+	review.reject_button.pressed.emit()
+	tick([LoanApplication.DenialReason.TOTAL_DTI, LoanApplication.DenialReason.CREDIT_SCORE])
+	var start := totals()
+	review.submit_denial_button.pressed.emit()
+	var score := LoanApplication.BEST_DECISION_SCORE + 2 * LoanApplication.REASON_RIGHT_SCORE
+	assert_int((totals() - start).x).is_equal(score)
+	assert_str(review.decision_status_label.text).contains("Correct call")
+	var record: DecisionRecord = HistoryManager.records[-1]
+	assert_bool(record.nothing_affordable).is_true()
+	assert_int(LoanApplication.grade(LoanApplication.DecisionType.COUNTER_OFFER, record.risk_assessment, record.nothing_affordable)).is_equal(LoanApplication.Grade.PARTIAL)
+	review.close_button.pressed.emit()
+
+	# Countered instead: only reasonable, whatever the amount.
+	open_next(stretched_by_debts())
+	review.run_credit_check_button.pressed.emit()
+	review.counter_offer_button.pressed.emit()
+	review.counter_offer_amount_spinbox.value = 2000.0
+	start = totals()
+	review.submit_counter_offer_button.pressed.emit()
+	assert_int((totals() - start).x).is_equal(LoanApplication.PARTIAL_CREDIT_SCORE)
+	review.close_button.pressed.emit()
+
+	# A skilled staff officer rejects them, and that's correct.
+	var worker := room.get_node("LoanDeskWorker2") as NpcLoanDeskWorker
+	worker.staff_npc.staff.skill = 10
+	var decided: Array[LoanApplication] = []
+	var correct: Array[bool] = []
+	worker.decision_made.connect(func(application: LoanApplication, _s: StaffMember, right: bool) -> void:
+		decided.append(application)
+		correct.append(right))
+	worker.decide_next(stretched_by_debts())
+	assert_int(decided[0].decision).is_equal(LoanApplication.DecisionType.REJECT)
+	assert_array(correct).is_equal([true])
 
 # --- staff loan officers ----------------------------------------------------------------
 
@@ -218,8 +287,8 @@ func test_staff_still_decide_every_application_against_the_new_assessment() -> v
 	worker.decision_made.connect(func(application: LoanApplication, _s: StaffMember, _c: bool) -> void:
 		if application.decision == LoanApplication.DecisionType.COUNTER_OFFER:
 			counters[application.applicant_name] = application.decision_amount)
-	for i in LoanApplicationsData.get_applications().size():
-		worker.decide_next()
+	for application in LoanApplicationsData.get_applications():
+		worker.decide_next(application)
 	assert_array(results).not_contains([false])
 	assert_int(results.size()).is_equal(10)
 	assert_dict(counters).is_equal({"Priya Sharma": 4500.0, "Angela Reyes": 12100.0, "Jamal Green": 44200.0, "Noah Kim": 9900.0})
@@ -229,8 +298,8 @@ func test_staff_still_decide_every_application_against_the_new_assessment() -> v
 	# queue carrying the worksheet.
 	staff.skill = 0
 	results.clear()
-	for i in LoanApplicationsData.get_applications().size():
-		worker.decide_next()
+	for application in LoanApplicationsData.get_applications():
+		worker.decide_next(application)
 	assert_array(results).not_contains([true])
 	assert_int(StaffReviewManager.queue.size()).is_equal(10)
 	var angela: StaffReviewItem = StaffReviewManager.queue.filter(func(item: StaffReviewItem) -> bool: return item.applicant_name == "Angela Reyes")[0]

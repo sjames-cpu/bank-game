@@ -2,11 +2,12 @@ extends Resource
 class_name LoanApplication
 
 ## A loan application submitted for review, and the underwriting worksheet
-## built from it (HANDOFF.md Phase 3). risk_tier is pre-set sample-data
-## authoring context: the tier each sample applicant is meant to land on.
-## Grading (grade()/grade_decision() below) only ever reads risk_assessment,
-## never risk_tier; loan_application_test.gd checks the two agree for every
-## sample.
+## built from it (HANDOFF.md Phase 3). risk_tier is authoring context: the
+## tier each sample applicant is meant to land on, or the tier
+## LoanApplicantGenerator built a generated one for. Grading
+## (grade()/grade_decision() below) only ever reads risk_assessment, never
+## risk_tier; loan_application_test.gd and loan_generator_test.gd check the
+## two agree.
 ##
 ## The rules here are presented in game as bank policy, not as any law:
 ## the term and rate for each purpose, the DTI guide bands, the policy
@@ -94,6 +95,12 @@ const HOME_PAYMENT_SHARE_LIMIT: float = 0.28
 ## offer.
 const REASONABLE_COUNTER_SHARE: float = 0.5
 
+## A borderline (MEDIUM) applicant who can afford less than this share of
+## what they asked for has no counter-offer worth making: a loan a quarter
+## the size of the one they need doesn't meet the need. For them Reject is
+## the right call, a counter-offer only reasonable (see nothing_affordable()).
+const MIN_COUNTER_SHARE: float = 0.25
+
 const HOME_PURPOSE: String = "Home"
 
 ## Bank policy per loan purpose: term (months), annual rate and the most the
@@ -132,18 +139,24 @@ const PURPOSE_TERMS: Dictionary = {
 @export var employment_months: int = 0
 @export var loan_purpose: String = ""
 @export var risk_tier: RiskTier = RiskTier.MEDIUM
+## Index into CustomerNPC.CUSTOMER_FRAME_SETS: the applicant's portrait on the
+## review screen. Chosen apart from every financial value (fair lending: see
+## LoanApplicantGenerator); nothing graded ever reads it, or the name.
+@export var applicant_look: int = 0
 
 ## Computed from the worksheet by calculate_risk_assessment() (cached here
 ## the first time a screen runs the credit check math). Never shown to the
 ## player; grade_decision() grades the player's decision against this alone.
-var risk_assessment: RiskTier = RiskTier.MEDIUM
+## Exported (like the decision below) so a waiting application saves whole
+## (LoanDeskManager); it's worked out again when loaded.
+@export var risk_assessment: RiskTier = RiskTier.MEDIUM
 
 ## The decision (Phase 4d) — grade_decision() grades this against
 ## risk_assessment. decision_amount holds the approved/countered amount; for
 ## APPROVE it's always requested_amount, for REJECT it's unused (0.0), for
 ## COUNTER_OFFER it's whatever amount was proposed.
-var decision: DecisionType = DecisionType.NONE
-var decision_amount: float = 0.0
+@export var decision: DecisionType = DecisionType.NONE
+@export var decision_amount: float = 0.0
 
 # --- terms and payments ----------------------------------------------------------
 
@@ -242,6 +255,13 @@ func affordable_amount() -> float:
 func counter_offer_reference() -> float:
 	return minf(affordable_amount(), requested_amount)
 
+## A borderline applicant with no counter-offer worth making: MEDIUM risk,
+## and what they can afford at a healthy total DTI is under MIN_COUNTER_SHARE
+## of the request. Works the tier out itself, so it never depends on
+## risk_assessment having been set.
+func nothing_affordable() -> bool:
+	return calculate_risk_assessment() == RiskTier.MEDIUM and affordable_amount() < MIN_COUNTER_SHARE * requested_amount
+
 # --- the risk assessment ----------------------------------------------------------
 
 ## Standard FICO-style band label for a credit score. Purely descriptive
@@ -304,16 +324,19 @@ func calculate_risk_assessment() -> RiskTier:
 ##   within it).
 ## - EMPLOYMENT: under two years.
 ## - AMOUNT: over the policy maximum for the purpose.
+## A borderline applicant with nothing affordable (nothing_affordable()) is
+## denied for their payments: TOTAL_DTI, unless INCOME already says it.
 func weak_points() -> Array[DenialReason]:
 	var weak: Array[DenialReason] = []
 	var dti := total_dti()
-	if dti > STRETCHED_DTI:
+	var pushed_over := dti > STRETCHED_DTI and dti_before_loan() <= STRETCHED_DTI
+	var share_limit := HOME_PAYMENT_SHARE_LIMIT if replaces_housing() else NEW_PAYMENT_SHARE_LIMIT
+	var income := new_payment_share() > share_limit or pushed_over
+	if dti > STRETCHED_DTI or (nothing_affordable() and not income):
 		weak.append(DenialReason.TOTAL_DTI)
 	if credit_score < GOOD_CREDIT:
 		weak.append(DenialReason.CREDIT_SCORE)
-	var share_limit := HOME_PAYMENT_SHARE_LIMIT if replaces_housing() else NEW_PAYMENT_SHARE_LIMIT
-	var pushed_over := dti > STRETCHED_DTI and dti_before_loan() <= STRETCHED_DTI
-	if new_payment_share() > share_limit or pushed_over:
+	if income:
 		weak.append(DenialReason.INCOME)
 	if employment_months < STEADY_EMPLOYMENT_MONTHS:
 		weak.append(DenialReason.EMPLOYMENT)
@@ -330,7 +353,25 @@ func weak_points() -> Array[DenialReason]:
 func grade_decision() -> Grade:
 	if decision == DecisionType.COUNTER_OFFER:
 		return grade_counter_offer(decision_amount)
-	return grade(decision, risk_assessment)
+	return grade_type(decision)
+
+## `decision_type` graded by type against this application's risk_assessment
+## (and whether a borderline applicant has anything affordable): staff
+## decisions, where no amount is judged.
+func grade_type(decision_type: DecisionType) -> Grade:
+	return grade(decision_type, risk_assessment, nothing_affordable())
+
+## The right decision for this application, by type: Approve LOW, Reject
+## HIGH, Counter-Offer MEDIUM, except Reject for a borderline applicant with
+## nothing affordable.
+func correct_decision() -> DecisionType:
+	match risk_assessment:
+		RiskTier.LOW:
+			return DecisionType.APPROVE
+		RiskTier.MEDIUM:
+			return DecisionType.REJECT if nothing_affordable() else DecisionType.COUNTER_OFFER
+		_:
+			return DecisionType.REJECT
 
 ## Approve/Low, Reject/High, and Counter-Offer/Medium are each the
 ## "correct" call for that risk level and grade BEST. Approve/High is the
@@ -338,9 +379,18 @@ func grade_decision() -> Grade:
 ## a bad call in the other direction (an overly cautious pass on a safe
 ## loan) and grades BAD. Everything else — Counter-Offer on Low/High, or
 ## Approve/Reject on Medium — is a reasonable call that wasn't the optimal
-## one, and grades PARTIAL. By type only: used where no amount is judged
-## (staff decisions, the Branch Manager's overrides).
-static func grade(decision_type: DecisionType, risk_tier_param: RiskTier) -> Grade:
+## one, and grades PARTIAL. A borderline applicant with nothing affordable
+## (`nothing_affordable`, see nothing_affordable()) swaps two of those: no
+## counter-offer is worth making, so Reject is BEST and Counter-Offer
+## PARTIAL. By type only: used where no amount is judged (staff decisions,
+## the Branch Manager's overrides).
+static func grade(decision_type: DecisionType, risk_tier_param: RiskTier, nothing_affordable_param: bool = false) -> Grade:
+	if risk_tier_param == RiskTier.MEDIUM and nothing_affordable_param:
+		match decision_type:
+			DecisionType.REJECT:
+				return Grade.BEST
+			DecisionType.COUNTER_OFFER:
+				return Grade.PARTIAL
 	match decision_type:
 		DecisionType.APPROVE:
 			match risk_tier_param:
@@ -382,7 +432,9 @@ func is_reasonable_counter(amount: float) -> bool:
 	return amount < requested_amount and amount >= REASONABLE_COUNTER_SHARE * counter_offer_reference()
 
 ## A counter-offer, graded on its amount:
-## - MEDIUM (borderline): affordable and reasonable BEST, otherwise PARTIAL.
+## - MEDIUM (borderline): affordable and reasonable BEST, otherwise PARTIAL;
+##   always PARTIAL when nothing worth offering is affordable
+##   (nothing_affordable(): Reject is the right call there).
 ## - LOW: PARTIAL (they qualified for the full amount).
 ## - HIGH: an affordable amount PARTIAL; more than they can carry WORST (a
 ##   risky loan went through, just a smaller one).
@@ -390,6 +442,8 @@ func grade_counter_offer(amount: float) -> Grade:
 	var affordable := is_affordable_counter(amount)
 	match risk_assessment:
 		RiskTier.MEDIUM:
+			if nothing_affordable():
+				return Grade.PARTIAL
 			return Grade.BEST if affordable and is_reasonable_counter(amount) else Grade.PARTIAL
 		RiskTier.HIGH:
 			return Grade.PARTIAL if affordable else Grade.WORST

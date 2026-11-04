@@ -67,6 +67,9 @@ enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY, STAFF, DRAWER_VA
 @export var original_decision_type: LoanApplication.DecisionType = LoanApplication.DecisionType.NONE
 @export var applicant_name: String = ""
 @export var decision_amount: float = 0.0
+## A borderline applicant with no counter-offer worth making
+## (LoanApplication.nothing_affordable()): Approvals re-grades with it.
+@export var nothing_affordable: bool = false
 
 static func role_label(role_value: Role) -> String:
 	match role_value:

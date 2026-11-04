@@ -285,6 +285,15 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Fewer repeated hints**: the vault door hint is retired, and the ID and drawer hints now just point at where to act, since the training explains the policy.
 - F1 and F2 (debug builds) skip onboarding, then do what they always do.
 
+## Session 33 — Nov 4, 2026: Generated loan applicants (Loan Officer improvements, part 1 of 3)
+
+- **Applicants are generated** instead of cycling through the ten samples, so they don't repeat and the answers can't be learnt. Each gets a tier first (aiming for 40% low, 35% medium, 25% high risk), then a profile saying what makes it risky: fair or poor credit, a stretched DTI from the new loan or from today's debts, a short time in the job, a payment too big for the income, or an amount over the policy maximum. The figures are built to land there and checked with the real worksheet formula. About a third put one factor just inside a band edge. Measured over 1,000: 38.4% low, 37.1% medium, 24.5% high; among medium and high, total DTI is a weak point for 52%, credit 52%, income 40%, employment 20%, amount 7%, in 11 combinations. Tests confirmed by breaking them on purpose: skewing the tier weights fails the mix test, and letting the look shift the credit score fails both fair-lending tests.
+- **Nothing worth offering**: under the old grading, a medium-risk applicant whose worksheet leaves nothing affordable couldn't be graded "Correct" by any decision (a counter-offer had to be affordable). The samples never hit this; generated ones do. Now, when a borderline applicant can afford less than a quarter of their request, Reject is the correct call and a counter-offer of any amount only reasonable; the right reason is "Total DTI too high", or "Income too low for the amount" when the loan is what's too big. Staff officers and the Branch Manager's Approvals grade it the same way. About a quarter of generated medium applicants (99 of 371) are like this, mostly those stretched by their debts.
+- **Fair lending**: names and portraits come from a separate generator, after the finances, and nothing graded reads them. No age, sex, race, religion, national origin, marital status or the like is generated or stored. Tests check the finances don't change with the name, the tier mix is the same for every look and group of names, and grading ignores both.
+- **The first Loan Officer shift** of a career is three teaching cases from the samples, clear to borderline: Maria Chen (approve), Marcus Webb (reject), Angela Reyes (counter-offer). The review screen now shows the applicant's portrait.
+- **Staff loan desks** decide generated applicants too, and no name repeats within a business day.
+- **Saved**: the career's seed, the player's pile (the pending application and the queued ones) and today's names, so a loaded career shows the same applicants it would have.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

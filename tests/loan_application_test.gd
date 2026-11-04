@@ -175,6 +175,63 @@ func test_counter_offer_grading() -> void:
 	angela.decision_amount = 10000.0
 	assert_int(angela.grade_decision()).is_equal(Grade.BEST)
 
+# --- nothing worth counter-offering ----------------------------------------------------------
+
+## A borderline applicant whose payments already use up the healthy 36%:
+## fair credit (3 points), total DTI 41.3% (1 point), nothing affordable.
+func stretched_by_debts() -> LoanApplication:
+	return applicant("Personal", 5000.0, 650, 60000.0, 1300.0, 600.0, 60)
+
+## Borderline with a little room: today's payments 33% of income, so only
+## $7,500 of the $40,000 car is affordable (under a quarter).
+func little_room() -> LoanApplication:
+	return applicant("Auto", 40000.0, 760, 60000.0, 1200.0, 450.0, 60)
+
+func test_a_borderline_applicant_with_nothing_worth_offering_is_rejected() -> void:
+	var debts := stretched_by_debts()
+	assert_int(debts.risk_assessment).is_equal(Tier.MEDIUM)
+	assert_float(debts.affordable_amount()).is_equal(0.0)
+	assert_bool(debts.nothing_affordable()).is_true()
+	assert_int(debts.correct_decision()).is_equal(LoanApplication.DecisionType.REJECT)
+	# Reject is the right call; a counter-offer of any amount only reasonable.
+	assert_int(debts.grade_type(LoanApplication.DecisionType.REJECT)).is_equal(Grade.BEST)
+	assert_int(debts.grade_type(LoanApplication.DecisionType.COUNTER_OFFER)).is_equal(Grade.PARTIAL)
+	assert_int(debts.grade_type(LoanApplication.DecisionType.APPROVE)).is_equal(Grade.PARTIAL)
+	for amount: float in [100.0, 1000.0, 2500.0, 4900.0]:
+		assert_int(debts.grade_counter_offer(amount)).override_failure_message("$%.0f" % amount).is_equal(Grade.PARTIAL)
+	debts.decision = LoanApplication.DecisionType.REJECT
+	assert_int(debts.grade_decision()).is_equal(Grade.BEST)
+	# Total DTI is only 41%, but it's their payments that leave no room: the
+	# right reason is "Total DTI too high" (with the credit score).
+	assert_float(debts.total_dti()).is_less(LoanApplication.STRETCHED_DTI)
+	assert_array(debts.weak_points()).is_equal(reasons([Reason.TOTAL_DTI, Reason.CREDIT_SCORE]))
+	assert_int(debts.grade_denial_reasons(reasons([Reason.TOTAL_DTI]))["right"]).is_equal(1)
+
+	# When the loan is what's too big, "Income too low for the amount" says it.
+	var room := little_room()
+	assert_int(room.risk_assessment).is_equal(Tier.MEDIUM)
+	assert_float(room.affordable_amount()).is_equal(7500.0)
+	assert_bool(room.nothing_affordable()).is_true()
+	assert_array(room.weak_points()).is_equal(reasons([Reason.TOTAL_DTI, Reason.INCOME]))
+	assert_int(room.correct_decision()).is_equal(LoanApplication.DecisionType.REJECT)
+	assert_int(room.grade_counter_offer(7500.0)).is_equal(Grade.PARTIAL)
+
+	# The cutoff is a quarter of the request: at $30,000, $7,500 is enough.
+	var smaller := applicant("Auto", 30000.0, 760, 60000.0, 1200.0, 450.0, 60)
+	assert_int(smaller.risk_assessment).is_equal(Tier.MEDIUM)
+	assert_float(smaller.affordable_amount()).is_greater_equal(LoanApplication.MIN_COUNTER_SHARE * 30000.0)
+	assert_bool(smaller.nothing_affordable()).is_false()
+	assert_int(smaller.correct_decision()).is_equal(LoanApplication.DecisionType.COUNTER_OFFER)
+	assert_int(smaller.grade_counter_offer(7500.0)).is_equal(Grade.BEST)
+
+	# Only borderline applicants: a safe or risky one is graded as before.
+	assert_bool(sample("Marcus Webb").nothing_affordable()).is_false()
+	assert_int(LoanApplication.grade(LoanApplication.DecisionType.REJECT, Tier.HIGH, true)).is_equal(Grade.BEST)
+	assert_int(LoanApplication.grade(LoanApplication.DecisionType.COUNTER_OFFER, Tier.LOW, true)).is_equal(Grade.PARTIAL)
+	# Every sample still has a counter-offer worth making.
+	for application in LoanApplicationsData.get_applications():
+		assert_bool(application.nothing_affordable()).override_failure_message(application.applicant_name).is_false()
+
 # --- denial reasons ------------------------------------------------------------------------
 
 func test_each_samples_weak_points() -> void:

@@ -199,6 +199,7 @@ static func capture() -> Dictionary:
 		"hiring": HiringManager.save_data(),
 		"hints": HintManager.save_data(),
 		"onboarding": OnboardingManager.save_data(),
+		"loan_desk": LoanDeskManager.save_data(),
 		"clock": GameClock.save_data(),
 		"business_day": BusinessDay.save_data(),
 		"regional": RegionalManager.save_data(),
@@ -226,6 +227,8 @@ static func restore(career: Dictionary) -> void:
 	HiringManager.load_data(dict_of(career, "hiring"))
 	HintManager.load_data(dict_of(career, "hints"))
 	OnboardingManager.load_data(dict_of(career, "onboarding"))
+	# After XPManager: an older save's Loan Officer gets no teaching cases.
+	LoanDeskManager.load_data(dict_of(career, "loan_desk"))
 	GameClock.load_data(dict_of(career, "clock"))
 	# Today's totals are measured against the loaded career and clock.
 	BusinessDay.load_data(dict_of(career, "business_day"))
@@ -397,7 +400,8 @@ static func dicts_of(values: Array) -> Array[Dictionary]:
 
 # --- data resources --------------------------------------------------------------
 # Account, DecisionRecord, DisciplinaryReport, StaffReviewItem, StaffMember
-# (hired staff) and StaffCandidate are saved field by field from their
+# (hired staff), StaffCandidate and LoanApplication (the Loan Officer's pile)
+# are saved field by field from their
 # exported properties, so a field added to one of them is saved without
 # touching this file (enums are ints; int, float, bool, String,
 # PackedStringArray and PackedInt32Array fields are supported).

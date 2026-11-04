@@ -145,6 +145,12 @@ func build_full_career() -> void:
 	# Part-way through onboarding.
 	OnboardingManager.step = OnboardingManager.Step.LESSON_VAULT
 
+	# The loan desk: its own seed, past the first teaching case (one decided),
+	# a generated applicant queued behind the others, and today's names.
+	LoanDeskManager.career_seed = 987654321
+	LoanDeskManager.player_decided(LoanDeskManager.current_player_application())
+	LoanDeskManager.next_staff_application()
+
 	# Hiring: a hire, a vacancy's candidates part-way through their
 	# interviews, and a rejected vacancy.
 	var hire := StaffCandidate.new()
@@ -284,6 +290,12 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	var loaded_bag: Dictionary = loaded_bags[1]
 	assert_int(VaultManager.bag_problem(loaded_bag)).is_equal(VaultManager.BagProblem.SEAL_MISMATCH)
 	assert_array(RegionalManager.shipment_verdicts).is_equal([VaultManager.ShipmentVerdict.SERIOUS, VaultManager.ShipmentVerdict.CORRECT])
+	assert_int(LoanDeskManager.career_seed).is_equal(987654321)
+	assert_int(LoanDeskManager.generated_count).is_equal(2)
+	assert_int(LoanDeskManager.player_queue.size()).is_equal(3)
+	assert_str(LoanDeskManager.player_queue[0].applicant_name).is_equal("Marcus Webb")
+	assert_int(LoanDeskManager.player_queue[2].risk_assessment).is_equal(LoanDeskManager.player_queue[2].risk_tier)
+	assert_int(LoanDeskManager.names_today.size()).is_equal(3)
 
 ## Game time builds up from frame deltas, so it can be any float; a value
 ## the JSON parser can't read back exactly once made a CI round trip fail
@@ -310,7 +322,7 @@ func test_clock_driven_times_survive_the_save_exactly() -> void:
 func test_saved_resources_cover_every_exported_field() -> void:
 	# A field added to a saved resource must reach the file without changes
 	# to SaveGame: every exported property is written.
-	for resource: Resource in [Account.new(), DecisionRecord.new(), DisciplinaryReport.new(), StaffReviewItem.new(), StaffMember.new(), StaffCandidate.new()]:
+	for resource: Resource in [Account.new(), DecisionRecord.new(), DisciplinaryReport.new(), StaffReviewItem.new(), StaffMember.new(), StaffCandidate.new(), LoanApplication.new()]:
 		var saved := SaveGame.resource_to_dict(resource)
 		var script: Script = resource.get_script()
 		for property in resource.get_property_list():
@@ -561,15 +573,19 @@ func slot_file_text(slot: int) -> String:
 ## their own.
 func fresh_career_without_clock() -> Dictionary:
 	CareerReset.reset_all()
-	var fresh := SaveGame.capture()
-	for key: String in ["clock", "hints", "onboarding"]:
-		fresh.erase(key)
-	return fresh
+	return current_career_without_clock()
 
 func current_career_without_clock() -> Dictionary:
-	var career := SaveGame.capture()
+	var career := without_loan_seed(SaveGame.capture())
 	for key: String in ["clock", "hints", "onboarding"]:
 		career.erase(key)
+	return career
+
+## `career` without its loan desk seed: every new career draws its own
+## (LoanDeskManager), so two fresh careers differ only there.
+func without_loan_seed(career: Dictionary) -> Dictionary:
+	var loan_desk: Dictionary = career.get("loan_desk", {})
+	loan_desk.erase("career_seed")
 	return career
 
 ## Nothing of an earlier career (build_full_career()) or its room is left.
@@ -854,7 +870,7 @@ func test_unreadable_saves_are_reported() -> void:
 
 func test_mistyped_values_load_as_new_game_defaults() -> void:
 	CareerReset.reset_all()
-	var fresh := SaveGame.capture()
+	var fresh := without_loan_seed(SaveGame.capture())
 	SaveGame.restore({
 		"score": "lots",
 		"reputation": {"reputation": "high"},
@@ -870,7 +886,7 @@ func test_mistyped_values_load_as_new_game_defaults() -> void:
 	# A save without onboarding (from before it existed) counts it as done;
 	# everything else is a new game's.
 	assert_bool(OnboardingManager.is_complete()).is_true()
-	var loaded := SaveGame.capture()
+	var loaded := without_loan_seed(SaveGame.capture())
 	loaded.erase("onboarding")
 	fresh.erase("onboarding")
 	assert_dict(loaded).is_equal(fresh)

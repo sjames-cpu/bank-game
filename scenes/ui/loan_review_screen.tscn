@@ -60,14 +60,31 @@ theme_type_variation = &"SectionPanel"
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="ApplicantNameLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
+[node name="ApplicantHBox" type="HBoxContainer" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ApplicantPortrait" type="TextureRect" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ApplicantHBox"]
+texture_filter = 1
+custom_minimum_size = Vector2(32, 48)
+layout_mode = 2
+size_flags_vertical = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameVBox" type="VBoxContainer" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ApplicantHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/separation = 0
+
+[node name="ApplicantNameLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ApplicantHBox/NameVBox"]
 layout_mode = 2
 theme_type_variation = &"HeaderLabel"
 text = "Applicant Name"
-horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="RequestedAmountLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
+[node name="RequestedAmountLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ApplicantHBox/NameVBox"]
 layout_mode = 2
 text = "Requested: $0 loan"
 autowrap_mode = 2

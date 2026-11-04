@@ -195,8 +195,8 @@ func _resolve_override(override_decision_type: LoanApplication.DecisionType) -> 
 	if record == null:
 		return
 
-	var old_grade := LoanApplication.grade(record.original_decision_type, record.risk_assessment)
-	var new_grade := LoanApplication.grade(override_decision_type, record.risk_assessment)
+	var old_grade := LoanApplication.grade(record.original_decision_type, record.risk_assessment, record.nothing_affordable)
+	var new_grade := LoanApplication.grade(override_decision_type, record.risk_assessment, record.nothing_affordable)
 	var old_score := LoanApplication.score_for_grade(old_grade)
 	var new_score := LoanApplication.score_for_grade(new_grade)
 	var old_reputation := LoanApplication.reputation_for_grade(old_grade)
