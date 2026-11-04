@@ -26,6 +26,7 @@ static func reset_all() -> void:
 	HintManager.reset()
 	OnboardingManager.reset()
 	LoanDeskManager.reset()
+	LoanBookManager.reset()
 	GameClock.reset()
 	RegionalManager.reset()
 	# Last: today's totals start from the fresh career and clock.

@@ -80,18 +80,22 @@ const AREA_ABANDONED: String = "abandoned"
 const AREA_VACANCY: String = "vacancy"
 const AREA_HIRING: String = "hiring"
 const AREA_CASH: String = "cash"
+const AREA_LENDING: String = "lending"
 ## Cash management (15) was added with the armored truck; vault
-## reconciliation, unreviewed errors and fairness gave up 5 each.
+## reconciliation, unreviewed errors and fairness gave up 5 each. Lending
+## quality (10) was added with the loan book; vault reconciliation and
+## fairness gave up 5 each.
 const AREA_WEIGHTS: Dictionary[String, int] = {
-	AREA_VAULT: 20,
+	AREA_VAULT: 15,
 	AREA_IGNORED: 15,
-	AREA_UNFAIR: 20,
+	AREA_UNFAIR: 15,
 	AREA_EXCUSED: 10,
 	AREA_MISTAKES: 5,
 	AREA_ABANDONED: 5,
 	AREA_VACANCY: 5,
 	AREA_HIRING: 5,
 	AREA_CASH: 15,
+	AREA_LENDING: 10,
 }
 const AREA_NAMES: Dictionary[String, String] = {
 	AREA_VAULT: "Vault reconciliation",
@@ -103,6 +107,7 @@ const AREA_NAMES: Dictionary[String, String] = {
 	AREA_VACANCY: "Vacant desks",
 	AREA_HIRING: "Hiring",
 	AREA_CASH: "Cash management",
+	AREA_LENDING: "Lending quality",
 }
 
 ## Vault: each day of the window scores its best reconciliation that day.
@@ -190,6 +195,10 @@ var vacant_desk_minutes: float = 0.0
 var hire_verdicts: Array[int] = []
 ## VaultManager.ShipmentVerdict of each armored truck visit the manager handled.
 var shipment_verdicts: Array[int] = []
+## The branch's lending in the window (LoanBookManager.STAT_KEYS figures:
+## loans made and settled, defaults, losses, good applicants seen and turned
+## away), rated by LoanBookManager.rate().
+var lending: Dictionary = {}
 
 ## Where sample_vacancies() last looked at the clock (-1 day: not yet).
 var _sample_day: int = -1
@@ -228,6 +237,7 @@ func _clear_window() -> void:
 	vacant_desk_minutes = 0.0
 	hire_verdicts.clear()
 	shipment_verdicts.clear()
+	lending.clear()
 	_sample_day = -1
 
 # --- schedule ----------------------------------------------------------------------
@@ -329,6 +339,11 @@ func note_shipment(verdict: int) -> void:
 	if is_collecting() and SHIPMENT_SCORES.has(verdict):
 		shipment_verdicts.append(verdict)
 
+## The branch's lending (LoanBookManager._add()): `value` more of `key`.
+func note_lending(key: String, value: float) -> void:
+	if is_collecting():
+		lending[key] = LoanBookManager.stat(lending, key) + value
+
 ## Cash handed to (or taken from) an armored crew that wasn't scheduled: a
 ## critical breach of security policy, and a regional warning. A third one
 ## demotes at the End of Day, like a zero-Reputation warning.
@@ -412,6 +427,7 @@ func evaluate() -> Dictionary:
 		_vacancy_area(),
 		_hiring_area(),
 		_cash_area(),
+		_lending_area(),
 	]
 	var weighted := 0.0
 	var weights := 0
@@ -658,6 +674,29 @@ func _cash_area() -> Dictionary:
 		comment = "To improve: check every crew and every bag before you sign."
 	return _area(AREA_CASH, true, area_score, detail, comment)
 
+## The branch's loans in the window (LoanBookManager.rate()): defaults and
+## losses on loans settled, and good applicants turned away. Not rated when
+## nothing settled and no good applicant came.
+func _lending_area() -> Dictionary:
+	var rating := LoanBookManager.rate(lending)
+	var settled := roundi(LoanBookManager.stat(lending, "on_time") + LoanBookManager.stat(lending, "late") + LoanBookManager.stat(lending, "defaulted"))
+	var defaulted := roundi(LoanBookManager.stat(lending, "defaulted"))
+	var turned := roundi(LoanBookManager.stat(lending, "turned_away"))
+	var good := roundi(LoanBookManager.stat(lending, "good_seen"))
+	if not rating["rated"]:
+		return _area(AREA_LENDING, false, 0.0, "No loans settled and no good applicants came.", "")
+	var detail := "%d loan%s settled, %d defaulted (%s written off); %d of %d good applicants turned away." % [
+		settled, "" if settled == 1 else "s", defaulted, LoanApplication.dollars(LoanBookManager.stat(lending, "losses")), turned, good,
+	]
+	var defaults: float = rating["defaults"]
+	var comment := "Well done: sound loans, repaid, and good applicants served."
+	if defaults >= 0.0 and defaults < LoanBookManager.SOUND_MIN:
+		comment = "To improve: too many defaults; have your loan officers check DTI, credit and documents."
+	elif turned > 0:
+		comment = "To improve: good applicants were turned away; that's business lost to other banks."
+	var area_score: float = rating["score"]
+	return _area(AREA_LENDING, true, area_score, detail, comment)
+
 # --- letters -----------------------------------------------------------------------------
 
 ## The review letter's title and body for run_review()'s result.
@@ -756,6 +795,7 @@ func save_data() -> Dictionary:
 			"vacant_desk_minutes": SaveGame.time_for_save(vacant_desk_minutes),
 			"hire_verdicts": hire_verdicts.duplicate(),
 			"shipment_verdicts": shipment_verdicts.duplicate(),
+			"lending": lending.duplicate(),
 		},
 	}
 
@@ -798,3 +838,7 @@ func load_data(data: Dictionary) -> void:
 	for verdict in SaveGame.ints_of(SaveGame.array_of(window, "shipment_verdicts")):
 		if SHIPMENT_SCORES.has(verdict):
 			shipment_verdicts.append(verdict)
+	var saved_lending := SaveGame.dict_of(window, "lending")
+	for key in LoanBookManager.STAT_KEYS:
+		if saved_lending.has(key):
+			lending[key] = maxf(0.0, SaveGame.float_of(saved_lending, key, 0.0))

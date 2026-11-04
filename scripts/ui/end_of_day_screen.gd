@@ -22,8 +22,13 @@ signal next_day_requested
 
 @onready var summary_panel: PanelContainer = $SummaryPanel
 @onready var summary_title_label: Label = $SummaryPanel/VBox/TitleLabel
-@onready var summary_label: Label = $SummaryPanel/VBox/SummaryLabel
+@onready var summary_scroll: ScrollContainer = $SummaryPanel/VBox/SummaryScroll
+@onready var summary_label: Label = $SummaryPanel/VBox/SummaryScroll/SummaryLabel
 @onready var next_day_button: Button = $SummaryPanel/VBox/NextDayButton
+
+## The summary keeps this far from the 648 px design window's top and bottom
+## edges; a longer summary scrolls (_fit_summary()).
+const WINDOW_MARGIN: float = 16.0
 
 var _paused_by_self: bool = false
 ## The closed days still to show before the next day (show_summary()).
@@ -31,14 +36,31 @@ var _closures: Array[Dictionary] = []
 var _closure_shown: bool = false
 var _next_day: int = 0
 
-## At most this many after-cutoff transactions are listed by line.
+## At most this many after-cutoff transactions are listed by line, and fewer
+## on a day with loan events to show too, so the summary fits the window.
 const MAX_CUTOFF_LINES: int = 6
+const MAX_CUTOFF_LINES_WITH_LOANS: int = 3
 
 func _ready() -> void:
 	visible = false
 	go_home_button.pressed.connect(_on_go_home_pressed)
 	stay_button.pressed.connect(close)
 	next_day_button.pressed.connect(_on_next_day_pressed)
+	# The text's wrapped height is only known once it has its width.
+	summary_label.resized.connect(_fit_summary)
+	summary_label.minimum_size_changed.connect(_fit_summary)
+
+## The summary text's area: as tall as the text, but never so tall that the
+## panel leaves the window (WINDOW_MARGIN to spare at the 648 px design
+## height); a longer summary scrolls inside it.
+func _fit_summary() -> void:
+	var text_height := summary_label.get_minimum_size().y
+	var without_text := summary_panel.get_combined_minimum_size().y - summary_scroll.custom_minimum_size.y
+	var design_height: int = ProjectSettings.get_setting("display/window/size/viewport_height", 648)
+	var room := design_height - 2.0 * WINDOW_MARGIN - without_text
+	var height := clampf(text_height, 0.0, maxf(room, 0.0))
+	if not is_equal_approx(summary_scroll.custom_minimum_size.y, height):
+		summary_scroll.custom_minimum_size.y = height
 
 ## The summary, or the closure notice that follows it in the same panel.
 func is_summary_shown() -> bool:
@@ -77,9 +99,13 @@ static func summary_text(figures: Dictionary) -> String:
 	var vault: Dictionary = figures.get("vault", {})
 	if not vault.is_empty():
 		text += "\n\n" + vault_text(vault)
+	# Today's notable loan events (LoanBookManager.summary_lines()).
+	var loans: PackedStringArray = figures.get("loans", PackedStringArray())
+	if not loans.is_empty():
+		text += "\n\nLoans: " + "\n".join(loans)
 	var after_cutoff: Array = figures["after_cutoff"]
 	if not after_cutoff.is_empty():
-		text += "\n\n" + cutoff_text(after_cutoff)
+		text += "\n\n" + cutoff_text(after_cutoff, MAX_CUTOFF_LINES if loans.is_empty() else MAX_CUTOFF_LINES_WITH_LOANS)
 	return text
 
 ## The vault's day (VaultManager.close_day()): what moved, where it stands
@@ -116,16 +142,16 @@ static func vault_text(vault: Dictionary) -> String:
 	return "\n".join(lines)
 
 ## "After the 2:00 PM cutoff, posting Tue 6 Jan: 2" and a line each.
-static func cutoff_text(after_cutoff: Array) -> String:
+static func cutoff_text(after_cutoff: Array, max_lines: int = MAX_CUTOFF_LINES) -> String:
 	var first: Dictionary = after_cutoff[0]
 	var posting_day: int = first["posting_day"]
 	var lines: Array[String] = ["After the 2:00 PM cutoff, posting %s: %d" % [BankCalendar.short_text(GameClock.date_of_day(posting_day)), after_cutoff.size()]]
-	for i in mini(after_cutoff.size(), MAX_CUTOFF_LINES):
+	for i in mini(after_cutoff.size(), max_lines):
 		var entry: Dictionary = after_cutoff[i]
 		var amount_cents: int = entry["amount_cents"]
 		lines.append("%s %s %s — %s" % [entry["time"], entry["type"], MoneyMath.format(amount_cents), entry["account"]])
-	if after_cutoff.size() > MAX_CUTOFF_LINES:
-		lines.append("… and %d more" % (after_cutoff.size() - MAX_CUTOFF_LINES))
+	if after_cutoff.size() > max_lines:
+		lines.append("… and %d more" % (after_cutoff.size() - max_lines))
 	return "\n".join(lines)
 
 ## "Weekend — the branch is closed", the closed dates, and when it reopens.

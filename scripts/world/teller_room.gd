@@ -417,6 +417,9 @@ func _check_end_of_day() -> void:
 func show_end_of_day() -> void:
 	armored_visit.settle_day()
 	VaultManager.close_day(BusinessDay.stats_day, BusinessDay.staff_net_cash_cents, XPManager.is_branch_manager_unlocked)
+	# The loans' day (once): payments late, caught up or defaulted, and the
+	# portfolio report when one is due (its letter queues before the summary).
+	LoanBookManager.close_day(BusinessDay.stats_day)
 	end_regional_visit()
 	if RegionalManager.demote_if_due():
 		save_career()
@@ -427,8 +430,12 @@ func show_end_of_day() -> void:
 		save_career()
 		if letter_screen.visible:
 			return
+	if letter_screen.visible:
+		save_career()
+		return
 	var figures := BusinessDay.summary()
 	figures["vault"] = VaultManager.last_close
+	figures["loans"] = LoanBookManager.summary_lines(XPManager.is_branch_manager_unlocked)
 	end_of_day_screen.show_summary(figures, BusinessDay.closures_before_next_day())
 	save_career()
 

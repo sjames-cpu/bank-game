@@ -93,11 +93,16 @@ func _ready() -> void:
 	RegionalManager.demoted.connect(_on_demoted)
 	RegionalManager.zero_reputation_warning.connect(_on_zero_reputation_warning)
 	RegionalManager.security_warning.connect(_on_security_warning)
+	LoanBookManager.portfolio_reported.connect(_on_portfolio_reported)
 
 ## The Regional Manager's review of the Branch Manager (RegionalManager), at
 ## a review day's End of Day: the rating, each area and the outcome.
 func _on_regional_review_completed(result: Dictionary) -> void:
 	_enqueue(Mode.NOTICE, RegionalManager.review_title(result), RegionalManager.review_body(result), RegionalManager.SENDER)
+
+## The Loan Portfolio Report (LoanBookManager), every 20 business days.
+func _on_portfolio_reported(result: Dictionary) -> void:
+	_enqueue(Mode.NOTICE, LoanBookManager.report_title(result), LoanBookManager.report_body(result), LoanBookManager.SENDER)
 
 ## Reputation fell to 0 while Branch Manager.
 func _on_zero_reputation_warning(warnings_now: int) -> void:

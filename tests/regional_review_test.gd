@@ -204,14 +204,14 @@ func test_a_neglected_week_of_going_home_early_is_unsatisfactory() -> void:
 		await go_home_and_start_next_day()
 	assert_int(reviews.size()).is_equal(1)
 	var result := reviews[0]
-	# Vault 0 (20%), serious errors 2 unreviewed = 50 (15%), vacancies 100
-	# (5%); nothing else to rate (no truck visits, the vault in range): (0 +
-	# 750 + 500) / 40 = 31.25.
+	# Vault 0 (15%), serious errors 2 unreviewed = 50 (15%), vacancies 100
+	# (5%); nothing else to rate (no truck visits, the vault in range, no
+	# loans settled): (0 + 750 + 500) / 35 = 35.71.
 	assert_float(area_of(result, RegionalManager.AREA_VAULT)["score"]).is_equal(0.0)
 	assert_str(area_of(result, RegionalManager.AREA_VAULT)["detail"]).is_equal("Reconciled on 0 of 5 days; 5 days with no count.")
 	assert_float(area_of(result, RegionalManager.AREA_IGNORED)["score"]).is_equal(50.0)
 	assert_bool(area_of(result, RegionalManager.AREA_UNFAIR)["rated"]).is_false()
-	assert_float(result["score"]).is_equal_approx(31.25, 0.01)
+	assert_float(result["score"]).is_equal_approx(1250.0 / 35.0, 0.01)
 	assert_bool(area_of(result, RegionalManager.AREA_CASH)["rated"]).is_false()
 	assert_int(result["rating"]).is_equal(Rating.UNSATISFACTORY)
 	assert_int(result["reputation_change"]).is_equal(RegionalManager.UNSATISFACTORY_REPUTATION)
@@ -231,8 +231,8 @@ func test_a_week_of_unfair_reports_needs_improvement() -> void:
 	var unfair := area_of(result, RegionalManager.AREA_UNFAIR)
 	assert_str(unfair["detail"]).is_equal("8 reviews, 3 unfair reports.")
 	assert_float(unfair["score"]).is_equal(0.0)
-	# Everything else perfect: (100 x 60 + 0 x 20) / 80 = 75.
-	assert_float(result["score"]).is_equal_approx(6000.0 / 80.0, 0.01)
+	# Everything else perfect: (100 x 55 + 0 x 15) / 70 = 78.6.
+	assert_float(result["score"]).is_equal_approx(5500.0 / 70.0, 0.01)
 	assert_int(result["rating"]).is_equal(Rating.NEEDS_IMPROVEMENT)
 	assert_int(RegionalManager.warnings).is_equal(1)
 
@@ -259,6 +259,13 @@ func test_each_area_follows_its_weights() -> void:
 	VaultManager.out_of_range_days.append(RegionalManager.window_first_day + 1)
 	VaultManager.out_of_range_days.append(RegionalManager.window_first_day + RegionalManager.REVIEW_INTERVAL_DAYS) # after the window
 	RegionalManager.shipment_verdicts.assign([VaultManager.ShipmentVerdict.CORRECT, VaultManager.ShipmentVerdict.SERIOUS])
+	# Lending: 10 loans settled, 1 defaulted (10%: 88.2), $8,000 lost of
+	# $200,000 (4%: 100), 1 of 5 good applicants turned away (20%: 33.3):
+	# the average 73.9, capped at the weakest part + 10: 43.3.
+	for pair: Array in [["on_time", 9.0], ["defaulted", 1.0], ["losses", 8000.0], ["settled_amount", 200000.0], ["good_seen", 5.0], ["turned_away", 1.0]]:
+		var key: String = pair[0]
+		var value: float = pair[1]
+		RegionalManager.note_lending(key, value)
 	var result := RegionalManager.evaluate()
 	var expected: Dictionary[String, float] = {
 		RegionalManager.AREA_VAULT: (70.0 + 100.0) / 5.0,
@@ -270,6 +277,7 @@ func test_each_area_follows_its_weights() -> void:
 		RegionalManager.AREA_VACANCY: 90.0,
 		RegionalManager.AREA_HIRING: 60.0,
 		RegionalManager.AREA_CASH: 70.0,
+		RegionalManager.AREA_LENDING: 100.0 / 3.0 + LoanBookManager.WEAKEST_PART_MARGIN,
 	}
 	var weighted := 0.0
 	for key: String in expected:
@@ -381,9 +389,10 @@ func test_the_review_letter_breaks_down_each_area() -> void:
 	eod.go_home_button.pressed.emit()
 	var body := letters.body_label.text
 	assert_str(body).contains("This is your review for your last 5 days as Branch Manager (Days 2-6).")
-	# Vault 0 (20%) and vacancies 100 (5%): 500 / 25 = 20.
-	assert_str(body).contains("Rating: Unsatisfactory (20 / 100)")
-	assert_str(body).contains("Vault reconciliation — 0/100 (weight 20%)")
+	# Vault 0 (15%) and vacancies 100 (5%): 500 / 20 = 25.
+	assert_str(body).contains("Rating: Unsatisfactory (25 / 100)")
+	assert_str(body).contains("Vault reconciliation — 0/100 (weight 15%)")
+	assert_str(body).contains("Lending quality — not rated")
 	assert_str(body).contains("Cash management — not rated")
 	assert_str(body).contains("To improve: reconcile the vault every day, even on a short one.")
 	assert_str(body).contains("Vacant desks — 100/100 (weight 5%)")

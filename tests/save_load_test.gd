@@ -158,6 +158,19 @@ func build_full_career() -> void:
 	# The next teaching case on the desk, with its documents.
 	LoanDeskManager.current_player_application()
 
+	# The loan book: the player's loan on documents that didn't check out (late
+	# already), a staff member's, the period's figures and today's events.
+	var late_loan := LoanBookManager.book_loan("Kira Ibarra", "Auto", 18500.0, LoanApplication.RiskTier.MEDIUM, false, true, "You")
+	late_loan.stage = BookedLoan.Stage.LATE_REPORTED
+	LoanBookManager.book_loan("Tom Walsh", "Home", 250000.0, LoanApplication.RiskTier.LOW, true, false, "Priya Anand")
+	LoanBookManager.period_first_day = 2
+	LoanBookManager.last_closed_day = 2
+	var player_stats: Dictionary = LoanBookManager.period_stats[LoanBookManager.PLAYER]
+	player_stats["turned_away"] = 1.0
+	player_stats["turned_away_amount"] = 12500.0
+	player_stats["losses"] = 7400.5
+	LoanBookManager.today_events.append({"text": "Kira Ibarra's auto loan: payment 30 days late", "by_player": true})
+
 	# Hiring: a hire, a vacancy's candidates part-way through their
 	# interviews, and a rejected vacancy.
 	var hire := StaffCandidate.new()
@@ -315,6 +328,18 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_bool(loaded_loan.documents_problem).is_true()
 	assert_bool(loaded_loan.nothing_affordable).is_true()
 	assert_bool(StaffReviewManager.queue[1].docs_missed).is_true()
+	assert_int(LoanBookManager.book.size()).is_equal(2)
+	assert_str(LoanBookManager.book[0].borrower).is_equal("Kira Ibarra")
+	assert_bool(LoanBookManager.book[0].documents_ok).is_false()
+	assert_int(LoanBookManager.book[0].stage).is_equal(BookedLoan.Stage.LATE_REPORTED)
+	assert_str(LoanBookManager.book[1].made_by).is_equal("Priya Anand")
+	assert_int(LoanBookManager.next_loan_id).is_equal(3)
+	assert_int(LoanBookManager.period_first_day).is_equal(2)
+	var loaded_player: Dictionary = LoanBookManager.period_stats[LoanBookManager.PLAYER]
+	var loaded_branch: Dictionary = LoanBookManager.period_stats[LoanBookManager.BRANCH]
+	assert_float(LoanBookManager.stat(loaded_player, "losses")).is_equal(7400.5)
+	assert_float(LoanBookManager.stat(loaded_branch, "lent")).is_equal(268500.0)
+	assert_int(LoanBookManager.today_events.size()).is_equal(1)
 	assert_str(StaffReviewManager.queue[1].docs_problem_text).is_equal("there was no bank statement")
 
 ## Game time builds up from frame deltas, so it can be any float; a value
@@ -342,7 +367,7 @@ func test_clock_driven_times_survive_the_save_exactly() -> void:
 func test_saved_resources_cover_every_exported_field() -> void:
 	# A field added to a saved resource must reach the file without changes
 	# to SaveGame: every exported property is written.
-	for resource: Resource in [Account.new(), DecisionRecord.new(), DisciplinaryReport.new(), StaffReviewItem.new(), StaffMember.new(), StaffCandidate.new(), LoanApplication.new()]:
+	for resource: Resource in [Account.new(), DecisionRecord.new(), DisciplinaryReport.new(), StaffReviewItem.new(), StaffMember.new(), StaffCandidate.new(), LoanApplication.new(), BookedLoan.new()]:
 		var saved := SaveGame.resource_to_dict(resource)
 		var script: Script = resource.get_script()
 		for property in resource.get_property_list():

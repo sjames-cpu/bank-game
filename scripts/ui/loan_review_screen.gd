@@ -389,6 +389,9 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 	_decision_made_for_current = true
 	# Off the pile; the next one joins it.
 	LoanDeskManager.player_decided(application)
+	# Into the loan book (an approval or counter-offer), or counted as a good
+	# applicant turned away.
+	LoanBookManager.note_decision(application, true, LoanBookManager.PLAYER_MAKER)
 
 	# The documents (verified first or not) and the decision, together.
 	var result := application.grade_documents(reasons, documents_verified)

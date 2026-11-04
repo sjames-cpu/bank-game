@@ -303,6 +303,15 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Staff officers** check documents too and miss a problem the way a staff teller misses a bad ID, by skill: 2% at skill 10, 60% at skill 1. Every miss goes to the Branch Manager's staff review, which now shows the documents as handed over: Serious when they lent on documents that didn't check out, Minor when they rejected the loan anyway.
 - The tallest review screen (six reasons) ran under the bottom-left controls line, so the checks moved to the top of the right-hand column, the terms line was shortened and the reasons got a slightly smaller font. A new test keeps the loan screens clear of the controls line.
 
+## Session 35 — Nov 4, 2026: Loan outcomes over time (Loan Officer improvements, part 3 of 3)
+
+- **A loan book**: every loan the player or a staff officer approves or counter-offers is booked with its borrower, amount, risk, whether the documents checked out, and who made it.
+- **Outcomes over 20 business days**: each loan is paid on time, runs 15 days late and then catches up, or runs 30 days late and defaults. The odds depend only on the risk and the documents: low risk 90/8/2% (on time / late / default), medium 77/15/8%, high 45/25/30%, and 30/20/50% on documents that didn't check out, whatever the risk. A default writes off part of the loan: a quarter of a mortgage, 40% of a car loan, 60% of a business loan, 75% of a personal loan. The End of Day summary lists the day's notable events ("Maria Chen's auto loan: payment 15 days late"): your own loans, and every loan for a Branch Manager.
+- **Lost business**: good applicants (low risk, documents fine) who are turned away are counted, with the amount they asked for.
+- **Loan Portfolio Report**: every 20 business days a letter from the Credit Risk Department covers a Loan Officer's own loans, or the whole branch's for a Branch Manager. It lists loans made, paid on time, late, defaulted, losses and good applicants turned away, with comments on being too lenient or too strict. The lending quality is the average of three parts (defaults, losses, and good applicants turned away), but never more than 10 points above the weakest of them, so being too lenient and being too strict both land in Poor: approving everything rates 35 and rejecting everything 0, while a careful lender rates 100 and a mostly sensible one with a few mistakes about 77 (Sound). Strong earns +10 Score and +2 Reputation, Sound +3, Weak −3 and −1, Poor −8 and −3.
+- **Regional review**: a new Lending quality area (weight 10) uses the same rating on the branch's loans; vault reconciliation and fairness of reports went from 20 to 15 each.
+- The End of Day summary got wider, and its text now scrolls when a busy day would run it off the window. A test found the busiest summary was already too tall.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

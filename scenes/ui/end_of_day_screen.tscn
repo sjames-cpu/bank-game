@@ -77,9 +77,9 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
+offset_left = -275.0
 offset_top = -110.0
-offset_right = 220.0
+offset_right = 275.0
 offset_bottom = 110.0
 grow_horizontal = 2
 grow_vertical = 2
@@ -96,8 +96,13 @@ text = "End of Day 1"
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="SummaryLabel" type="Label" parent="SummaryPanel/VBox"]
+[node name="SummaryScroll" type="ScrollContainer" parent="SummaryPanel/VBox"]
 layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="SummaryLabel" type="Label" parent="SummaryPanel/VBox/SummaryScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = ""
 horizontal_alignment = 1
 autowrap_mode = 2

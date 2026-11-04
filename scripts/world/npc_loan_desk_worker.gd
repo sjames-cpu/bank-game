@@ -134,6 +134,7 @@ func decide_next(application: LoanApplication = null) -> void:
 		"Correct" if correct else "Mistake"
 	)
 	StaffReviewManager.add_loan_decision(staff, slot_name, application, grade, docs_missed)
+	LoanBookManager.note_decision(application, false, staff.staff_name)
 	staff_npc.say("%s: %s" % [LoanApplication.decision_type_label(decision), application.applicant_name], 3.0)
 	decision_made.emit(application, staff, correct)
 
