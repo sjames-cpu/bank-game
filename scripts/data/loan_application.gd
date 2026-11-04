@@ -32,8 +32,40 @@ enum Grade { BEST, PARTIAL, BAD, WORST }
 
 ## The main reasons a loan officer can state for a denial (the player picks
 ## 1-2). Each is a real weak point of an application when weak_points()
-## says so.
-enum DenialReason { TOTAL_DTI, CREDIT_SCORE, INCOME, EMPLOYMENT, AMOUNT }
+## says so. UNVERIFIED: the documents didn't check out (documents_check_out()).
+enum DenialReason { TOTAL_DTI, CREDIT_SCORE, INCOME, EMPLOYMENT, AMOUNT, UNVERIFIED }
+
+## What's wrong with an applicant's documents besides their ID (which has
+## its own IdCard.Problem): the income stated on the form is more than the pay
+## stub and statement show; the pay stub is in someone else's name; or the pay
+## stub or bank statement is missing. Rolled by LoanApplicantGenerator.
+enum DocProblem { NONE, OVERSTATED_INCOME, STUB_NAME, MISSING_STUB, MISSING_STATEMENT }
+
+## --- Document checks (bank policy) ---
+## Verified and caught: the decision's grade (BEST for a rejection naming
+## UNVERIFIED) plus the reason's +2. Approving or counter-offering on
+## documents that don't check out is WORST, like waving through a high-risk
+## loan. Turning away an applicant whose documents were fine as
+## "unverifiable" costs this on top of the decision's own grade and the wrong
+## reason (pitched like refusing a customer's valid ID at the teller window).
+## Deciding without verifying the documents first is a procedure mistake
+## whatever they showed, like serving without checking ID.
+const FALSE_UNVERIFIED_SCORE: int = -3
+const FALSE_UNVERIFIED_REPUTATION: int = -2
+const VERIFY_SKIPPED_SCORE: int = -3
+
+## How a loan approved or countered on documents that don't check out is
+## described (graded WORST, but not because of the applicant's risk).
+const UNVERIFIED_LOAN_DESCRIPTION: String = "Serious mistake — a loan on documents that didn't check out"
+
+## The grade's player-facing description for this application's decision
+## (grade_description(), except a loan made on unverified documents).
+func decision_description(grade_value: Grade) -> String:
+	if not documents_check_out() and decision != DecisionType.REJECT and grade_value == Grade.WORST:
+		return UNVERIFIED_LOAN_DESCRIPTION
+	return grade_description(grade_value)
+
+const DOCUMENTS_POLICY_TEXT: String = "Bank policy: a valid photo ID (unexpired, in the applicant's name, with their photo), and a pay stub and bank statement in their name showing the income stated on the form."
 
 ## Score/Reputation point table for each Grade (Phase 4e). Kept here
 ## (rather than on loan_review_screen.gd, where they originally lived)
@@ -143,6 +175,32 @@ const PURPOSE_TERMS: Dictionary = {
 ## review screen. Chosen apart from every financial value (fair lending: see
 ## LoanApplicantGenerator); nothing graded ever reads it, or the name.
 @export var applicant_look: int = 0
+
+## --- The documents the applicant hands over (LoanApplicantGenerator
+## .issue_documents()). The application form's own figure is annual_income,
+## the income they stated. No date of birth on the ID: lending never sees an
+## applicant's age (fair lending). ---
+@export var documents_issued: bool = false
+## Hidden, for grading only: what's wrong, if anything.
+@export var doc_problem: DocProblem = DocProblem.NONE
+@export var id_problem: IdCard.Problem = IdCard.Problem.NONE
+## The photo ID as shown (false: none).
+@export var id_presented: bool = true
+@export var id_holder_name: String = ""
+@export var id_number: String = ""
+@export var id_expiry_date: int = 0
+@export var id_portrait_look: int = 0
+## The pay stub (false: none): this month's gross and net pay.
+@export var has_pay_stub: bool = true
+@export var stub_name: String = ""
+@export var stub_employer: String = ""
+@export var stub_monthly_gross: float = 0.0
+@export var stub_monthly_net: float = 0.0
+## Last month's bank statement (false: none): the payroll deposits, whole
+## dollars.
+@export var has_statement: bool = true
+@export var statement_name: String = ""
+@export var statement_deposits: PackedInt32Array = PackedInt32Array()
 
 ## Computed from the worksheet by calculate_risk_assessment() (cached here
 ## the first time a screen runs the credit check math). Never shown to the
@@ -326,8 +384,13 @@ func calculate_risk_assessment() -> RiskTier:
 ## - AMOUNT: over the policy maximum for the purpose.
 ## A borderline applicant with nothing affordable (nothing_affordable()) is
 ## denied for their payments: TOTAL_DTI, unless INCOME already says it.
+## Documents that don't check out make UNVERIFIED the only real reason: the
+## figures can't be relied on, so nothing else about them is judged.
 func weak_points() -> Array[DenialReason]:
 	var weak: Array[DenialReason] = []
+	if not documents_check_out():
+		weak.append(DenialReason.UNVERIFIED)
+		return weak
 	var dti := total_dti()
 	var pushed_over := dti > STRETCHED_DTI and dti_before_loan() <= STRETCHED_DTI
 	var share_limit := HOME_PAYMENT_SHARE_LIMIT if replaces_housing() else NEW_PAYMENT_SHARE_LIMIT
@@ -344,6 +407,57 @@ func weak_points() -> Array[DenialReason]:
 		weak.append(DenialReason.AMOUNT)
 	return weak
 
+# --- documents ---------------------------------------------------------------
+
+## Everything checks out: a valid ID, and a pay stub and statement in the
+## applicant's name showing the income on the form.
+func documents_check_out() -> bool:
+	return doc_problem == DocProblem.NONE and id_problem == IdCard.Problem.NONE
+
+## The payroll deposits on the statement, added up (whole dollars).
+func statement_total() -> int:
+	var total := 0
+	for deposit in statement_deposits:
+		total += deposit
+	return total
+
+## The ID as an IdCard (for the shared card text).
+func id_card() -> IdCard:
+	var card := IdCard.new()
+	card.presented = id_presented
+	card.holder_name = id_holder_name
+	card.id_number = id_number
+	card.expiry_date = id_expiry_date
+	card.portrait_look = id_portrait_look
+	card.problem = id_problem
+	return card
+
+## The documents as handed over, one line each, never saying what's wrong:
+## for the Branch Manager's staff review.
+func documents_summary() -> String:
+	var lines: PackedStringArray = []
+	lines.append("ID: %s · No. %s · expires %s" % [id_holder_name, id_number, IdCard.date_text(id_expiry_date)] if id_presented else "ID: none shown")
+	lines.append("Pay stub: %s · %s gross/mo" % [stub_name, dollars(stub_monthly_gross)] if has_pay_stub else "Pay stub: none")
+	lines.append("Statement: %s · payroll deposits %s" % [statement_name, dollars(statement_total())] if has_statement else "Statement: none")
+	return "\n".join(lines)
+
+## What was wrong with the documents, for text shown after the fact ("the
+## pay stub showed less than the income stated").
+func documents_problem_text() -> String:
+	var problems: PackedStringArray = []
+	if id_problem != IdCard.Problem.NONE:
+		problems.append("the ID %s" % KycPolicy.problem_text(id_problem))
+	match doc_problem:
+		DocProblem.OVERSTATED_INCOME:
+			problems.append("the pay stub and statement showed less than the income stated")
+		DocProblem.STUB_NAME:
+			problems.append("the pay stub was in someone else's name")
+		DocProblem.MISSING_STUB:
+			problems.append("there was no pay stub")
+		DocProblem.MISSING_STATEMENT:
+			problems.append("there was no bank statement")
+	return " and ".join(problems) if not problems.is_empty() else "the documents checked out"
+
 # --- grading -----------------------------------------------------------------
 
 ## Grades decision (4d) against risk_assessment — the hidden read of the
@@ -351,20 +465,24 @@ func weak_points() -> Array[DenialReason]:
 ## check. A counter-offer is graded on its amount (grade_counter_offer());
 ## Approve and Reject by type alone. Requires decision to already be set.
 func grade_decision() -> Grade:
-	if decision == DecisionType.COUNTER_OFFER:
+	if decision == DecisionType.COUNTER_OFFER and documents_check_out():
 		return grade_counter_offer(decision_amount)
 	return grade_type(decision)
 
 ## `decision_type` graded by type against this application's risk_assessment
-## (and whether a borderline applicant has anything affordable): staff
-## decisions, where no amount is judged.
+## (and whether a borderline applicant has anything affordable, and whether
+## the documents check out): staff decisions, where no amount is judged.
 func grade_type(decision_type: DecisionType) -> Grade:
-	return grade(decision_type, risk_assessment, nothing_affordable())
+	return grade(decision_type, risk_assessment, nothing_affordable(), documents_check_out())
 
 ## The right decision for this application, by type: Approve LOW, Reject
 ## HIGH, Counter-Offer MEDIUM, except Reject for a borderline applicant with
-## nothing affordable.
-func correct_decision() -> DecisionType:
+## nothing affordable, and Reject whenever the documents don't check out
+## (unless `figures_only`: the call on the figures alone, as someone who
+## took the documents at face value would make it).
+func correct_decision(figures_only: bool = false) -> DecisionType:
+	if not documents_check_out() and not figures_only:
+		return DecisionType.REJECT
 	match risk_assessment:
 		RiskTier.LOW:
 			return DecisionType.APPROVE
@@ -382,9 +500,13 @@ func correct_decision() -> DecisionType:
 ## one, and grades PARTIAL. A borderline applicant with nothing affordable
 ## (`nothing_affordable`, see nothing_affordable()) swaps two of those: no
 ## counter-offer is worth making, so Reject is BEST and Counter-Offer
-## PARTIAL. By type only: used where no amount is judged (staff decisions,
-## the Branch Manager's overrides).
-static func grade(decision_type: DecisionType, risk_tier_param: RiskTier, nothing_affordable_param: bool = false) -> Grade:
+## PARTIAL. Documents that don't check out (`documents_ok` false) override
+## all of it: Approve or Counter-Offer WORST (a loan on income or identity
+## nobody verified), Reject BEST. By type only: used where no amount or
+## stated reason is judged (staff decisions, the Branch Manager's overrides).
+static func grade(decision_type: DecisionType, risk_tier_param: RiskTier, nothing_affordable_param: bool = false, documents_ok: bool = true) -> Grade:
+	if not documents_ok:
+		return Grade.BEST if decision_type == DecisionType.REJECT else Grade.WORST
 	if risk_tier_param == RiskTier.MEDIUM and nothing_affordable_param:
 		match decision_type:
 			DecisionType.REJECT:
@@ -477,6 +599,42 @@ func grade_denial_reasons(reasons: Array[DenialReason]) -> Dictionary:
 	var score := right * REASON_RIGHT_SCORE + wrong * REASON_WRONG_SCORE + missing * REASON_MISSING_SCORE
 	return {"right": right, "wrong": wrong, "missing": missing, "score": score}
 
+## The whole grade of the player's decision (already set on `decision` and
+## `decision_amount`), with the stated `reasons` for a rejection and whether
+## the documents were `verified` before deciding. Returns {grade, score,
+## reputation, reasons (grade_denial_reasons(), rejections only), caught,
+## false_unverified, skipped}:
+## - documents that don't check out: Reject naming UNVERIFIED is BEST
+##   (caught); Reject for other reasons only PARTIAL; Approve or Counter-Offer
+##   WORST;
+## - documents fine: graded as before; naming UNVERIFIED on them adds
+##   FALSE_UNVERIFIED_SCORE/REPUTATION;
+## - either way, not verified first adds VERIFY_SKIPPED_SCORE.
+func grade_documents(reasons: Array[DenialReason], verified: bool) -> Dictionary:
+	var ok := documents_check_out()
+	var rejected := decision == DecisionType.REJECT
+	var grade_value := grade_decision()
+	var caught := not ok and rejected and reasons.has(DenialReason.UNVERIFIED)
+	if not ok and rejected and not caught:
+		grade_value = Grade.PARTIAL
+	var score := score_for_grade(grade_value)
+	var reputation := reputation_for_grade(grade_value)
+	var reason_grade := {}
+	if rejected:
+		reason_grade = grade_denial_reasons(reasons)
+		var reason_score: int = reason_grade["score"]
+		score += reason_score
+	var false_unverified := ok and rejected and reasons.has(DenialReason.UNVERIFIED)
+	if false_unverified:
+		score += FALSE_UNVERIFIED_SCORE
+		reputation += FALSE_UNVERIFIED_REPUTATION
+	if not verified:
+		score += VERIFY_SKIPPED_SCORE
+	return {
+		"grade": grade_value, "score": score, "reputation": reputation, "reasons": reason_grade,
+		"caught": caught, "false_unverified": false_unverified, "skipped": not verified,
+	}
+
 static func score_for_grade(grade_value: Grade) -> int:
 	match grade_value:
 		Grade.BEST:
@@ -552,8 +710,10 @@ static func denial_reason_label(reason: DenialReason) -> String:
 			return "Income too low for the amount"
 		DenialReason.EMPLOYMENT:
 			return "Employment too short"
-		_:
+		DenialReason.AMOUNT:
 			return "Amount too large"
+		_:
+			return "Income or identity could not be verified"
 
 ## "8 years", "1 year 4 months", "10 months".
 static func employment_text(months: int) -> String:

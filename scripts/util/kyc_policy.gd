@@ -123,8 +123,10 @@ static func roll_problem(rng: RandomNumberGenerator, problem_chance: float) -> I
 	return IdCard.Problem.NONE
 
 ## The card for a customer named `holder` with look `look`, on `today`
-## (epoch day), with `problem` built in.
-static func issue_card(rng: RandomNumberGenerator, holder: String, look: int, today: int, problem: IdCard.Problem, look_count: int) -> IdCard:
+## (epoch day), with `problem` built in. `with_birth_date` false leaves the
+## date of birth out (and draws none): a loan applicant's ID, since lending
+## never sees an applicant's age (LoanApplicantGenerator).
+static func issue_card(rng: RandomNumberGenerator, holder: String, look: int, today: int, problem: IdCard.Problem, look_count: int, with_birth_date: bool = true) -> IdCard:
 	var card := IdCard.new()
 	card.problem = problem
 	if problem == IdCard.Problem.NO_ID:
@@ -132,8 +134,9 @@ static func issue_card(rng: RandomNumberGenerator, holder: String, look: int, to
 		return card
 	card.holder_name = holder
 	card.portrait_look = look
-	var age_days := rng.randi_range(AGE_MIN_YEARS * 365 + 1, AGE_MAX_YEARS * 365)
-	card.date_of_birth = today - age_days
+	if with_birth_date:
+		var age_days := rng.randi_range(AGE_MIN_YEARS * 365 + 1, AGE_MAX_YEARS * 365)
+		card.date_of_birth = today - age_days
 	card.id_number = "%s%07d" % [char(65 + rng.randi_range(0, 25)), rng.randi_range(0, 9999999)]
 	card.expiry_date = today + rng.randi_range(VALID_YEARS_MIN * 365, VALID_YEARS_MAX * 365)
 	match problem:

@@ -154,12 +154,15 @@ static func details_text(item: StaffReviewItem) -> String:
 			decision,
 		]
 	var housing := "Mortgage %s (replaces %s)" % [LoanApplication.dollars(item.new_payment), LoanApplication.dollars(item.monthly_housing_payment)] if item.replaces_housing else "Housing %s" % LoanApplication.dollars(item.monthly_housing_payment)
-	return "Applicant: %s — %s %s loan (%d months at %.2f%%)\nCredit score %d (%s) · Employed %s\nIncome %s/mo · %s · Debts %s/mo · New payment %s/mo\nFront-end DTI %s · Total DTI %s · Affordable at 36%%: %s\nDecision: %s" % [
+	# The documents as handed over, after the stated income, so the manager
+	# can compare them (what was wrong stays hidden until they decide).
+	var documents := "\n" + item.documents_text if item.documents_text != "" else ""
+	return "Applicant: %s — %s %s loan (%d months at %.2f%%)\nCredit score %d (%s) · Employed %s\nStated income %s/mo · %s · Debts %s/mo · New payment %s/mo\nFront-end DTI %s · Total DTI %s · Affordable at 36%%: %s%s\nDecision: %s" % [
 		item.applicant_name, LoanApplication.dollars(item.requested_amount), item.loan_purpose.to_lower(), item.term_months, item.annual_rate * 100.0,
 		item.credit_score, LoanApplication.credit_score_band(item.credit_score), LoanApplication.employment_text(item.employment_months),
 		LoanApplication.dollars(item.annual_income / 12.0), housing, LoanApplication.dollars(item.monthly_debt_payments), LoanApplication.dollars(item.new_payment),
 		LoanApplication.percent(item.front_end_dti), LoanApplication.percent(item.total_dti), LoanApplication.dollars(item.affordable_amount),
-		decision,
+		documents, decision,
 	]
 
 ## An ID slip: the request, the card as shown and what the staff member did
@@ -190,7 +193,12 @@ static func _result_text(item: StaffReviewItem, result: Dictionary) -> String:
 	if not points.is_empty():
 		text += " (%s)" % ", ".join(points)
 	if item.kind == StaffReviewItem.Kind.LOAN:
-		text += "\nGraded: %s." % LoanApplication.grade_description(item.grade)
+		if item.docs_missed:
+			text += "\nMissed in the documents: %s." % item.docs_problem_text
+		var graded := LoanApplication.grade_description(item.grade)
+		if item.docs_missed and item.grade == LoanApplication.Grade.WORST:
+			graded = LoanApplication.UNVERIFIED_LOAN_DESCRIPTION
+		text += "\nGraded: %s." % graded
 	elif item.kind == StaffReviewItem.Kind.ID_CHECK:
 		text += "\nThe ID %s." % KycPolicy.problem_text(item.id_problem)
 	return text

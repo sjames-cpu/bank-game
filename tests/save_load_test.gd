@@ -76,7 +76,9 @@ func build_full_career() -> void:
 
 	var teller := HistoryManager.add_record(DecisionRecord.Role.TELLER, "Drawer count: Minor", "Minor")
 	teller.reviewed = true
-	HistoryManager.add_loan_record("Loan decision", "BEST", LoanApplication.RiskTier.HIGH, LoanApplication.DecisionType.COUNTER_OFFER, "Avery Stone", 12345.67)
+	var loan_record := HistoryManager.add_loan_record("Loan decision", "BEST", LoanApplication.RiskTier.HIGH, LoanApplication.DecisionType.COUNTER_OFFER, "Avery Stone", 12345.67)
+	loan_record.nothing_affordable = true
+	loan_record.documents_problem = true
 	HistoryManager.add_staff_record("Derek Voss", ScheduleManager.SLOT_TELLER_WINDOW_1, "Deposit $40", "Mistake")
 	HistoryManager.add_record(DecisionRecord.Role.DRAWER_VARIANCE, "Opening count off by $10", "Minor")
 	HistoryManager.add_record(DecisionRecord.Role.BRANCH_MANAGER, "Override", "Justified")
@@ -132,6 +134,9 @@ func build_full_career() -> void:
 	loan_item.decision = LoanApplication.DecisionType.COUNTER_OFFER
 	loan_item.decision_amount = 20000.75
 	loan_item.grade = LoanApplication.Grade.PARTIAL
+	loan_item.documents_text = "ID: none shown\nPay stub: Avery Stone · $5,103 gross/mo\nStatement: none"
+	loan_item.docs_missed = true
+	loan_item.docs_problem_text = "there was no bank statement"
 	StaffReviewManager.queue.append(teller_item)
 	StaffReviewManager.queue.append(loan_item)
 	StaffReviewManager.staff_reports["Derek Voss"] = PackedStringArray(["late", "short"])
@@ -150,6 +155,8 @@ func build_full_career() -> void:
 	LoanDeskManager.career_seed = 987654321
 	LoanDeskManager.player_decided(LoanDeskManager.current_player_application())
 	LoanDeskManager.next_staff_application()
+	# The next teaching case on the desk, with its documents.
+	LoanDeskManager.current_player_application()
 
 	# Hiring: a hire, a vacancy's candidates part-way through their
 	# interviews, and a rejected vacancy.
@@ -295,7 +302,20 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_int(LoanDeskManager.player_queue.size()).is_equal(3)
 	assert_str(LoanDeskManager.player_queue[0].applicant_name).is_equal("Marcus Webb")
 	assert_int(LoanDeskManager.player_queue[2].risk_assessment).is_equal(LoanDeskManager.player_queue[2].risk_tier)
-	assert_int(LoanDeskManager.names_today.size()).is_equal(3)
+	assert_int(LoanDeskManager.names_today.size()).is_equal(4)
+	# The pile's documents: the teaching case on the desk has them (and they
+	# check out), the next not yet, the generated applicant's from the start.
+	var pile := LoanDeskManager.player_queue
+	assert_bool(pile[0].documents_issued).is_true()
+	assert_bool(pile[0].documents_check_out()).is_true()
+	assert_str(pile[0].stub_name).is_equal("Marcus Webb")
+	assert_bool(pile[1].documents_issued).is_false()
+	assert_bool(pile[2].documents_issued).is_true()
+	var loaded_loan: DecisionRecord = HistoryManager.records.filter(func(r: DecisionRecord) -> bool: return r.has_loan_context)[0]
+	assert_bool(loaded_loan.documents_problem).is_true()
+	assert_bool(loaded_loan.nothing_affordable).is_true()
+	assert_bool(StaffReviewManager.queue[1].docs_missed).is_true()
+	assert_str(StaffReviewManager.queue[1].docs_problem_text).is_equal("there was no bank statement")
 
 ## Game time builds up from frame deltas, so it can be any float; a value
 ## the JSON parser can't read back exactly once made a CI round trip fail

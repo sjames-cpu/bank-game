@@ -29,13 +29,16 @@ func clock_in_at_loan_desk() -> void:
 	room._on_loan_officer_desk_interacted()
 	lo.clock_in_button.pressed.emit()
 
-## Opens the next application, runs the credit check and makes the right
-## call for it (a counter-offer at what they can afford, below the request,
-## as a staff officer would; a denial naming up to two real weak points).
+## Opens the next application, verifies its documents, runs the credit check
+## and makes the right call for it (a counter-offer at what they can afford,
+## below the request, as a staff officer would; a denial naming up to two
+## real weak points, which for documents that don't check out is "could not
+## be verified").
 ## Returns it.
 func decide_next_correctly() -> LoanApplication:
 	lo.review_next_button.pressed.emit()
 	var application := review.current_application()
+	review.verify_documents_button.pressed.emit()
 	review.run_credit_check_button.pressed.emit()
 	match application.correct_decision():
 		LoanApplication.DecisionType.APPROVE:
@@ -194,6 +197,14 @@ func test_the_pile_survives_save_and_load() -> void:
 		loaded_pile.append(SaveGame.resource_to_dict(application))
 	assert_array(loaded_pile).is_equal(saved_pile)
 	assert_str(LoanDeskManager.player_queue[0].applicant_name).is_equal(pending.applicant_name)
+	# Documents and all (a pay stub, a statement and an ID, or what's missing).
+	var loaded_pending := LoanDeskManager.player_queue[0]
+	assert_bool(loaded_pending.documents_issued).is_true()
+	assert_int(loaded_pending.doc_problem).is_equal(pending.doc_problem)
+	assert_int(loaded_pending.id_problem).is_equal(pending.id_problem)
+	assert_float(loaded_pending.stub_monthly_gross).is_equal(pending.stub_monthly_gross)
+	assert_array(Array(loaded_pending.statement_deposits)).is_equal(Array(pending.statement_deposits))
+	assert_str(loaded_pending.id_number).is_equal(pending.id_number)
 	assert_dict(SaveGame.resource_to_dict(LoanDeskManager.generate_application())).is_equal(next_without_load)
 
 	# Loaded into a fresh room, the desk opens on the pending application.

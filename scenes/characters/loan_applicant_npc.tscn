@@ -1,0 +1,43 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/npc/loan_applicant_npc.gd" id="applicant_script"]
+[ext_resource type="SpriteFrames" path="res://assets/sprites/customer_a_frames.tres" id="customer_frames_default"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_applicant"]
+size = Vector2(20, 20)
+
+[node name="LoanApplicantNPC" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("applicant_script")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = ExtResource("customer_frames_default")
+animation = &"idle_down"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_applicant")
+
+[node name="SpeechLabel" type="Label" parent="."]
+visible = false
+offset_left = -60.0
+offset_top = -70.0
+offset_right = 60.0
+offset_bottom = -16.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 1
+vertical_alignment = 2
+autowrap_mode = 3
+
+[node name="NameLabel" type="Label" parent="."]
+visible = false
+offset_left = -70.0
+offset_top = -34.0
+offset_right = 70.0
+offset_bottom = -16.0
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 1
+vertical_alignment = 1

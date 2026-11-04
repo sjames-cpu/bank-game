@@ -70,6 +70,9 @@ enum Role { TELLER, LOAN_OFFICER, BRANCH_MANAGER, DISCIPLINARY, STAFF, DRAWER_VA
 ## A borderline applicant with no counter-offer worth making
 ## (LoanApplication.nothing_affordable()): Approvals re-grades with it.
 @export var nothing_affordable: bool = false
+## The applicant's documents didn't check out
+## (LoanApplication.documents_check_out()): Approvals re-grades with it.
+@export var documents_problem: bool = false
 
 static func role_label(role_value: Role) -> String:
 	match role_value:

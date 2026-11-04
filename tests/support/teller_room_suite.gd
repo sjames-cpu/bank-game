@@ -382,6 +382,15 @@ func layout_problems(panel: Control) -> Array[String]:
 			problems.append("%s %s runs under the HUD column (x >= %d)" % [label, rect, HUD_COLUMN_LEFT])
 	return problems
 
+## `panel` (laid out) stays clear of the HUD's controls line in the
+## bottom-left corner. Returns the problem, if any.
+func controls_line_problems(panel: Control) -> Array[String]:
+	var problems: Array[String] = []
+	var controls := room.hud.controls_panel
+	if controls.is_visible_in_tree() and panel.get_global_rect().grow(-0.5).intersects(controls.get_global_rect()):
+		problems.append("%s %s runs under the controls line %s" % [panel.name, panel.get_global_rect(), controls.get_global_rect()])
+	return problems
+
 func _scrolls_inside(control: Control, panel: Control) -> bool:
 	var node := control.get_parent()
 	while node != null and node != panel:

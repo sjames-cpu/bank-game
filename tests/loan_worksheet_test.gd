@@ -44,22 +44,26 @@ func clock_in_at_loan_desk() -> void:
 	room._on_loan_officer_desk_interacted()
 	lo.clock_in_button.pressed.emit()
 
-## Puts `application` on top of the player's pile and opens it.
-func open_next(application: LoanApplication) -> LoanApplication:
+## Puts `application` on top of the player's pile and opens it, verifying
+## its documents first unless `check_documents` is false.
+func open_next(application: LoanApplication, check_documents: bool = true) -> LoanApplication:
 	LoanDeskManager.player_queue.push_front(application)
 	lo.review_next_button.pressed.emit()
 	assert_bool(review.visible).is_true()
 	assert_object(review.current_application()).is_same(application)
+	if check_documents:
+		review.verify_documents_button.pressed.emit()
 	return application
 
 ## Clocks in at Loan Desk 1 and opens the sample named `applicant_name`.
-func open_application(applicant_name: String) -> LoanApplication:
+func open_application(applicant_name: String, check_documents: bool = true) -> LoanApplication:
 	clock_in_at_loan_desk()
-	return open_next(sample(applicant_name))
+	return open_next(sample(applicant_name), check_documents)
 
 func assert_fits() -> void:
 	await frames(4)
 	var problems := layout_problems(review.main_panel)
+	problems.append_array(controls_line_problems(review.main_panel))
 	assert_array(problems).override_failure_message("\n".join(problems)).is_empty()
 
 func tick(reasons: Array) -> void:
@@ -69,10 +73,10 @@ func tick(reasons: Array) -> void:
 # --- the worksheet ------------------------------------------------------------------
 
 func test_the_worksheet_appears_after_the_credit_check() -> void:
-	open_application("Angela Reyes")
+	open_application("Angela Reyes", false)
 	# Before: the application only, no worksheet, no decisions.
 	assert_str(review.requested_amount_label.text).is_equal("Requested: $30,000 auto loan")
-	assert_str(review.terms_label.text).is_equal("60 months at 7.00% (bank rate for auto loans) · policy maximum $75,000")
+	assert_str(review.terms_label.text).is_equal("60 months at 7.00% · policy maximum $75,000")
 	assert_str(review.housing_payment_label.text).is_equal("Housing (rent or mortgage): $950/mo")
 	assert_str(review.existing_debt_label.text).is_equal("Existing debt: $10,000 balance · $250/mo")
 	assert_str(review.employment_label.text).is_equal("Employment: 3 years")
@@ -125,15 +129,17 @@ func test_every_applicants_worksheet_fits() -> void:
 	for application in cases:
 		open_next(application)
 		review.run_credit_check_button.pressed.emit()
-		assert_bool(review.run_credit_check_button.visible).is_false()
+		assert_str(review.run_credit_check_button.text).is_equal(LoanReviewScreen.SHOW_WORKSHEET_TEXT)
 		review.reject_button.pressed.emit()
 		await frames(4)
 		var problems := layout_problems(review.main_panel)
+		problems.append_array(controls_line_problems(review.main_panel))
 		assert_array(problems).override_failure_message("%s:\n%s" % [application.applicant_name, "\n".join(problems)]).is_empty()
 		tick([LoanApplication.DenialReason.TOTAL_DTI, LoanApplication.DenialReason.INCOME])
 		review.submit_denial_button.pressed.emit()
 		await frames(4)
 		problems = layout_problems(review.main_panel)
+		problems.append_array(controls_line_problems(review.main_panel))
 		assert_array(problems).override_failure_message("%s decided:\n%s" % [application.applicant_name, "\n".join(problems)]).is_empty()
 		review.close_button.pressed.emit()
 		lo.applications_reviewed = 0
@@ -146,7 +152,7 @@ func test_a_denial_needs_one_or_two_reasons_graded_against_the_weak_points() -> 
 	review.reject_button.pressed.emit()
 	assert_bool(review.reasons_vbox.visible).is_true()
 	assert_bool(review.decision_hbox.visible).is_false()
-	assert_int(review.reason_checks.size()).is_equal(5)
+	assert_int(review.reason_checks.size()).is_equal(6)
 	assert_bool(review.submit_denial_button.disabled).is_true()
 	await assert_fits()
 	# A third reason is unticked again.
@@ -230,6 +236,8 @@ func stretched_by_debts() -> LoanApplication:
 	application.monthly_debt_payments = 600.0
 	application.employment_months = 60
 	application.risk_tier = LoanApplication.RiskTier.MEDIUM
+	# Documents that check out (nothing rolled for them).
+	application.documents_issued = true
 	return application
 
 func test_a_borderline_applicant_with_nothing_affordable_is_rejected_for_total_dti() -> void:
@@ -307,7 +315,7 @@ func test_staff_still_decide_every_application_against_the_new_assessment() -> v
 	assert_float(angela.total_dti).is_equal_approx(0.4485, 0.0001)
 	assert_float(angela.affordable_amount).is_equal(12100.0)
 	var details := StaffReviewScreen.details_text(angela)
-	assert_str(details).starts_with("Applicant: Angela Reyes — $30,000 auto loan (60 months at 7.00%)\nCredit score 710 (Good) · Employed 3 years\nIncome $4,000/mo · Housing $950 · Debts $250/mo · New payment $594/mo\nFront-end DTI 23.8% · Total DTI 44.9% · Affordable at 36%: $12,100\nDecision: ")
+	assert_str(details).starts_with("Applicant: Angela Reyes — $30,000 auto loan (60 months at 7.00%)\nCredit score 710 (Good) · Employed 3 years\nStated income $4,000/mo · Housing $950 · Debts $250/mo · New payment $594/mo\nFront-end DTI 23.8% · Total DTI 44.9% · Affordable at 36%: $12,100\nDecision: ")
 	assert_str(details).not_contains("Loan-to-income")
 	var elena: StaffReviewItem = StaffReviewManager.queue.filter(func(item: StaffReviewItem) -> bool: return item.applicant_name == "Elena Petrova")[0]
 	assert_str(StaffReviewScreen.details_text(elena)).contains("Mortgage $1,959 (replaces $1,500)")

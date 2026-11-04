@@ -68,6 +68,12 @@ static func teaching_cases() -> Array[LoanApplication]:
 				cases.append(application)
 	return cases
 
+static func is_sample_name(applicant_name: String) -> bool:
+	for application in _samples():
+		if application.applicant_name == applicant_name:
+			return true
+	return false
+
 ## Portraits for the samples, in order (CustomerNPC.CUSTOMER_FRAME_SETS),
 ## spread over the three designs and their recolours.
 const SAMPLE_LOOKS: Array[int] = [0, 4, 8, 1, 5, 9, 2, 6, 10, 3]

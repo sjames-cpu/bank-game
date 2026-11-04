@@ -294,6 +294,15 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Staff loan desks** decide generated applicants too, and no name repeats within a business day.
 - **Saved**: the career's seed, the player's pile (the pending application and the queued ones) and today's names, so a loaded career shows the same applicants it would have.
 
+## Session 34 — Nov 4, 2026: Walk-in applicants and document checks (Loan Officer improvements, part 2 of 3)
+
+- **Walk-ins**: loan applicants now walk in through the entrance to their loan desk, sit down, say what the loan is for ("I'm hoping to finance a car."), and leave after the decision pleased, disappointed, or thinking over a counter-offer. The staff desks get walk-ins too, served in the background. Each desk has its own seat and its own row to walk along, applicants come in up one lane of the entrance corridor and leave down the other, and only one walks up the corridor at a time. Opening the review before the applicant reaches the desk seats them at once, so the walk never holds the player up.
+- **Documents**: each applicant hands over a photo ID (bad at the teller window's rate, 1 in 7, with no date of birth on it), a pay stub with this month's gross and net pay, and last month's bank statement with two payroll deposits. 10% have another problem: the income on the form is more than the stub and statement show (4%), the pay stub is in someone else's name (2%), or the pay stub or statement is missing (2% each). About 23% of applicants don't check out. Whether they do never depends on the name, look or finances.
+- **Verify Documents**: a new button beside Run Credit Check shows the documents in the right-hand column, with today's date and the bank's policy, against the stated income on the form. If something doesn't check out, the right call is to reject for a new reason, "Income or identity could not be verified".
+- **Grading**: catching a problem is a correct call (+12 with the reason). Approving or counter-offering on documents that don't check out is as bad as approving a high-risk loan (−10, −2 Reputation). Deciding without verifying costs 3 Score even when the documents were fine. Turning away a good applicant as unverifiable costs 3 Score and 2 Reputation on top of the decision's own grade.
+- **Staff officers** check documents too and miss a problem the way a staff teller misses a bad ID, by skill: 2% at skill 10, 60% at skill 1. Every miss goes to the Branch Manager's staff review, which now shows the documents as handed over: Serious when they lent on documents that didn't check out, Minor when they rejected the loan anyway.
+- The tallest review screen (six reasons) ran under the bottom-left controls line, so the checks moved to the top of the right-hand column, the terms line was shortened and the reasons got a slightly smaller font. A new test keeps the loan screens clear of the controls line.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

@@ -19,7 +19,8 @@ extends Node
 ##
 ## Each applicant comes from its own generators, seeded from career_seed and
 ## its number (generated_count): one for the finances, a separate one for the
-## name and look (fair lending, see LoanApplicantGenerator). Reset with the
+## name and look, and a third for the documents and whether they have a
+## problem (fair lending, see LoanApplicantGenerator). Reset with the
 ## career (CareerReset) and saved with it (SaveGame): the seed, the count,
 ## the pile (the pending application and those queued) and today's names.
 
@@ -59,8 +60,20 @@ func queue_size() -> int:
 func current_player_application() -> LoanApplication:
 	_top_up()
 	var application := player_queue[0]
+	ensure_documents(application)
 	_note_name(application.applicant_name)
 	return application
+
+## Gives `application` its documents if it has none yet: the hand-written
+## samples (the teaching cases among them), whose documents always check out,
+## and applications saved before documents existed, which roll as usual.
+func ensure_documents(application: LoanApplication) -> void:
+	if application.documents_issued:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([career_seed, "documents", application.applicant_name])
+	var clean := LoanApplicationsData.is_sample_name(application.applicant_name)
+	LoanApplicantGenerator.issue_documents(application, rng, GameClock.today_date(), clean)
 
 ## `application` was decided: it leaves the pile and a new one joins.
 func player_decided(application: LoanApplication) -> void:
@@ -86,6 +99,9 @@ func generate_application() -> LoanApplication:
 	generated_count += 1
 	var application := LoanApplicantGenerator.generate(_rng_for("finance", number))
 	LoanApplicantGenerator.assign_identity(application, _rng_for("identity", number), names_taken())
+	# Their own generator again: whether the documents have a problem never
+	# depends on the finances or the name and look.
+	LoanApplicantGenerator.issue_documents(application, _rng_for("documents", number), GameClock.today_date())
 	_note_name(application.applicant_name)
 	return application
 

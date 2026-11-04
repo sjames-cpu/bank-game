@@ -36,9 +36,16 @@ func staff_records(slot_name: String) -> int:
 	return count
 
 ## Lets every loan worker reach its decision time and run one frame of
-## _process() (the branch open, the tree running).
+## _process() (the branch open, the tree running): the last applicant gone,
+## the next walked in and seated (LoanDeskSeat), ready to be decided.
 func one_decision_each() -> void:
 	for worker in room.loan_desk_workers:
+		var seat := worker.seat
+		seat.finish_leaving()
+		if seat.is_empty():
+			worker._gap = 0.0
+			worker._process(0.0)
+		seat.seat_now()
 		worker._elapsed = 1000.0
 	await frames(2)
 

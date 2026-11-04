@@ -158,9 +158,11 @@ func add_id_slip(staff: StaffMember, slot_name: String, customer: CustomerNPC, c
 	return item
 
 ## Called by NpcLoanDeskWorker after every decision; BEST decisions are
-## correct work and don't enter the queue.
-func add_loan_decision(staff: StaffMember, slot_name: String, application: LoanApplication, grade: LoanApplication.Grade) -> StaffReviewItem:
-	if not is_collecting() or grade == LoanApplication.Grade.BEST:
+## correct work and don't enter the queue. `docs_missed`: the staff member
+## didn't catch a problem in the documents: Serious if they approved or
+## counter-offered on them, Minor if they rejected the loan anyway.
+func add_loan_decision(staff: StaffMember, slot_name: String, application: LoanApplication, grade: LoanApplication.Grade, docs_missed: bool = false) -> StaffReviewItem:
+	if not is_collecting() or (grade == LoanApplication.Grade.BEST and not docs_missed):
 		return null
 	var item := StaffReviewItem.new()
 	item.kind = StaffReviewItem.Kind.LOAN
@@ -187,6 +189,15 @@ func add_loan_decision(staff: StaffMember, slot_name: String, application: LoanA
 	item.decision_amount = application.decision_amount
 	item.grade = grade
 	item.severity = loan_severity(grade)
+	if application.documents_issued:
+		item.documents_text = application.documents_summary()
+	item.docs_missed = docs_missed
+	if docs_missed:
+		item.docs_problem_text = application.documents_problem_text()
+		# Serious when money went out on documents that didn't check out;
+		# rejected anyway, nothing was put at risk: Minor.
+		var lent := application.decision != LoanApplication.DecisionType.REJECT
+		item.severity = StaffReviewItem.Severity.SERIOUS if lent else StaffReviewItem.Severity.MINOR
 	_enqueue(item)
 	return item
 

@@ -412,6 +412,80 @@ static func _fallback(tier: LoanApplication.RiskTier) -> LoanApplication:
 			return application
 	return LoanApplicationsData.get_applications()[0]
 
+# --- documents -----------------------------------------------------------------------
+
+## Bad IDs come at the teller window's rate and mix (KycPolicy: about 1 in 7;
+## expired 3, name mismatch 2, wrong photo 2, none 1).
+const ID_PROBLEM_CHANCE: float = KycPolicy.ID_PROBLEM_CHANCE
+## Share of applicants with a problem in their other documents, and how it's
+## picked (relative weights): income stated higher than the pay stub and
+## statement show; a pay stub in someone else's name; no pay stub; no
+## statement. With 0.10 and 4/2/2/2: 4%, 2%, 2% and 2% of applicants. With a
+## bad ID as well, about 23% of applicants don't check out.
+const DOC_PROBLEM_CHANCE: float = 0.10
+const DOC_PROBLEM_WEIGHTS: Dictionary = {
+	LoanApplication.DocProblem.OVERSTATED_INCOME: 4,
+	LoanApplication.DocProblem.STUB_NAME: 2,
+	LoanApplication.DocProblem.MISSING_STUB: 2,
+	LoanApplication.DocProblem.MISSING_STATEMENT: 2,
+}
+## An overstated income: the pay stub shows 60-85% of what was stated.
+const OVERSTATED_SHARE_RANGE: Array[float] = [0.60, 0.85]
+## Net pay (after tax and deductions) as a share of gross.
+const NET_SHARE_RANGE: Array[float] = [0.72, 0.80]
+## Fictional employers.
+const EMPLOYERS: Array[String] = [
+	"Harbor Street Clinic", "Northgate Logistics", "Maple & Finch Accounting", "Riverbend Schools",
+	"Copperline Manufacturing", "Summit Grocers", "Brightwater Utilities", "Elmwood Hospitality",
+	"Tidewell Software", "Granite Peak Construction", "Lakeside Insurance", "Oakridge Auto Group",
+]
+
+## Hands `application` its documents, from `rng` alone (its own generator,
+## LoanDeskManager): first whether the ID and the other documents have a
+## problem (so the rolls never depend on the finances or the identity), then
+## the documents themselves. The ID is issued on `today` (epoch day), with no
+## date of birth. `clean`: no problems (the teaching cases).
+static func issue_documents(application: LoanApplication, rng: RandomNumberGenerator, today: int, clean: bool = false) -> void:
+	var id_problem := KycPolicy.roll_problem(rng, 0.0 if clean else ID_PROBLEM_CHANCE)
+	var doc_problem := LoanApplication.DocProblem.NONE
+	if not clean and rng.randf() < DOC_PROBLEM_CHANCE:
+		var weights: Array[int] = []
+		var problems: Array[int] = []
+		for problem: int in DOC_PROBLEM_WEIGHTS:
+			problems.append(problem)
+			weights.append(DOC_PROBLEM_WEIGHTS[problem])
+		doc_problem = problems[_weighted(rng, weights)] as LoanApplication.DocProblem
+	application.id_problem = id_problem
+	application.doc_problem = doc_problem
+
+	var card := KycPolicy.issue_card(rng, application.applicant_name, application.applicant_look, today, id_problem, CustomerNPC.CUSTOMER_FRAME_SETS.size(), false)
+	application.id_presented = card.presented
+	application.id_holder_name = card.holder_name
+	application.id_number = card.id_number
+	application.id_expiry_date = card.expiry_date
+	application.id_portrait_look = card.portrait_look
+
+	var gross := roundf(application.annual_income / 12.0)
+	if doc_problem == LoanApplication.DocProblem.OVERSTATED_INCOME:
+		gross = roundf(gross * rng.randf_range(OVERSTATED_SHARE_RANGE[0], OVERSTATED_SHARE_RANGE[1]))
+	var net := roundf(gross * rng.randf_range(NET_SHARE_RANGE[0], NET_SHARE_RANGE[1]))
+	var stub_name := application.applicant_name
+	if doc_problem == LoanApplication.DocProblem.STUB_NAME:
+		stub_name = KycPolicy.mismatched_name(rng, application.applicant_name)
+	var employer := EMPLOYERS[rng.randi_range(0, EMPLOYERS.size() - 1)]
+
+	application.has_pay_stub = doc_problem != LoanApplication.DocProblem.MISSING_STUB
+	application.stub_name = stub_name if application.has_pay_stub else ""
+	application.stub_employer = employer if application.has_pay_stub else ""
+	application.stub_monthly_gross = gross if application.has_pay_stub else 0.0
+	application.stub_monthly_net = net if application.has_pay_stub else 0.0
+	# Paid twice a month: last month's net pay in two deposits.
+	application.has_statement = doc_problem != LoanApplication.DocProblem.MISSING_STATEMENT
+	application.statement_name = application.applicant_name if application.has_statement else ""
+	var first_half := floori(net / 2.0)
+	application.statement_deposits = PackedInt32Array([first_half, int(net) - first_half]) if application.has_statement else PackedInt32Array()
+	application.documents_issued = true
+
 # --- identity ------------------------------------------------------------------------
 
 ## Names a generated applicant and gives them a look, from `rng` alone: never

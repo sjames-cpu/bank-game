@@ -50,10 +50,12 @@ func test_no_customers_before_9_or_after_5() -> void:
 	staff_line_arrival(window)
 	assert_int(cq.queue.size()).is_equal(0)
 	assert_int(window.queue.size()).is_equal(0)
-	# The Loan Desk's staff don't decide yet either.
+	# No loan applicants walk in yet either.
 	var decisions := [0]
+	var seat := room.player_loan_seat()
 	room.loan_desk_worker.decision_made.connect(func(_a: LoanApplication, _s: StaffMember, _c: bool) -> void: decisions[0] += 1)
 	room.loan_desk_worker._process(1000.0)
+	assert_bool(seat.is_empty()).is_true()
 	assert_int(decisions[0]).is_equal(0)
 
 	# 9:00: the doors open.
@@ -63,8 +65,15 @@ func test_no_customers_before_9_or_after_5() -> void:
 	staff_line_arrival(window)
 	assert_int(cq.queue.size()).is_equal(1)
 	assert_int(window.queue.size()).is_equal(1)
+	# An applicant walks in, sits, and is decided.
+	room.loan_desk_worker._process(1000.0)
+	assert_int(seat.phase).is_equal(LoanDeskSeat.Phase.WALKING_IN)
+	seat.applicant.finish_route()
+	assert_bool(seat.is_seated()).is_true()
 	room.loan_desk_worker._process(1000.0)
 	assert_int(decisions[0]).is_equal(1)
+	seat.finish_leaving()
+	assert_bool(seat.is_empty()).is_true()
 
 	# 5:00 PM: closed again.
 	set_clock(1, 17, 0)

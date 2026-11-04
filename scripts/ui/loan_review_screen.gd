@@ -39,7 +39,8 @@ class_name LoanReviewScreen
 @onready var housing_payment_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/HousingPaymentLabel
 @onready var existing_debt_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ExistingDebtLabel
 @onready var employment_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/EmploymentLabel
-@onready var run_credit_check_button: Button = $Panel/VBox/Columns/LeftVBox/RunCreditCheckButton
+@onready var verify_documents_button: Button = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/ChecksHBox/VerifyDocumentsButton
+@onready var run_credit_check_button: Button = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/ChecksHBox/RunCreditCheckButton
 @onready var decision_hbox: HBoxContainer = $Panel/VBox/Columns/LeftVBox/DecisionHBox
 @onready var approve_button: Button = $Panel/VBox/Columns/LeftVBox/DecisionHBox/ApproveButton
 @onready var reject_button: Button = $Panel/VBox/Columns/LeftVBox/DecisionHBox/RejectButton
@@ -56,13 +57,39 @@ class_name LoanReviewScreen
 @onready var decision_status_label: Label = $Panel/VBox/Columns/LeftVBox/DecisionStatusLabel
 @onready var worksheet_placeholder_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetPlaceholderLabel
 @onready var worksheet_rows_vbox: VBoxContainer = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetRows
+@onready var worksheet_title_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetTitleLabel
+@onready var documents_vbox: VBoxContainer = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox
+@onready var id_portrait: TextureRect = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/IdHBox/IdPortrait
+@onready var id_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/IdHBox/IdLabel
+@onready var stub_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/StubLabel
+@onready var statement_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/StatementLabel
+@onready var documents_policy_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/DocumentsPolicyLabel
 @onready var close_button: Button = $Panel/VBox/CloseButton
 
 signal decision_graded(score_delta: int, reputation_delta: int, xp_delta: int)
 signal closed(was_decided: bool)
+## An application is on screen (the room seats its applicant at the desk).
+signal application_shown(application: LoanApplication)
+## A decision was recorded on `application` (its applicant reacts and leaves).
+signal decision_recorded(application: LoanApplication)
+
+const WORKSHEET_TITLE: String = "Underwriting Worksheet"
+const DOCUMENTS_TITLE: String = "Documents"
+const SHOW_WORKSHEET_TEXT: String = "Show Worksheet"
+const SHOW_DOCUMENTS_TEXT: String = "Show Documents"
+const VERIFY_TEXT: String = "Verify Documents"
+const CREDIT_CHECK_TEXT: String = "Run Credit Check"
+
+## Whether the current application's documents were looked at (Verify
+## Documents) and its credit check run, each before the decision.
+var documents_verified: bool = false
+var credit_checked: bool = false
 
 ## Explanation lines under the worksheet's figures: smaller than body text.
 const EXPLANATION_FONT_SIZE: int = 12
+## The denial reasons' checkboxes and the decision's feedback: a size below
+## body text, so the screen stays clear of the controls line at its tallest.
+const COMPACT_FONT_SIZE: int = 13
 
 var _paused_by_self: bool = false
 var _current_application: LoanApplication = null
@@ -80,6 +107,7 @@ func _ready() -> void:
 	visible = false
 	close_button.pressed.connect(_on_close_button_pressed)
 	run_credit_check_button.pressed.connect(_on_run_credit_check_button_pressed)
+	verify_documents_button.pressed.connect(_on_verify_documents_button_pressed)
 	approve_button.pressed.connect(_on_approve_button_pressed)
 	reject_button.pressed.connect(_on_reject_button_pressed)
 	counter_offer_button.pressed.connect(_on_counter_offer_button_pressed)
@@ -87,16 +115,20 @@ func _ready() -> void:
 	cancel_counter_offer_button.pressed.connect(_on_cancel_counter_offer_button_pressed)
 	submit_denial_button.pressed.connect(_on_submit_denial_button_pressed)
 	cancel_denial_button.pressed.connect(_on_cancel_denial_button_pressed)
+	decision_status_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	for reason: int in LoanApplication.DenialReason.values():
 		var check := CheckBox.new()
 		check.text = LoanApplication.denial_reason_label(reason as LoanApplication.DenialReason)
 		# Compact rows: the theme's button panel makes each twice as tall.
 		var compact := StyleBoxEmpty.new()
 		compact.content_margin_left = 4.0
-		compact.content_margin_top = 2.0
-		compact.content_margin_bottom = 2.0
+		compact.content_margin_top = 0.0
+		compact.content_margin_bottom = 0.0
 		for style: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 			check.add_theme_stylebox_override(style, compact)
+		# Six reasons in the left column: a size smaller than body text keeps the
+		# screen clear of the controls line at its tallest.
+		check.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 		check.toggled.connect(_on_reason_toggled.bind(check))
 		reason_checks_vbox.add_child(check)
 		reason_checks.append(check)
@@ -141,24 +173,91 @@ func _display_next_application() -> void:
 	requested_amount_label.text = "Requested: %s %s loan" % [LoanApplication.dollars(application.requested_amount), application.loan_purpose.to_lower()]
 	terms_label.text = terms_text(application)
 	credit_score_label.text = "Credit score: %d" % application.credit_score
-	annual_income_label.text = "Annual income: %s" % LoanApplication.dollars(application.annual_income)
+	annual_income_label.text = stated_income_text(application)
 	housing_payment_label.text = "Housing (rent or mortgage): %s/mo" % LoanApplication.dollars(application.monthly_housing_payment)
 	existing_debt_label.text = "Existing debt: %s balance · %s/mo" % [LoanApplication.dollars(application.existing_debt), LoanApplication.dollars(application.monthly_debt_payments)]
 	employment_label.text = "Employment: %s" % LoanApplication.employment_text(application.employment_months)
 
+	documents_verified = false
+	credit_checked = false
+	verify_documents_button.text = VERIFY_TEXT
+	run_credit_check_button.text = CREDIT_CHECK_TEXT
 	run_credit_check_button.visible = true
+	worksheet_title_label.text = WORKSHEET_TITLE
 	worksheet_placeholder_label.visible = true
+	documents_vbox.visible = false
 	_clear_worksheet()
 	decision_hbox.visible = false
 	counter_offer_vbox.visible = false
 	reasons_vbox.visible = false
 	decision_status_label.visible = false
+	application_shown.emit(application)
 
-## "60 months at 7.00% (bank rate for auto loans) · policy maximum $75,000".
+## The application form's income: "Stated income: $72,000 a year ($6,000/mo)".
+static func stated_income_text(application: LoanApplication) -> String:
+	return "Stated income: %s a year (%s/mo)" % [LoanApplication.dollars(application.annual_income), LoanApplication.dollars(application.monthly_income())]
+
+## The documents as shown, one entry each: the photo ID, the pay stub, the
+## bank statement, then today's date and the policy. Never says what's wrong.
+static func documents_rows(application: LoanApplication) -> PackedStringArray:
+	var id_text := "Photo ID: none provided."
+	if application.id_presented:
+		id_text = "Photo ID\nName: %s\nID no. %s · Expires %s" % [application.id_holder_name, application.id_number, IdCard.date_text(application.id_expiry_date)]
+	var stub_text := "Pay stub: none provided."
+	if application.has_pay_stub:
+		stub_text = "Pay stub — %s\nName: %s\nGross pay this month: %s · Net pay: %s" % [
+			application.stub_employer, application.stub_name,
+			LoanApplication.dollars(application.stub_monthly_gross), LoanApplication.dollars(application.stub_monthly_net),
+		]
+	var statement_text := "Bank statement: none provided."
+	if application.has_statement:
+		var deposits: PackedStringArray = []
+		for deposit in application.statement_deposits:
+			deposits.append(LoanApplication.dollars(deposit))
+		statement_text = "Bank statement (last month)\nAccount holder: %s\nPayroll deposits: %s = %s" % [
+			application.statement_name, " + ".join(deposits), LoanApplication.dollars(application.statement_total()),
+		]
+	var policy := "Today: %s. %s" % [IdCard.date_text(GameClock.today_date()), LoanApplication.DOCUMENTS_POLICY_TEXT]
+	return PackedStringArray([id_text, stub_text, statement_text, policy])
+
+func _fill_documents(application: LoanApplication) -> void:
+	var rows := documents_rows(application)
+	id_portrait.visible = application.id_presented
+	if application.id_presented:
+		id_portrait.texture = CustomerNPC.portrait_of(clampi(application.id_portrait_look, 0, CustomerNPC.CUSTOMER_FRAME_SETS.size() - 1))
+	id_label.text = rows[0]
+	stub_label.text = rows[1]
+	statement_label.text = rows[2]
+	documents_policy_label.text = rows[3]
+
+## The documents as shown (for tests).
+func documents_text() -> String:
+	return "\n".join([id_label.text, stub_label.text, statement_label.text, documents_policy_label.text])
+
+## Verify Documents: the right column shows the documents, beside the
+## application form's stated income on the left. Looking at them is what
+## counts as verifying (grade_documents()).
+func _on_verify_documents_button_pressed() -> void:
+	if _current_application == null:
+		return
+	documents_verified = true
+	_fill_documents(_current_application)
+	_show_documents_view(true)
+
+func _show_documents_view(show_documents: bool) -> void:
+	documents_vbox.visible = show_documents
+	worksheet_rows_vbox.visible = not show_documents
+	worksheet_placeholder_label.visible = not show_documents and not credit_checked
+	worksheet_title_label.text = DOCUMENTS_TITLE if show_documents else WORKSHEET_TITLE
+	verify_documents_button.text = VERIFY_TEXT if not documents_verified else SHOW_DOCUMENTS_TEXT
+	if credit_checked:
+		run_credit_check_button.text = SHOW_WORKSHEET_TEXT
+
+## "60 months at 7.00% · policy maximum $75,000" (the bank's term and rate
+## for the purpose; one line, so the screen keeps its height).
 static func terms_text(application: LoanApplication) -> String:
-	return "%d months at %.2f%% (bank rate for %s loans) · policy maximum %s" % [
-		application.term_months(), application.annual_rate() * 100.0,
-		application.loan_purpose.to_lower(), LoanApplication.dollars(application.policy_maximum()),
+	return "%d months at %.2f%% · policy maximum %s" % [
+		application.term_months(), application.annual_rate() * 100.0, LoanApplication.dollars(application.policy_maximum()),
 	]
 
 ## The worksheet as [label, value, explanation] rows (explanation may be
@@ -215,16 +314,18 @@ func _on_run_credit_check_button_pressed() -> void:
 		return
 
 	var application := _current_application
+	var first := not credit_checked
+	credit_checked = true
 	credit_score_label.text = "Credit score: %d — %s" % [application.credit_score, LoanApplication.credit_score_band(application.credit_score)]
-	worksheet_placeholder_label.visible = false
-	_fill_worksheet(application)
-
-	# Done with: hidden, leaving the column's room to the decisions.
-	run_credit_check_button.visible = false
+	if first:
+		_fill_worksheet(application)
+	_show_documents_view(false)
 
 	# Decisions are gated behind having run the credit check first, so the
-	# player can't decide blind.
-	decision_hbox.visible = true
+	# player can't decide blind (and kept hidden while a decision's options
+	# are open).
+	if first:
+		decision_hbox.visible = true
 
 func _on_approve_button_pressed() -> void:
 	_record_decision(LoanApplication.DecisionType.APPROVE, _current_application.requested_amount, "Approved at %s" % LoanApplication.dollars(_current_application.requested_amount))
@@ -289,17 +390,20 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 	# Off the pile; the next one joins it.
 	LoanDeskManager.player_decided(application)
 
-	var grade := application.grade_decision()
-	var score := LoanApplication.score_for_grade(grade)
-	var reputation_delta := LoanApplication.reputation_for_grade(grade)
-	var detail := ""
+	# The documents (verified first or not) and the decision, together.
+	var result := application.grade_documents(reasons, documents_verified)
+	var grade: LoanApplication.Grade = result["grade"]
+	var score: int = result["score"]
+	var reputation_delta: int = result["reputation"]
+	var details: PackedStringArray = []
+	var documents_ok := application.documents_check_out()
 	if decision_type == LoanApplication.DecisionType.REJECT:
-		var reason_grade := application.grade_denial_reasons(reasons)
-		var reason_score: int = reason_grade["score"]
-		score += reason_score
-		detail = reasons_feedback(reason_grade)
-	elif decision_type == LoanApplication.DecisionType.COUNTER_OFFER:
-		detail = application.counter_offer_note(amount)
+		var reason_grade: Dictionary = result["reasons"]
+		details.append(reasons_feedback(reason_grade))
+	elif decision_type == LoanApplication.DecisionType.COUNTER_OFFER and documents_ok:
+		details.append(application.counter_offer_note(amount))
+	details.append_array(documents_feedback(application, result))
+	var detail := "\n".join(details)
 	var xp := score * XPManager.XP_PER_SCORE_POINT
 
 	ScoreManager.add_shift_score(score)
@@ -310,21 +414,41 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 	counter_offer_vbox.visible = false
 	reasons_vbox.visible = false
 	decision_status_label.visible = true
-	decision_status_label.text = "Decision recorded: %s\n%s (%+d Score, %+d Reputation, %+d XP)" % [action_text, LoanApplication.grade_description(grade), score, reputation_delta, xp]
+	decision_status_label.text = "Decision recorded: %s\n%s (%+d Score, %+d Reputation, %+d XP)" % [action_text, application.decision_description(grade), score, reputation_delta, xp]
 	if detail != "":
 		decision_status_label.text += "\n" + detail
 
 	var record := HistoryManager.add_loan_record(
 		_history_description(decision_type, amount, reasons),
-		LoanApplication.grade_description(grade),
+		application.decision_description(grade),
 		application.risk_assessment,
 		decision_type,
 		application.applicant_name,
 		amount,
 	)
 	record.nothing_affordable = application.nothing_affordable()
+	record.documents_problem = not documents_ok
 
 	decision_graded.emit(score, reputation_delta, xp)
+	decision_recorded.emit(application)
+
+## What the documents meant for this decision, one line each (revealing,
+## after the fact, what was wrong with them).
+static func documents_feedback(application: LoanApplication, result: Dictionary) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	var problem := application.documents_problem_text()
+	if result["caught"]:
+		lines.append("Good catch: %s." % problem)
+	elif not application.documents_check_out():
+		if application.decision == LoanApplication.DecisionType.REJECT:
+			lines.append("The documents didn't check out (%s): that was the reason to give." % problem)
+		else:
+			lines.append("Serious: the income or identity was never verified (%s)." % problem)
+	if result["false_unverified"]:
+		lines.append("The documents checked out: turning them away as unverifiable (%+d Score, %+d Reputation)." % [LoanApplication.FALSE_UNVERIFIED_SCORE, LoanApplication.FALSE_UNVERIFIED_REPUTATION])
+	if result["skipped"]:
+		lines.append("Documents not verified before deciding (%+d Score)." % LoanApplication.VERIFY_SKIPPED_SCORE)
+	return lines
 
 ## "Stated reasons: 1 right, 1 wrong, 1 missed (-1 Score)."
 static func reasons_feedback(reason_grade: Dictionary) -> String:

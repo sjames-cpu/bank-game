@@ -373,7 +373,7 @@ func test_loan_details_hide_the_grade_until_decided() -> void:
 	var details := StaffReviewScreen.details_text(item)
 	for hidden: String in ["risk", "Risky", "Correct", "Serious", "grade", "Graded"]:
 		assert_str(details).not_contains(hidden)
-	for shown: String in ["Credit score", "Income $", "Debts $", "New payment $", "Front-end DTI", "Total DTI", "Affordable at 36%", "Decision: Approve"]:
+	for shown: String in ["Credit score", "Stated income $", "Debts $", "New payment $", "Front-end DTI", "Total DTI", "Affordable at 36%", "Decision: Approve"]:
 		assert_str(details).contains(shown)
 	assert_str(details).not_contains("Loan-to-income")
 	_bm_clock_in()

@@ -86,6 +86,16 @@ func id_skip_chance() -> float:
 func id_miss_chance() -> float:
 	return lerpf(ID_MISS_CHANCE_BEST, ID_MISS_CHANCE_WORST, _weakness_squared(skill))
 
+## A staff loan officer verifying an applicant's documents misses a problem
+## (a bad ID, a pay stub that doesn't match, a missing document) with this
+## chance, from skill, the way a staff teller misses a bad ID: 2% at skill 10,
+## 20% at 5, 37% at 3, 60% at 1.
+const DOC_MISS_CHANCE_BEST: float = 0.02
+const DOC_MISS_CHANCE_WORST: float = 0.60
+
+func doc_miss_chance() -> float:
+	return lerpf(DOC_MISS_CHANCE_BEST, DOC_MISS_CHANCE_WORST, _weakness_squared(skill))
+
 ## Seconds between background loan decisions: 40s at speed 1 down to 15s.
 func loan_decision_seconds() -> float:
 	return lerpf(LOAN_SECONDS_SLOWEST, LOAN_SECONDS_FASTEST, _stat_t(speed))

@@ -282,10 +282,21 @@ func _ready() -> void:
 
 	# Staff serve customers from the start: _place_staff() opened each
 	# staffed teller window's line (_update_staff_lines()). Every loan desk
-	# decides applications; only Loan Desk 1's worker pauses while the
-	# player works it (see _on_player_clocked_in/_out).
+	# takes walk-in applicants at its seat; only Loan Desk 1's worker pauses
+	# while the player works it (see _on_player_clocked_in/_out), and its
+	# seat is then the player's (_update_player_walk_in()).
 	for worker in loan_desk_workers:
+		var seat := LoanDeskSeat.new()
+		seat.name = "Seat" + worker.slot_name.replace(" ", "")
+		seat.slot_name = worker.slot_name
+		seat.layer = staff_layer
+		add_child(seat)
+		loan_seats[worker.slot_name] = seat
+		worker.seat = seat
 		worker.active = true
+	var review := loan_officer_screen.loan_review_screen
+	review.application_shown.connect(_on_loan_application_shown)
+	review.decision_recorded.connect(_on_loan_decision_recorded)
 	if XPManager.is_branch_manager_unlocked:
 		_apply_branch_manager_desks()
 
@@ -303,11 +314,52 @@ func _show_arrival_hints() -> void:
 	hud.show_hint_once(HintManager.Hint.OPENING_HOURS)
 
 func _process(_delta: float) -> void:
+	_update_player_walk_in()
 	_update_interaction_prompt()
 	_update_vault_notice()
 	_check_branch_opening()
 	_update_regional_visit()
 	_check_end_of_day()
+
+# --- loan walk-ins (LoanDeskSeat) ---------------------------------------------------
+
+## Each loan desk's applicant seat, by desk slot.
+var loan_seats: Dictionary[String, LoanDeskSeat] = {}
+
+func player_loan_seat() -> LoanDeskSeat:
+	var seat: LoanDeskSeat = loan_seats.get(ScheduleManager.SLOT_LOAN_DESK_1)
+	return seat
+
+## While the player works Loan Desk 1 with applications left, the pile's
+## next applicant walks in once the seat is free.
+func _update_player_walk_in() -> void:
+	var seat := player_loan_seat()
+	if seat == null or not seat.is_empty() or not loan_officer_screen.is_clocked_in():
+		return
+	if loan_officer_screen.applications_left() <= 0:
+		return
+	seat.arrive(LoanDeskManager.current_player_application())
+
+## The review screen shows `application`: its applicant is seated at the
+## desk, at once if still on the way (another, still leaving, goes at once).
+func _on_loan_application_shown(application: LoanApplication) -> void:
+	var seat := player_loan_seat()
+	if seat == null:
+		return
+	if seat.application != application:
+		seat.clear()
+		seat.arrive(application, true)
+	seat.seat_now()
+
+## Decided: the applicant reacts and walks out.
+func _on_loan_decision_recorded(application: LoanApplication) -> void:
+	var seat := player_loan_seat()
+	if seat != null and seat.application == application:
+		seat.send_off_after_decision(application)
+
+func _clear_loan_seats() -> void:
+	for seat: LoanDeskSeat in loan_seats.values():
+		seat.clear()
 
 # --- the business day (BusinessDay) -----------------------------------------------
 
@@ -473,6 +525,7 @@ func _on_go_home_confirmed() -> void:
 	_customer_being_served = null
 	end_regional_visit()
 	armored_visit.clear()
+	_clear_loan_seats()
 	show_end_of_day()
 
 ## "Start Day N+1": 8:30 AM the next morning, saved.
@@ -787,6 +840,8 @@ func _on_player_clocked_in(slot_name: String) -> void:
 		return
 	if slot_name == ScheduleManager.SLOT_LOAN_DESK_1:
 		loan_desk_worker.active = false
+		# Their applicant leaves; the player's walk in once the seat is free.
+		loan_desk_worker.release_seat()
 		_start_cover()
 	if not _player_desk_slots.has(slot_name):
 		_player_desk_slots.append(slot_name)

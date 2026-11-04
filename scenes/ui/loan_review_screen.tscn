@@ -120,10 +120,6 @@ layout_mode = 2
 text = "Employment: 0 months"
 autowrap_mode = 2
 
-[node name="RunCreditCheckButton" type="Button" parent="Panel/VBox/Columns/LeftVBox"]
-layout_mode = 2
-text = "Run Credit Check"
-
 [node name="DecisionHBox" type="HBoxContainer" parent="Panel/VBox/Columns/LeftVBox"]
 visible = false
 layout_mode = 2
@@ -217,6 +213,20 @@ theme_type_variation = &"SectionPanel"
 layout_mode = 2
 theme_override_constants/separation = 1
 
+[node name="ChecksHBox" type="HBoxContainer" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="VerifyDocumentsButton" type="Button" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/ChecksHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Verify Documents"
+
+[node name="RunCreditCheckButton" type="Button" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/ChecksHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Run Credit Check"
+
 [node name="WorksheetTitleLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
 layout_mode = 2
 theme_type_variation = &"HeaderLabel"
@@ -226,13 +236,53 @@ horizontal_alignment = 1
 [node name="WorksheetPlaceholderLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
-text = "Run the credit check to fill in the worksheet."
+text = "Verify the documents, then run the credit check to fill in the worksheet."
 horizontal_alignment = 1
 autowrap_mode = 2
 
 [node name="WorksheetRows" type="VBoxContainer" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
 layout_mode = 2
 theme_override_constants/separation = 1
+
+[node name="DocumentsVBox" type="VBoxContainer" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="IdHBox" type="HBoxContainer" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="IdPortrait" type="TextureRect" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/IdHBox"]
+texture_filter = 1
+custom_minimum_size = Vector2(32, 48)
+layout_mode = 2
+size_flags_vertical = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="IdLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/IdHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Photo ID"
+autowrap_mode = 2
+
+[node name="StubLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox"]
+layout_mode = 2
+text = "Pay stub"
+autowrap_mode = 2
+
+[node name="StatementLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox"]
+layout_mode = 2
+text = "Bank statement"
+autowrap_mode = 2
+
+[node name="DocumentsPolicyLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 12
+text = "Bank policy"
+autowrap_mode = 2
 
 [node name="CloseButton" type="Button" parent="Panel/VBox"]
 layout_mode = 2

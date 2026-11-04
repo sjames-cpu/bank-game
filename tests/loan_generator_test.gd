@@ -241,7 +241,10 @@ func test_weak_points_vary() -> void:
 		if tier == Tier.MEDIUM:
 			medium_combos[str(weak)] = true
 	var shares: PackedStringArray = []
+	# The figures only (the documents are rolled apart: loan_documents_test.gd).
 	for reason: int in Reason.values():
+		if reason == Reason.UNVERIFIED:
+			continue
 		var count: int = by_reason.get(reason, 0)
 		var label := LoanApplication.denial_reason_label(reason as LoanApplication.DenialReason)
 		shares.append("%s %.0f%%" % [label, count * 100.0 / risky])
@@ -338,8 +341,11 @@ func test_no_protected_characteristic_is_stored() -> void:
 	stored.sort()
 	assert_array(stored).is_equal([
 		"annual_income", "applicant_look", "applicant_name", "credit_score", "decision", "decision_amount",
-		"employment_months", "existing_debt", "loan_purpose", "monthly_debt_payments", "monthly_housing_payment",
+		"doc_problem", "documents_issued", "employment_months", "existing_debt", "has_pay_stub", "has_statement",
+		"id_expiry_date", "id_holder_name", "id_number", "id_portrait_look", "id_presented", "id_problem",
+		"loan_purpose", "monthly_debt_payments", "monthly_housing_payment",
 		"requested_amount", "risk_assessment", "risk_tier",
+		"statement_deposits", "statement_name", "stub_employer", "stub_monthly_gross", "stub_monthly_net", "stub_name",
 	])
 	for forbidden: String in ["age", "birth", "sex", "gender", "race", "ethnic", "religio", "nation", "origin", "marital", "married", "citizen", "disab"]:
 		for property_name in stored:

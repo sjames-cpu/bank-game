@@ -79,5 +79,12 @@ enum TellerMistake { AMOUNT_SHORT, AMOUNT_OVER, WRONG_TYPE, WRONG_ACCOUNT }
 @export var affordable_amount: float = 0.0
 @export var decision: LoanApplication.DecisionType = LoanApplication.DecisionType.NONE
 @export var decision_amount: float = 0.0
+## The applicant's documents as handed over (LoanApplication
+## .documents_summary()), empty for an item from before documents. Hidden
+## until the manager has decided: that the staff member missed a problem in
+## them (always Serious), and what it was.
+@export var documents_text: String = ""
+@export var docs_missed: bool = false
+@export var docs_problem_text: String = ""
 ## Hidden until the manager has decided.
 @export var grade: LoanApplication.Grade = LoanApplication.Grade.PARTIAL
