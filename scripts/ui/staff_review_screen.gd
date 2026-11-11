@@ -34,7 +34,9 @@ signal review_completed(score_delta: int, reputation_delta: int, xp_delta: int)
 @onready var feedback_button: Button = $Panel/VBox/ActionsHBox/FeedbackButton
 @onready var excuse_button: Button = $Panel/VBox/ActionsHBox/ExcuseButton
 @onready var result_label: Label = $Panel/VBox/ResultLabel
-@onready var terminate_vbox: VBoxContainer = $Panel/VBox/TerminateVBox
+## Side by side (wrapping), so several staff at the limit don't push the
+## screen past the window.
+@onready var terminate_vbox: HFlowContainer = $Panel/VBox/TerminateVBox
 @onready var close_button: Button = $Panel/VBox/CloseButton
 
 const FAIR_COLOR: Color = Color(0.3, 1, 0.3, 1)
@@ -128,7 +130,7 @@ func _refresh_terminations() -> void:
 		child.queue_free()
 	for staff_name in StaffReviewManager.terminable_staff():
 		var button := Button.new()
-		button.text = "Terminate Employment — %s (%d reports)" % [staff_name, StaffReviewManager.reports_for(staff_name)]
+		button.text = "Terminate — %s (%d reports)" % [staff_name, StaffReviewManager.reports_for(staff_name)]
 		button.pressed.connect(_on_terminate_pressed.bind(staff_name))
 		terminate_vbox.add_child(button)
 	terminate_vbox.visible = terminate_vbox.get_child_count() > 0
@@ -165,12 +167,14 @@ static func details_text(item: StaffReviewItem) -> String:
 	var documents := "\n" + item.documents_text if item.documents_text != "" else ""
 	# The credit report as pulled, after the score.
 	var report := "\n" + item.credit_report_text if item.credit_report_text != "" else ""
-	return "Applicant: %s — %s %s loan (%d months at %.2f%%)\nCredit score %d (%s) · Employed %s%s\nStated income %s/mo · %s · Debts %s/mo · New payment %s/mo\nFront-end DTI %s · Total DTI %s · Affordable at 36%%: %s%s\nDecision: %s" % [
+	# The collateral after the request's payments.
+	var collateral := "\n" + item.collateral_text if item.collateral_text != "" else ""
+	return "Applicant: %s — %s %s loan (%d months at %.2f%%)\nCredit score %d (%s) · Employed %s%s\nStated income %s/mo · %s · Debts %s/mo · New payment %s/mo\nFront-end DTI %s · Total DTI %s · Affordable at 36%%: %s%s%s\nDecision: %s" % [
 		item.applicant_name, LoanApplication.dollars(item.requested_amount), item.loan_purpose.to_lower(), item.term_months, item.annual_rate * 100.0,
 		item.credit_score, LoanApplication.credit_score_band(item.credit_score), LoanApplication.employment_text(item.employment_months), report,
 		LoanApplication.dollars(item.annual_income / 12.0), housing, LoanApplication.dollars(item.monthly_debt_payments), LoanApplication.dollars(item.new_payment),
 		LoanApplication.percent(item.front_end_dti), LoanApplication.percent(item.total_dti), LoanApplication.dollars(item.affordable_amount),
-		documents, decision,
+		collateral, documents, decision,
 	]
 
 ## An ID slip: the request, the card as shown and what the staff member did

@@ -276,10 +276,10 @@ func test_terminate_appears_only_at_three_reports() -> void:
 		assert_bool(StaffReviewManager.can_terminate("Derek Voss")).is_false()
 		assert_str(screen.current_item().staff_name).is_equal("Derek Voss")
 		screen.report_button.pressed.emit()
-	assert_array(_terminate_buttons(screen)).contains_exactly(["Terminate Employment — Derek Voss (3 reports)"])
+	assert_array(_terminate_buttons(screen)).contains_exactly(["Terminate — Derek Voss (3 reports)"])
 	# One report for Nina isn't enough.
 	screen.report_button.pressed.emit()
-	assert_array(_terminate_buttons(screen)).contains_exactly(["Terminate Employment — Derek Voss (3 reports)"])
+	assert_array(_terminate_buttons(screen)).contains_exactly(["Terminate — Derek Voss (3 reports)"])
 
 func test_termination_empties_the_desk_and_the_schedule() -> void:
 	promote()

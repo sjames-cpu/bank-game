@@ -60,58 +60,73 @@ const TIER_WEIGHTS: Dictionary = {Tier.LOW: 40, Tier.MEDIUM: 35, Tier.HIGH: 25}
 ## CREDIT_SCORE, DTI points 3+ TOTAL_DTI, a LOAN driver INCOME, a short job
 ## EMPLOYMENT, over the maximum AMOUNT.
 ##
-## The last column is the credit report's story options (CreditReport.Story:
+## The eighth column is the credit report's story options (CreditReport.Story:
 ## NORMAL 0 points, REBUILT −1, MAXED +1, RECENT_MARK +2, RECENT_MARK_MAXED
 ## +3). A recent mark is the CREDIT_HISTORY weak point. Some rows are there
 ## because the report changes the call the score alone would make: a fair or
 ## poor score with a clean last two years (REBUILT) a tier safer, a good or
 ## fair score hiding a recent serious mark a tier riskier.
+##
+## The last column is the loan-to-value's risk points options
+## (LoanApplication.ltv_points(): healthy 0, stretched 1, high 3; a high LTV
+## is the DOWN_PAYMENT weak point). A loan with LTV points is a home, auto or
+## secured business loan, never a personal one. Some rows are there because
+## the LTV changes the call: a safe or borderline applicant with little or
+## nothing down a tier riskier.
 const PROFILES: Array = [
 	# LOW: clean; one or two 1-point factors; or a new job with nothing else.
-	[Tier.LOW, 11, [0], [0], false, [Driver.NONE], false, [Story.NORMAL]],
-	[Tier.LOW, 8, [1], [0], false, [Driver.NONE], false, [Story.NORMAL]],
-	[Tier.LOW, 2, [1], [0], false, [Driver.NONE], false, [Story.MAXED]],
-	[Tier.LOW, 7, [0], [1], false, [Driver.NONE], false, [Story.NORMAL]],
-	[Tier.LOW, 5, [1], [1], false, [Driver.NONE], false, [Story.NORMAL]],
-	[Tier.LOW, 4, [0], [0], true, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.LOW, 11, [0], [0], false, [Driver.NONE], false, [Story.NORMAL], [0, 1]],
+	[Tier.LOW, 8, [1], [0], false, [Driver.NONE], false, [Story.NORMAL], [0, 1]],
+	[Tier.LOW, 2, [1], [0], false, [Driver.NONE], false, [Story.MAXED], [0]],
+	[Tier.LOW, 7, [0], [1], false, [Driver.NONE], false, [Story.NORMAL], [0, 1]],
+	[Tier.LOW, 5, [1], [1], false, [Driver.NONE], false, [Story.NORMAL], [0]],
+	[Tier.LOW, 4, [0], [0], true, [Driver.NONE], false, [Story.NORMAL], [0]],
 	# A fair score from older trouble, with a clean last two years.
-	[Tier.LOW, 3, [3], [0], false, [Driver.NONE], false, [Story.REBUILT]],
+	[Tier.LOW, 3, [3], [0], false, [Driver.NONE], false, [Story.REBUILT], [0]],
 	# MEDIUM: fair credit, alone or with a payment too big for the income; a
 	# stretched DTI from the loan or from today's debts (which leaves nothing
 	# worth counter-offering: LoanApplication.nothing_affordable()); a short
 	# job with a 1-point factor; a big loan over the maximum.
-	[Tier.MEDIUM, 5, [3], [0], false, [Driver.NONE], false, [Story.NORMAL]],
-	[Tier.MEDIUM, 1, [3], [0], false, [Driver.NONE], false, [Story.MAXED]],
-	[Tier.MEDIUM, 3, [3], [1], false, [Driver.NONE], false, [Story.NORMAL]],
-	[Tier.MEDIUM, 1, [3], [1], false, [Driver.NONE], false, [Story.REBUILT]],
-	[Tier.MEDIUM, 4, [3], [0, 1], false, [Driver.LOAN], false, [Story.NORMAL]],
-	[Tier.MEDIUM, 6, [0, 1], [3], false, [Driver.LOAN], false, [Story.NORMAL]],
-	[Tier.MEDIUM, 4, [0, 1], [3], false, [Driver.DEBTS], false, [Story.NORMAL]],
-	[Tier.MEDIUM, 3, [1], [0], true, [Driver.NONE], false, [Story.NORMAL]],
-	[Tier.MEDIUM, 2, [0], [1], true, [Driver.NONE], false, [Story.NORMAL]],
-	[Tier.MEDIUM, 3, [0, 1], [3], false, [Driver.LOAN], true, [Story.NORMAL]],
+	[Tier.MEDIUM, 5, [3], [0], false, [Driver.NONE], false, [Story.NORMAL], [0, 0, 1]],
+	[Tier.MEDIUM, 1, [3], [0], false, [Driver.NONE], false, [Story.MAXED], [0]],
+	[Tier.MEDIUM, 3, [3], [1], false, [Driver.NONE], false, [Story.NORMAL], [0]],
+	[Tier.MEDIUM, 1, [3], [1], false, [Driver.NONE], false, [Story.REBUILT], [0]],
+	[Tier.MEDIUM, 4, [3], [0, 1], false, [Driver.LOAN], false, [Story.NORMAL], [0]],
+	[Tier.MEDIUM, 6, [0, 1], [3], false, [Driver.LOAN], false, [Story.NORMAL], [0]],
+	[Tier.MEDIUM, 4, [0, 1], [3], false, [Driver.DEBTS], false, [Story.NORMAL], [0]],
+	[Tier.MEDIUM, 3, [1], [0], true, [Driver.NONE], false, [Story.NORMAL], [0]],
+	[Tier.MEDIUM, 2, [0], [1], true, [Driver.NONE], false, [Story.NORMAL], [0]],
+	[Tier.MEDIUM, 3, [0, 1], [3], false, [Driver.LOAN], true, [Story.NORMAL], [0]],
 	# A good score hiding a recent serious mark.
-	[Tier.MEDIUM, 3, [1], [0, 1], false, [Driver.NONE], false, [Story.RECENT_MARK]],
+	[Tier.MEDIUM, 3, [1], [0, 1], false, [Driver.NONE], false, [Story.RECENT_MARK], [0]],
 	# A poor score from older trouble, clean for two years.
-	[Tier.MEDIUM, 2, [5], [0], false, [Driver.NONE], false, [Story.REBUILT]],
+	[Tier.MEDIUM, 2, [5], [0], false, [Driver.NONE], false, [Story.REBUILT], [0]],
+	# An otherwise safe applicant with little or nothing down.
+	[Tier.MEDIUM, 4, [0, 1], [0], false, [Driver.NONE], false, [Story.NORMAL], [3]],
+	[Tier.MEDIUM, 1, [0], [1], false, [Driver.NONE], false, [Story.NORMAL], [3]],
 	# HIGH: poor credit (usually with something recent on the report); fair
 	# credit with a stretched DTI or a short job; a stretched DTI and a short
 	# job; payments over half of income from debts or from the loan; a loan
 	# over the maximum that's far too big.
-	[Tier.HIGH, 6, [5], [0, 1], false, [Driver.NONE], false, [Story.NORMAL, Story.RECENT_MARK, Story.MAXED, Story.RECENT_MARK_MAXED]],
-	[Tier.HIGH, 1, [5], [1], false, [Driver.NONE], false, [Story.REBUILT]],
-	[Tier.HIGH, 4, [3], [3], false, [Driver.LOAN, Driver.DEBTS], false, [Story.NORMAL, Story.RECENT_MARK]],
-	[Tier.HIGH, 3, [3], [0], true, [Driver.NONE], false, [Story.NORMAL]],
-	[Tier.HIGH, 3, [0, 1], [3], true, [Driver.LOAN, Driver.DEBTS], false, [Story.NORMAL]],
-	[Tier.HIGH, 4, [0, 1, 3], [5], false, [Driver.DEBTS], false, [Story.NORMAL]],
-	[Tier.HIGH, 3, [0, 1, 3], [5], false, [Driver.LOAN], false, [Story.NORMAL]],
-	[Tier.HIGH, 2, [0, 1], [5], false, [Driver.LOAN], true, [Story.NORMAL]],
+	[Tier.HIGH, 6, [5], [0, 1], false, [Driver.NONE], false, [Story.NORMAL, Story.RECENT_MARK, Story.MAXED, Story.RECENT_MARK_MAXED], [0, 0, 1, 3]],
+	[Tier.HIGH, 1, [5], [1], false, [Driver.NONE], false, [Story.REBUILT], [0]],
+	[Tier.HIGH, 4, [3], [3], false, [Driver.LOAN, Driver.DEBTS], false, [Story.NORMAL, Story.RECENT_MARK], [0]],
+	[Tier.HIGH, 3, [3], [0], true, [Driver.NONE], false, [Story.NORMAL], [0]],
+	[Tier.HIGH, 3, [0, 1], [3], true, [Driver.LOAN, Driver.DEBTS], false, [Story.NORMAL], [0]],
+	[Tier.HIGH, 4, [0, 1, 3], [5], false, [Driver.DEBTS], false, [Story.NORMAL], [0]],
+	[Tier.HIGH, 3, [0, 1, 3], [5], false, [Driver.LOAN], false, [Story.NORMAL], [0]],
+	[Tier.HIGH, 2, [0, 1], [5], false, [Driver.LOAN], true, [Story.NORMAL], [0]],
 	# A fair score with a recent serious mark; a good score with one and a
 	# stretched DTI, maxed-out cards, a short job or a high DTI.
-	[Tier.HIGH, 3, [3], [0], false, [Driver.NONE], false, [Story.RECENT_MARK]],
-	[Tier.HIGH, 1, [1], [1], false, [Driver.NONE], false, [Story.RECENT_MARK_MAXED]],
-	[Tier.HIGH, 1, [1], [0], true, [Driver.NONE], false, [Story.RECENT_MARK]],
-	[Tier.HIGH, 2, [1], [3], false, [Driver.LOAN, Driver.DEBTS], false, [Story.RECENT_MARK]],
+	[Tier.HIGH, 3, [3], [0], false, [Driver.NONE], false, [Story.RECENT_MARK], [0]],
+	[Tier.HIGH, 1, [1], [1], false, [Driver.NONE], false, [Story.RECENT_MARK_MAXED], [0]],
+	[Tier.HIGH, 1, [1], [0], true, [Driver.NONE], false, [Story.RECENT_MARK], [0]],
+	[Tier.HIGH, 2, [1], [3], false, [Driver.LOAN, Driver.DEBTS], false, [Story.RECENT_MARK], [0]],
+	# A borderline applicant made risky by a high LTV: fair credit, a new job,
+	# or a payment that already stretches them, with little or nothing down.
+	[Tier.HIGH, 3, [3], [0], false, [Driver.NONE], false, [Story.NORMAL], [3]],
+	[Tier.HIGH, 1, [1], [0], true, [Driver.NONE], false, [Story.NORMAL], [3]],
+	[Tier.HIGH, 2, [0, 1], [3], false, [Driver.LOAN], false, [Story.NORMAL], [3]],
 ]
 
 ## Loan purposes and how often each is asked for. A Home loan's mortgage
@@ -209,9 +224,10 @@ class Profile:
 	var driver: LoanApplicantGenerator.Driver = LoanApplicantGenerator.Driver.NONE
 	var over_max: bool = false
 	var story: CreditReport.Story = CreditReport.Story.NORMAL
+	var ltv_points: int = 0
 
 	func risk_points() -> int:
-		return credit_points + dti_points + (2 if short_job else 0) + CreditReport.story_points(story)
+		return credit_points + dti_points + (2 if short_job else 0) + CreditReport.story_points(story) + ltv_points
 
 	## The points without the credit report.
 	func score_only_points() -> int:
@@ -252,6 +268,7 @@ static func pick_profile(rng: RandomNumberGenerator) -> Profile:
 	var driver_options: Array = chosen[5]
 	var over_max: bool = chosen[6]
 	var story_options: Array = chosen[7]
+	var ltv_options: Array = chosen[8]
 	var profile := Profile.new()
 	profile.tier = tier as LoanApplication.RiskTier
 	profile.credit_points = _pick(rng, credit_options)
@@ -260,6 +277,7 @@ static func pick_profile(rng: RandomNumberGenerator) -> Profile:
 	profile.driver = _pick(rng, driver_options) as Driver
 	profile.over_max = over_max
 	profile.story = _pick(rng, story_options) as CreditReport.Story
+	profile.ltv_points = _pick(rng, ltv_options)
 	return profile
 
 ## An applicant matching `profile` (see matches()), or null when MAX_ATTEMPTS
@@ -284,6 +302,8 @@ static func matches(application: LoanApplication, profile: Profile) -> bool:
 	var payments_reason := application.nothing_affordable() and profile.driver != Driver.LOAN
 	return weak.has(Reason.CREDIT_SCORE) == (profile.credit_points >= 3) \
 		and weak.has(Reason.CREDIT_HISTORY) == CreditReport.has_recent_mark(profile.story) \
+		and application.ltv_points() == profile.ltv_points \
+		and weak.has(Reason.DOWN_PAYMENT) == (profile.ltv_points >= LoanApplication.LTV_HIGH_POINTS) \
 		and weak.has(Reason.TOTAL_DTI) == (profile.dti_points >= 3 or payments_reason) \
 		and weak.has(Reason.INCOME) == (profile.driver == Driver.LOAN) \
 		and weak.has(Reason.EMPLOYMENT) == profile.short_job \
@@ -309,6 +329,7 @@ static func _attempt(rng: RandomNumberGenerator, profile: Profile) -> LoanApplic
 	var share := rng.randf_range(share_range.x, share_range.y)
 	var purpose := application.loan_purpose
 	var step: float = AMOUNT_STEPS[purpose]
+	var ltv := -1.0
 
 	# The amount and the income: over the maximum, the amount first and the
 	# income its payment implies; otherwise the income, then the amount whose
@@ -325,12 +346,20 @@ static func _attempt(rng: RandomNumberGenerator, profile: Profile) -> LoanApplic
 		var income_low: float = incomes[0]
 		var income_high: float = incomes[1]
 		application.annual_income = _stepped(rng, income_low, income_high, INCOME_STEP)
-		var principal := LoanApplication.principal_for_payment(share * application.monthly_income(), application.annual_rate(), application.term_months())
+		# A home loan's payment includes mortgage insurance over 80% LTV, so its
+		# LTV comes first.
+		var insurance_rate := 0.0
+		if home:
+			ltv = _ltv_target(rng, purpose, profile.ltv_points)
+			insurance_rate = LoanApplication.mortgage_insurance_rate(ltv)
+		var principal := LoanApplication.principal_for_total_payment(share * application.monthly_income(), application.annual_rate(), application.term_months(), insurance_rate)
 		application.requested_amount = floorf(principal / step) * step
 		if application.requested_amount < MIN_AMOUNTS[purpose] or application.requested_amount > application.policy_maximum():
 			return null
 	if application.annual_income < MIN_INCOME or application.annual_income > MAX_INCOME:
 		return null
+	# What secures it, at the profile's LTV.
+	issue_collateral(application, rng, profile.ltv_points, ltv)
 
 	var monthly := application.monthly_income()
 	var new_payment := application.new_loan_payment()
@@ -405,6 +434,9 @@ static func _pick_purpose(rng: RandomNumberGenerator, profile: Profile) -> Strin
 	for purpose: String in PURPOSE_WEIGHTS:
 		if no_home and purpose == LoanApplication.HOME_PURPOSE:
 			continue
+		# LTV points need collateral.
+		if profile.ltv_points > 0 and not LoanApplication.LTV_BANDS.has(purpose):
+			continue
 		purposes.append(purpose)
 		weights.append(PURPOSE_WEIGHTS[purpose])
 	return purposes[_weighted(rng, weights)]
@@ -449,6 +481,76 @@ static func _fallback(tier: LoanApplication.RiskTier) -> LoanApplication:
 		if application.risk_tier == tier:
 			return application
 	return LoanApplicationsData.get_applications()[0]
+
+# --- collateral ----------------------------------------------------------------------
+
+## LTV targets per purpose for 0/1/3 risk points, a little inside the bands'
+## edges (LoanApplication.LTV_BANDS) so rounding the price can't cross one:
+## home up to 80% / 80-95% / 95-97% (3% down is the least the bank takes);
+## auto up to 100% / 100-120% / 120-132%; business collateral up to 75% /
+## 75-100% / 100-120%.
+const LTV_TARGETS: Dictionary = {
+	"Home": {0: [0.60, 0.795], 1: [0.805, 0.945], 3: [0.955, 0.97]},
+	"Auto": {0: [0.70, 0.99], 1: [1.01, 1.19], 3: [1.21, 1.32]},
+	"Business": {0: [0.40, 0.74], 1: [0.76, 0.99], 3: [1.01, 1.20]},
+}
+## About 1 in 8 home appraisals come in under the purchase price, at 90-97%
+## of it; the others at 100-105%.
+const APPRAISAL_GAP_CHANCE: float = 0.125
+const APPRAISAL_GAP_RANGE: Array[float] = [0.90, 0.97]
+const APPRAISAL_OVER_RANGE: Array[float] = [1.00, 1.05]
+## A business loan with a healthy LTV has collateral this often (it's always
+## there for a stretched or high one); equipment more often than property.
+const BUSINESS_COLLATERAL_CHANCE: float = 0.55
+const EQUIPMENT_CHANCE: float = 0.6
+## Prices and values are round figures.
+const HOME_VALUE_STEP: float = 1000.0
+const VEHICLE_VALUE_STEP: float = 100.0
+const BUSINESS_VALUE_STEP: float = 1000.0
+
+## A target LTV for `purpose` at `points` (0, 1 or 3).
+static func _ltv_target(rng: RandomNumberGenerator, purpose: String, points: int) -> float:
+	var targets: Dictionary = LTV_TARGETS.get(purpose, {})
+	var band: Array = targets.get(points, [0.6, 0.8])
+	var low: float = band[0]
+	var high: float = band[1]
+	return rng.randf_range(low, high)
+
+## Gives `application` its collateral, from `rng` (the finance generator: it's
+## part of the finances, never the name or look), with an LTV for `points`
+## (or about `ltv` when given): a home's purchase price and appraisal (the LTV
+## is on the lower; APPRAISAL_GAP_CHANCE of appraisals come in under the
+## price), a vehicle's price, business equipment or property (or none), and
+## nothing for a personal loan. Needs requested_amount set.
+static func issue_collateral(application: LoanApplication, rng: RandomNumberGenerator, points: int, ltv: float = -1.0) -> void:
+	var purpose := application.loan_purpose
+	application.collateral_issued = true
+	application.collateral_kind = LoanApplication.Collateral.NONE
+	application.purchase_price = 0.0
+	application.collateral_value = 0.0
+	if not LoanApplication.LTV_BANDS.has(purpose):
+		return
+	if purpose == "Business" and points == 0 and rng.randf() >= BUSINESS_COLLATERAL_CHANCE:
+		return
+	if ltv <= 0.0:
+		ltv = _ltv_target(rng, purpose, points)
+	var value := application.requested_amount / ltv
+	match purpose:
+		LoanApplication.HOME_PURPOSE:
+			application.collateral_kind = LoanApplication.Collateral.HOUSE
+			if rng.randf() < APPRAISAL_GAP_CHANCE:
+				application.collateral_value = _rounded(value, HOME_VALUE_STEP)
+				application.purchase_price = _rounded(application.collateral_value / rng.randf_range(APPRAISAL_GAP_RANGE[0], APPRAISAL_GAP_RANGE[1]), HOME_VALUE_STEP)
+			else:
+				application.purchase_price = _rounded(value, HOME_VALUE_STEP)
+				application.collateral_value = _rounded(application.purchase_price * rng.randf_range(APPRAISAL_OVER_RANGE[0], APPRAISAL_OVER_RANGE[1]), HOME_VALUE_STEP)
+		"Auto":
+			application.collateral_kind = LoanApplication.Collateral.VEHICLE
+			application.purchase_price = _rounded(value, VEHICLE_VALUE_STEP)
+			application.collateral_value = application.purchase_price
+		_:
+			application.collateral_kind = LoanApplication.Collateral.EQUIPMENT if rng.randf() < EQUIPMENT_CHANCE else LoanApplication.Collateral.PROPERTY
+			application.collateral_value = _rounded(value, BUSINESS_VALUE_STEP)
 
 # --- documents -----------------------------------------------------------------------
 

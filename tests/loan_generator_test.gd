@@ -63,10 +63,13 @@ func test_every_profile_can_be_built() -> void:
 		var dti_options: Array = row[3]
 		var driver_options: Array = row[5]
 		var story_options: Array = row[7]
+		var ltv_options: Array = row[8]
 		for credit: int in credit_options:
 			for dti: int in dti_options:
 				for driver: int in driver_options:
-					for story: int in story_options:
+					for combo: int in story_options.size() * ltv_options.size():
+						var story: int = story_options[combo % story_options.size()]
+						var ltv: int = ltv_options[floori(combo / float(story_options.size()))]
 						var profile := LoanApplicantGenerator.Profile.new()
 						profile.tier = row[0]
 						profile.credit_points = credit
@@ -75,15 +78,17 @@ func test_every_profile_can_be_built() -> void:
 						profile.driver = driver as LoanApplicantGenerator.Driver
 						profile.over_max = row[6]
 						profile.story = story as CreditReport.Story
+						profile.ltv_points = ltv
 						# Every profile's points land on its tier.
 						assert_int(LoanApplication.tier_for_points(profile.risk_points())).override_failure_message("profile %s" % [row]).is_equal(profile.tier)
 						for i in 30:
 							var application := LoanApplicantGenerator.build(rng, profile)
-							assert_object(application).override_failure_message("profile %s, credit %d, DTI %d, driver %d, story %d" % [row, credit, dti, driver, story]).is_not_null()
+							assert_object(application).override_failure_message("profile %s, credit %d, DTI %d, driver %d, story %d, LTV %d" % [row, credit, dti, driver, story, ltv]).is_not_null()
 							if application == null:
 								return
 							assert_bool(LoanApplicantGenerator.matches(application, profile)).is_true()
 							assert_int(application.credit_report_points()).is_equal(CreditReport.story_points(profile.story))
+							assert_int(application.ltv_points()).is_equal(ltv)
 
 func test_a_thousand_applicants_never_need_the_fallback() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -237,7 +242,7 @@ func test_weak_points_vary() -> void:
 		var weak := application.weak_points()
 		var tier := application.calculate_risk_assessment()
 		if tier == Tier.LOW:
-			for reason: int in [Reason.TOTAL_DTI, Reason.INCOME, Reason.AMOUNT, Reason.CREDIT_HISTORY]:
+			for reason: int in [Reason.TOTAL_DTI, Reason.INCOME, Reason.AMOUNT, Reason.CREDIT_HISTORY, Reason.DOWN_PAYMENT]:
 				assert_bool(weak.has(reason)).override_failure_message(describe(application)).is_false()
 			if weak.has(Reason.CREDIT_SCORE):
 				assert_bool(application.has_clean_recent_history()).override_failure_message(describe(application)).is_true()
@@ -349,12 +354,12 @@ func test_no_protected_characteristic_is_stored() -> void:
 			stored.append(property["name"])
 	stored.sort()
 	assert_array(stored).is_equal([
-		"annual_income", "applicant_look", "applicant_name", "collections", "credit_report_issued", "credit_score", "decision", "decision_amount",
+		"annual_income", "applicant_look", "applicant_name", "collateral_issued", "collateral_kind", "collateral_value", "collections", "credit_report_issued", "credit_score", "decision", "decision_amount",
 		"doc_problem", "documents_issued", "employment_months", "existing_debt", "hard_inquiries", "has_pay_stub", "has_statement",
 		"id_expiry_date", "id_holder_name", "id_number", "id_portrait_look", "id_presented", "id_problem",
 		"late_30_days", "late_60_days", "late_90_days",
 		"loan_purpose", "monthly_debt_payments", "monthly_housing_payment", "months_since_bankruptcy", "months_since_collection",
-		"on_time_percent", "open_accounts",
+		"on_time_percent", "open_accounts", "purchase_price",
 		"requested_amount", "risk_assessment", "risk_tier",
 		"statement_deposits", "statement_name", "stub_employer", "stub_monthly_gross", "stub_monthly_net", "stub_name",
 		"utilization_percent",

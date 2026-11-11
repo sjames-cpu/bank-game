@@ -81,6 +81,10 @@ enum TellerMistake { AMOUNT_SHORT, AMOUNT_OVER, WRONG_TYPE, WRONG_ACCOUNT }
 ## decision; empty for an item from before credit reports. annual_rate above
 ## is the rate offered for the applicant's credit band.
 @export var credit_report_text: String = ""
+## The collateral, down payment and loan-to-value (LoanApplication
+## .collateral_summary()), frozen at the decision; empty for an item from
+## before collateral.
+@export var collateral_text: String = ""
 @export var decision: LoanApplication.DecisionType = LoanApplication.DecisionType.NONE
 @export var decision_amount: float = 0.0
 ## The applicant's documents as handed over (LoanApplication

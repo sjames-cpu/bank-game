@@ -76,7 +76,7 @@ func test_the_worksheet_appears_after_the_credit_check() -> void:
 	open_application("Angela Reyes", false)
 	# Before: the application only, no worksheet, no decisions.
 	assert_str(review.requested_amount_label.text).is_equal("Requested: $30,000 auto loan")
-	assert_str(review.terms_label.text).is_equal("60 months at 7.00% · policy maximum $75,000")
+	assert_str(review.terms_label.text).is_equal("60 months at 7.00% · up to $75,000")
 	assert_str(review.housing_payment_label.text).is_equal("Housing (rent or mortgage): $950/mo")
 	assert_str(review.existing_debt_label.text).is_equal("Existing debt: $10,000 balance · $250/mo")
 	assert_str(review.employment_label.text).is_equal("Employment: 3 years")
@@ -103,7 +103,6 @@ func test_the_worksheet_appears_after_the_credit_check() -> void:
 		"Housing ÷ income: the share of pay that goes on housing.",
 		"Total DTI: 44.9%",
 		"Housing + debts + new payment ÷ income. Policy guide: about 36% healthy, 43% stretched, 50% high.",
-		"Credit score: 710 — Good",
 		"Employment: 3 years",
 		"Affordable at 36% total DTI: $12,100",
 	]:
@@ -112,6 +111,7 @@ func test_the_worksheet_appears_after_the_credit_check() -> void:
 	assert_bool(review.credit_report_placeholder_label.visible).is_false()
 	var report := review.credit_report_text()
 	for line: String in [
+		"Credit score: 710 — Good",
 		"On-time payments: 97%",
 		"Share of all payments made on time.",
 		"Late payments (2 yrs): 1 × 30-day",
@@ -175,12 +175,12 @@ func test_a_denial_needs_one_or_two_reasons_graded_against_the_weak_points() -> 
 	review.reject_button.pressed.emit()
 	assert_bool(review.reasons_vbox.visible).is_true()
 	assert_bool(review.decision_hbox.visible).is_false()
-	assert_int(review.reason_checks.size()).is_equal(7)
+	assert_int(review.reason_checks.size()).is_equal(8)
 	# Listed with the credit reasons together.
 	var listed: Array[String] = []
 	for child in review.reason_checks_vbox.get_children():
 		listed.append((child as CheckBox).text)
-	assert_array(listed).is_equal(["Total DTI too high", "Credit score too low", "Recent late payments or collections", "Income too low for the amount", "Employment too short", "Amount too large", "Income or identity could not be verified"])
+	assert_array(listed).is_equal(["Total DTI too high", "Credit score too low", "Recent late payments or collections", "Income too low for the amount", "Down payment too small for the value", "Employment too short", "Amount too large", "Income or identity could not be verified"])
 	assert_bool(review.submit_denial_button.disabled).is_true()
 	await assert_fits()
 	# A third reason is unticked again.
@@ -343,7 +343,7 @@ func test_staff_still_decide_every_application_against_the_new_assessment() -> v
 	assert_float(angela.total_dti).is_equal_approx(0.4485, 0.0001)
 	assert_float(angela.affordable_amount).is_equal(12100.0)
 	var details := StaffReviewScreen.details_text(angela)
-	assert_str(details).starts_with("Applicant: Angela Reyes — $30,000 auto loan (60 months at 7.00%)\nCredit score 710 (Good) · Employed 3 years\nCredit report: on time 97% · late (2 yrs) 1 × 30-day · utilization 41% · 6 accounts · 2 inquiries · marks: None\nStated income $4,000/mo · Housing $950 · Debts $250/mo · New payment $594/mo\nFront-end DTI 23.8% · Total DTI 44.9% · Affordable at 36%: $12,100\nDecision: ")
+	assert_str(details).starts_with("Applicant: Angela Reyes — $30,000 auto loan (60 months at 7.00%)\nCredit score 710 (Good) · Employed 3 years\nCredit report: on time 97% · late (2 yrs) 1 × 30-day · utilization 41% · 6 accounts · 2 inquiries · marks: None\nStated income $4,000/mo · Housing $950 · Debts $250/mo · New payment $594/mo\nFront-end DTI 23.8% · Total DTI 44.9% · Affordable at 36%: $12,100\nCollateral: vehicle $34,000 · down $4,000 (11.8%) · LTV 88.2%\nDecision: ")
 	assert_str(details).not_contains("Loan-to-income")
 	var elena: StaffReviewItem = StaffReviewManager.queue.filter(func(item: StaffReviewItem) -> bool: return item.applicant_name == "Elena Petrova")[0]
 	assert_str(StaffReviewScreen.details_text(elena)).contains("Mortgage $1,959 (replaces $1,500)")
@@ -469,6 +469,150 @@ func test_staff_officers_use_the_report_and_pricing() -> void:
 	StaffReviewManager.reset()
 	StaffReviewManager.load_data(saved)
 	assert_str(StaffReviewManager.queue[-1].credit_report_text).is_equal(item.credit_report_text)
+
+# --- collateral ------------------------------------------------------------------------
+
+## A home bought with 3% down on an appraisal under the price: a buyer with
+## very good credit and a healthy DTI made borderline by the LTV.
+func little_down() -> LoanApplication:
+	var application := LoanApplication.new()
+	application.applicant_name = "Nora Kimura"
+	application.loan_purpose = "Home"
+	application.requested_amount = 340000.0
+	application.credit_score = 765
+	application.annual_income = 160000.0
+	application.monthly_housing_payment = 2100.0
+	application.existing_debt = 6000.0
+	application.monthly_debt_payments = 180.0
+	application.employment_months = 84
+	application.risk_tier = LoanApplication.RiskTier.MEDIUM
+	application.documents_issued = true
+	application.collateral_issued = true
+	application.collateral_kind = LoanApplication.Collateral.HOUSE
+	application.purchase_price = 380000.0
+	application.collateral_value = 355000.0
+	return application
+
+## The worksheet's two tabs: Payments (with the mortgage insurance in the
+## payment) and Collateral (price, appraisal, down payment, LTV, insurance),
+## each fitting the window at the usual text size.
+func test_the_worksheet_has_payments_and_collateral_tabs() -> void:
+	clock_in_at_loan_desk()
+	var application := open_next(little_down())
+	assert_str(review.collateral_label.text).is_equal("Purchase price: $380,000")
+	assert_bool(review.worksheet_tabs.visible).is_false()
+	review.run_credit_check_button.pressed.emit()
+	assert_bool(review.worksheet_tabs.visible).is_true()
+	assert_bool(review.worksheet_title_label.visible).is_false()
+	assert_int(review.worksheet_tabs.current_tab).is_equal(LoanReviewScreen.WorksheetTab.PAYMENTS)
+	assert_bool(review.worksheet_rows_vbox.visible).is_true()
+	assert_bool(review.collateral_rows_vbox.visible).is_false()
+	var insurance := application.mortgage_insurance()
+	assert_float(insurance).is_equal_approx(340000.0 * 0.01 / 12.0, 0.001)
+	assert_str(review.worksheet_text()).contains("New loan payment: %s (360 months, with $283 mortgage insurance)" % LoanApplication.dollars(application.new_loan_payment()))
+	await assert_fits()
+
+	review.worksheet_tabs.current_tab = LoanReviewScreen.WorksheetTab.COLLATERAL
+	assert_bool(review.worksheet_rows_vbox.visible).is_false()
+	assert_bool(review.collateral_rows_vbox.visible).is_true()
+	var text := review.collateral_text()
+	for line: String in [
+		"Purchase price: $380,000",
+		"Appraised value: $355,000 (below the price)",
+		"Down payment: $40,000 (10.5%)",
+		"Loan-to-value: 95.8%",
+		"Loan ÷ the lower of price and appraisal. Policy guide: up to 80.0% healthy, over 95.0% high.",
+		"Mortgage insurance: $283/mo (1.00% a year)",
+	]:
+		assert_str(text).contains(line)
+	for hidden: String in ["low risk", "medium risk", "high risk", "Approve", "Reject", "points"]:
+		assert_str(text).not_contains(hidden)
+	await assert_fits()
+	# The documents view hides both tabs; the worksheet button brings them back.
+	review.verify_documents_button.pressed.emit()
+	assert_bool(review.worksheet_tabs.visible).is_false()
+	assert_bool(review.collateral_rows_vbox.visible).is_false()
+	review.run_credit_check_button.pressed.emit()
+	assert_bool(review.collateral_rows_vbox.visible).is_true()
+
+	# An unsecured personal loan: nothing on the form, "None" on the tab.
+	review.close_button.pressed.emit()
+	open_next(sample("Priya Sharma"))
+	assert_bool(review.collateral_label.visible).is_false()
+	review.run_credit_check_button.pressed.emit()
+	review.worksheet_tabs.current_tab = LoanReviewScreen.WorksheetTab.COLLATERAL
+	assert_str(review.collateral_text()).contains("Collateral: None (unsecured: a personal loan)")
+
+## The counter-offer shows the down payment its amount implies, as it's
+## typed; and a denial for the down payment is graded like the others.
+func test_the_counter_offer_down_payment_and_the_down_payment_reason() -> void:
+	clock_in_at_loan_desk()
+	var application := open_next(little_down())
+	assert_int(application.calculate_risk_assessment()).is_equal(LoanApplication.RiskTier.MEDIUM)
+	assert_int(application.assessment_without_ltv()).is_equal(LoanApplication.RiskTier.LOW)
+	review.run_credit_check_button.pressed.emit()
+	review.counter_offer_button.pressed.emit()
+	assert_str(review.counter_offer_down_label.text).is_equal("A $340,000 loan means a $40,000 down payment (10.5%). Healthy LTV needs a loan of $284,000 or less.")
+	review.counter_offer_amount_spinbox.value = 300000.0
+	assert_str(review.counter_offer_down_label.text).is_equal("A $300,000 loan means a $80,000 down payment (21.1%). Healthy LTV needs a loan of $284,000 or less.")
+	await assert_fits()
+	# $339,900: affordable, but the LTV is still high: only reasonable.
+	review.counter_offer_amount_spinbox.value = 339900.0
+	var start := totals()
+	review.submit_counter_offer_button.pressed.emit()
+	assert_int((totals() - start).x).is_equal(LoanApplication.PARTIAL_CREDIT_SCORE)
+	assert_str(review.decision_status_label.text).contains("Affordable, but the loan-to-value is still 95.7%: Healthy LTV needs a loan of $284,000 or less.")
+	await assert_fits()
+	review.close_button.pressed.emit()
+	# $284,000: a healthy LTV, the correct call.
+	var again := little_down()
+	again.applicant_name = "Hugo Valdez"
+	open_next(again)
+	review.run_credit_check_button.pressed.emit()
+	review.counter_offer_button.pressed.emit()
+	review.counter_offer_amount_spinbox.value = 284000.0
+	start = totals()
+	review.submit_counter_offer_button.pressed.emit()
+	assert_int((totals() - start).x).is_equal(LoanApplication.BEST_DECISION_SCORE)
+	assert_str(review.decision_status_label.text).contains("Affordable, with a healthy loan-to-value (80.0%).")
+	review.close_button.pressed.emit()
+
+	# The down payment as a denial reason.
+	var third := little_down()
+	third.applicant_name = "Iris Navarro"
+	open_next(third)
+	review.run_credit_check_button.pressed.emit()
+
+	review.reject_button.pressed.emit()
+	tick([LoanApplication.DenialReason.DOWN_PAYMENT])
+	await assert_fits()
+	start = totals()
+	review.submit_denial_button.pressed.emit()
+	assert_int((totals() - start).x).is_equal(LoanApplication.PARTIAL_CREDIT_SCORE + LoanApplication.REASON_RIGHT_SCORE)
+	var record: DecisionRecord = HistoryManager.records[-1]
+	assert_str(record.description).is_equal("Loan rejected: Iris Navarro (medium risk applicant) — reasons: Down payment too small for the value")
+
+## Staff officers judge the same LTV: a perfect officer counters the
+## borderline buyer, and the weakest officer's item carries the collateral.
+func test_staff_officers_use_the_collateral() -> void:
+	XPManager._grant_branch_manager()
+	acknowledge_letters()
+	var worker := room.loan_desk_worker
+	worker.staff_doc_slips = false
+	var decided: Array[LoanApplication] = []
+	worker.decision_made.connect(func(application: LoanApplication, _s: StaffMember, _c: bool) -> void: decided.append(application))
+	worker.staff_npc.staff.skill = 10
+	worker.decide_next(little_down())
+	assert_int(decided[0].decision).is_equal(LoanApplication.DecisionType.COUNTER_OFFER)
+	# At 80% of the $355,000 appraisal: asking for $96,000 down.
+	assert_float(decided[0].decision_amount).is_equal(284000.0)
+	assert_int(decided[0].grade_type(LoanApplication.DecisionType.COUNTER_OFFER)).is_equal(LoanApplication.Grade.BEST)
+	assert_int(decided[0].grade_counter_offer(284000.0)).is_equal(LoanApplication.Grade.BEST)
+	worker.staff_npc.staff.skill = 0
+	worker.decide_next(little_down())
+	var item: StaffReviewItem = StaffReviewManager.queue[-1]
+	assert_str(item.collateral_text).is_equal("Collateral: home $380,000 · appraised $355,000 · down $40,000 (10.5%) · LTV 95.8% · mortgage insurance $283/mo")
+	assert_str(StaffReviewScreen.details_text(item)).contains(item.collateral_text)
 
 # --- old saves ------------------------------------------------------------------------
 

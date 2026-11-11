@@ -38,6 +38,9 @@ class_name LoanReviewScreen
 @onready var requested_amount_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ApplicantHBox/NameVBox/RequestedAmountLabel
 @onready var terms_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/TermsLabel
 @onready var credit_score_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/CreditScoreLabel
+## The form's purchase price, vehicle price or business collateral (hidden
+## for an unsecured loan).
+@onready var collateral_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/CollateralLabel
 @onready var annual_income_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/AnnualIncomeLabel
 @onready var housing_payment_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/HousingPaymentLabel
 @onready var existing_debt_label: Label = $Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox/ExistingDebtLabel
@@ -50,6 +53,9 @@ class_name LoanReviewScreen
 @onready var counter_offer_button: Button = $Panel/VBox/Columns/LeftVBox/DecisionHBox/CounterOfferButton
 @onready var counter_offer_vbox: VBoxContainer = $Panel/VBox/Columns/LeftVBox/CounterOfferVBox
 @onready var counter_offer_reference_label: Label = $Panel/VBox/Columns/LeftVBox/CounterOfferVBox/CounterOfferReferenceLabel
+## What the counter-offer on the spin box implies: the down payment it means
+## (or its share of business collateral).
+@onready var counter_offer_down_label: Label = $Panel/VBox/Columns/LeftVBox/CounterOfferVBox/CounterOfferDownLabel
 @onready var counter_offer_amount_spinbox: SpinBox = $Panel/VBox/Columns/LeftVBox/CounterOfferVBox/CounterOfferHBox/CounterOfferAmountSpinBox
 @onready var submit_counter_offer_button: Button = $Panel/VBox/Columns/LeftVBox/CounterOfferVBox/CounterOfferHBox/SubmitCounterOfferButton
 @onready var cancel_counter_offer_button: Button = $Panel/VBox/Columns/LeftVBox/CounterOfferVBox/CounterOfferHBox/CancelCounterOfferButton
@@ -61,6 +67,11 @@ class_name LoanReviewScreen
 @onready var worksheet_placeholder_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetPlaceholderLabel
 @onready var worksheet_rows_vbox: VBoxContainer = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetRows
 @onready var worksheet_title_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetTitleLabel
+## After the credit check the worksheet has two tabs (WorksheetTab): its
+## payments, and the collateral (value, down payment, LTV, mortgage
+## insurance), so both keep readable text in one column.
+@onready var worksheet_tabs: TabBar = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetTabs
+@onready var collateral_rows_vbox: VBoxContainer = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/CollateralRows
 @onready var documents_vbox: VBoxContainer = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox
 @onready var id_portrait: TextureRect = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/IdHBox/IdPortrait
 @onready var id_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/IdHBox/IdLabel
@@ -86,6 +97,9 @@ const SHOW_WORKSHEET_TEXT: String = "Show Worksheet"
 const SHOW_DOCUMENTS_TEXT: String = "Show Documents"
 const VERIFY_TEXT: String = "Verify Documents"
 const CREDIT_CHECK_TEXT: String = "Run Credit Check"
+
+enum WorksheetTab { PAYMENTS, COLLATERAL }
+const TAB_TITLES: Array[String] = ["Payments", "Collateral"]
 
 ## Whether the current application's documents were looked at (Verify
 ## Documents) and its credit check run, each before the decision.
@@ -125,6 +139,11 @@ func _ready() -> void:
 	cancel_denial_button.pressed.connect(_on_cancel_denial_button_pressed)
 	decision_status_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	terms_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
+	for title in TAB_TITLES:
+		worksheet_tabs.add_tab(title)
+	worksheet_tabs.tab_changed.connect(_on_worksheet_tab_changed)
+	counter_offer_amount_spinbox.value_changed.connect(_on_counter_offer_amount_changed)
+	counter_offer_down_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	reason_checks.resize(LoanApplication.DenialReason.size())
 	for reason: LoanApplication.DenialReason in LoanApplication.DENIAL_REASON_ORDER:
 		var check := CheckBox.new()
@@ -182,6 +201,8 @@ func _display_next_application() -> void:
 	applicant_name_label.text = application.applicant_name
 	requested_amount_label.text = "Requested: %s %s loan" % [LoanApplication.dollars(application.requested_amount), application.loan_purpose.to_lower()]
 	terms_label.text = terms_text(application)
+	collateral_label.text = form_collateral_text(application)
+	collateral_label.visible = collateral_label.text != ""
 	credit_score_label.text = "Credit score: %d" % application.credit_score
 	annual_income_label.text = stated_income_text(application)
 	housing_payment_label.text = "Housing (rent or mortgage): %s/mo" % LoanApplication.dollars(application.monthly_housing_payment)
@@ -198,6 +219,9 @@ func _display_next_application() -> void:
 	documents_vbox.visible = false
 	_clear_worksheet()
 	_clear_credit_report()
+	worksheet_tabs.visible = false
+	worksheet_tabs.current_tab = WorksheetTab.PAYMENTS
+	worksheet_title_label.visible = true
 	decision_hbox.visible = false
 	counter_offer_vbox.visible = false
 	reasons_vbox.visible = false
@@ -257,17 +281,22 @@ func _on_verify_documents_button_pressed() -> void:
 
 func _show_documents_view(show_documents: bool) -> void:
 	documents_vbox.visible = show_documents
-	worksheet_rows_vbox.visible = not show_documents
+	var tab := worksheet_tabs.current_tab
+	worksheet_rows_vbox.visible = not show_documents and tab == WorksheetTab.PAYMENTS
+	collateral_rows_vbox.visible = not show_documents and credit_checked and tab == WorksheetTab.COLLATERAL
 	worksheet_placeholder_label.visible = not show_documents and not credit_checked
+	# The worksheet's tabs name it once the credit check has filled it.
+	worksheet_tabs.visible = not show_documents and credit_checked
+	worksheet_title_label.visible = not worksheet_tabs.visible
 	worksheet_title_label.text = DOCUMENTS_TITLE if show_documents else WORKSHEET_TITLE
 	verify_documents_button.text = VERIFY_TEXT if not documents_verified else SHOW_DOCUMENTS_TEXT
 	if credit_checked:
 		run_credit_check_button.text = SHOW_WORKSHEET_TEXT
 
-## "60 months at 7.00% · policy maximum $75,000" (the bank's term and rate
+## "60 months at 7.00% · up to $75,000" (the bank's term and rate
 ## for the purpose; one line, so the screen keeps its height).
 static func terms_text(application: LoanApplication) -> String:
-	return "%d months at %.2f%% · policy maximum %s" % [
+	return "%d months at %.2f%% · up to %s" % [
 		application.term_months(), application.annual_rate() * 100.0, LoanApplication.dollars(application.policy_maximum()),
 	]
 
@@ -277,28 +306,93 @@ static func worksheet_rows(application: LoanApplication) -> Array[PackedStringAr
 	var housing := LoanApplication.dollars(application.housing_payment_after_loan())
 	if application.replaces_housing():
 		housing += " (new mortgage; replaces %s)" % LoanApplication.dollars(application.monthly_housing_payment)
+	var payment := "%s (%d months)" % [LoanApplication.dollars(application.new_loan_payment()), application.term_months()]
+	var insurance := application.mortgage_insurance()
+	var payment_note := ""
+	if insurance > 0.0:
+		payment = "%s (%d months, with %s mortgage insurance)" % [LoanApplication.dollars(application.new_loan_payment()), application.term_months(), LoanApplication.dollars(insurance)]
+		payment_note = "Mortgage insurance: over 80% LTV; see Collateral."
 	var rows: Array[PackedStringArray] = [
 		PackedStringArray(["Monthly income", LoanApplication.dollars(application.monthly_income()), ""]),
 		PackedStringArray(["Housing payment", housing, ""]),
 		PackedStringArray(["Existing debt payments", LoanApplication.dollars(application.monthly_debt_payments), ""]),
 		PackedStringArray(["Rate offered", "%.2f%%" % (application.annual_rate() * 100.0), application.rate_reason()]),
-		PackedStringArray(["New loan payment", "%s (%d months)" % [LoanApplication.dollars(application.new_loan_payment()), application.term_months()], ""]),
+		PackedStringArray(["New loan payment", payment, payment_note]),
 		PackedStringArray(["Front-end DTI", LoanApplication.percent(application.front_end_dti()), "Housing ÷ income: the share of pay that goes on housing."]),
 		PackedStringArray(["Total DTI", LoanApplication.percent(application.total_dti()), "Housing + debts + new payment ÷ income. Policy guide: about 36% healthy, 43% stretched, 50% high."]),
-		PackedStringArray(["Credit score", "%d — %s" % [application.credit_score, LoanApplication.credit_score_band(application.credit_score)], ""]),
 		PackedStringArray(["Employment", LoanApplication.employment_text(application.employment_months), "Policy looks for two years in the same line of work."]),
 		PackedStringArray(["Affordable at 36% total DTI", LoanApplication.dollars(application.affordable_amount()), "The largest loan keeping total DTI at a healthy 36%."]),
 	]
 	return rows
 
 func _clear_worksheet() -> void:
-	for child in worksheet_rows_vbox.get_children():
-		worksheet_rows_vbox.remove_child(child)
-		child.queue_free()
+	for box: VBoxContainer in [worksheet_rows_vbox, collateral_rows_vbox]:
+		for child in box.get_children():
+			box.remove_child(child)
+			child.queue_free()
 
 func _fill_worksheet(application: LoanApplication) -> void:
 	_clear_worksheet()
 	_add_rows(worksheet_rows_vbox, worksheet_rows(application))
+	_add_rows(collateral_rows_vbox, collateral_rows(application))
+
+## The Collateral tab as [label, value, explanation] rows: the value behind
+## the loan, the down payment, the loan-to-value against the purpose's guide
+## bands, and (a home) mortgage insurance. Facts and policy, never the
+## verdict.
+static func collateral_rows(application: LoanApplication) -> Array[PackedStringArray]:
+	var rows: Array[PackedStringArray] = []
+	if not application.is_secured():
+		var what := "a personal loan" if application.loan_purpose == "Personal" else "nothing pledged"
+		rows.append(PackedStringArray(["Collateral", "None (unsecured: %s)" % what, "Nothing to sell if the loan isn't repaid, so a default loses most of it."]))
+		return rows
+	var bands: Array = LoanApplication.LTV_BANDS.get(application.loan_purpose, [])
+	var healthy: float = bands[0]
+	var stretched: float = bands[1]
+	var guide := "Policy guide: up to %s %s, over %s high." % [LoanApplication.percent(healthy), "normal" if application.loan_purpose == "Auto" else "healthy", LoanApplication.percent(stretched)]
+	match application.collateral_kind:
+		LoanApplication.Collateral.HOUSE:
+			rows.append(PackedStringArray(["Purchase price", LoanApplication.dollars(application.purchase_price), ""]))
+			var appraisal := LoanApplication.dollars(application.collateral_value)
+			if application.has_appraisal_gap():
+				appraisal += " (below the price)"
+			rows.append(PackedStringArray(["Appraised value", appraisal, "An independent valuation; the bank lends against the lower of price and appraisal."]))
+		LoanApplication.Collateral.VEHICLE:
+			rows.append(PackedStringArray(["Vehicle price", LoanApplication.dollars(application.purchase_price), "The car secures the loan; its price is its value."]))
+		_:
+			var kind := LoanApplication.collateral_name(application.collateral_kind)
+			rows.append(PackedStringArray(["Collateral", "%s worth %s" % [kind.left(1).to_upper() + kind.substr(1), LoanApplication.dollars(application.collateral_value)], "Pledged against the loan; sold to recover it if the loan isn't repaid."]))
+	if application.has_down_payment():
+		rows.append(PackedStringArray(["Down payment", application.down_payment_text(), "Price minus the loan: the buyer's own money in."]))
+	rows.append(PackedStringArray(["Loan-to-value", LoanApplication.percent(application.loan_to_value()), "Loan ÷ %s. %s" % ["the lower of price and appraisal" if application.collateral_kind == LoanApplication.Collateral.HOUSE else "the value", guide]]))
+	if application.replaces_housing():
+		var insurance := application.mortgage_insurance()
+		var value := "None (80% LTV or less)"
+		if insurance > 0.0:
+			value = "%s/mo (%.2f%% a year)" % [LoanApplication.dollars(insurance), LoanApplication.mortgage_insurance_rate(application.loan_to_value()) * 100.0]
+		rows.append(PackedStringArray(["Mortgage insurance", value, "Over 80% LTV the borrower pays it, in the housing payment: 0.30% a year up to 85%, 0.50% to 90%, 0.75% to 95%, 1.00% above."]))
+	return rows
+
+## The form's line about what the loan buys or is secured by: "Purchase
+## price: $340,000", "Vehicle price: $32,000", "Collateral offered:
+## equipment"; empty when unsecured.
+static func form_collateral_text(application: LoanApplication) -> String:
+	if not application.is_secured():
+		return ""
+	match application.collateral_kind:
+		LoanApplication.Collateral.HOUSE:
+			return "Purchase price: %s" % LoanApplication.dollars(application.purchase_price)
+		LoanApplication.Collateral.VEHICLE:
+			return "Vehicle price: %s" % LoanApplication.dollars(application.purchase_price)
+		_:
+			return "Collateral offered: %s" % LoanApplication.collateral_name(application.collateral_kind)
+
+## The Collateral tab's text as shown (for tests).
+func collateral_text() -> String:
+	return _box_text(collateral_rows_vbox)
+
+func _on_worksheet_tab_changed(_tab: int) -> void:
+	_show_documents_view(false)
 
 ## [label, value, explanation] rows as labels: the line, then its muted
 ## explanation (if any).
@@ -342,7 +436,9 @@ func _clear_credit_report() -> void:
 func _fill_credit_report(application: LoanApplication) -> void:
 	_clear_credit_report()
 	credit_report_placeholder_label.visible = false
-	_add_rows(credit_report_rows_vbox, CreditReport.rows(application), COMPACT_FONT_SIZE)
+	var rows: Array[PackedStringArray] = [PackedStringArray(["Credit score", "%d — %s" % [application.credit_score, LoanApplication.credit_score_band(application.credit_score)], ""])]
+	rows.append_array(CreditReport.rows(application))
+	_add_rows(credit_report_rows_vbox, rows, COMPACT_FONT_SIZE)
 	credit_report_policy_label.text = CreditReport.POLICY_TEXT
 	credit_report_policy_label.visible = true
 
@@ -368,6 +464,7 @@ func _on_run_credit_check_button_pressed() -> void:
 	if first:
 		_fill_worksheet(application)
 		_fill_credit_report(application)
+		worksheet_tabs.current_tab = WorksheetTab.PAYMENTS
 	_show_documents_view(false)
 
 	# Decisions are gated behind having run the credit check first, so the
@@ -390,7 +487,16 @@ func _on_counter_offer_button_pressed() -> void:
 	decision_hbox.visible = false
 	counter_offer_reference_label.text = "Affordable at 36%% total DTI: %s" % LoanApplication.dollars(_current_application.affordable_amount())
 	counter_offer_amount_spinbox.value = _current_application.requested_amount
+	_on_counter_offer_amount_changed(counter_offer_amount_spinbox.value)
 	counter_offer_vbox.visible = true
+
+## The down payment (or share of collateral) the amount on the spin box
+## implies, so a smaller loan reads as asking for more down.
+func _on_counter_offer_amount_changed(amount: float) -> void:
+	if _current_application == null:
+		return
+	counter_offer_down_label.text = _current_application.counter_offer_collateral_line(amount)
+	counter_offer_down_label.visible = counter_offer_down_label.text != ""
 
 func _on_submit_counter_offer_button_pressed() -> void:
 	var amount := counter_offer_amount_spinbox.value

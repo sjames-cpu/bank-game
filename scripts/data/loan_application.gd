@@ -37,14 +37,20 @@ enum Grade { BEST, PARTIAL, BAD, WORST }
 ## CREDIT_HISTORY: a serious mark in the last two years on the credit report
 ## (appended last so saved values keep their meaning; DENIAL_REASON_ORDER is
 ## the order they're listed in).
-enum DenialReason { TOTAL_DTI, CREDIT_SCORE, INCOME, EMPLOYMENT, AMOUNT, UNVERIFIED, CREDIT_HISTORY }
+## DOWN_PAYMENT: the loan-to-value is in its purpose's high band (appended
+## last too).
+enum DenialReason { TOTAL_DTI, CREDIT_SCORE, INCOME, EMPLOYMENT, AMOUNT, UNVERIFIED, CREDIT_HISTORY, DOWN_PAYMENT }
 
 ## How the reasons are listed on the review screen: the credit reasons
-## together.
+## together, then the loan's own.
 const DENIAL_REASON_ORDER: Array[DenialReason] = [
 	DenialReason.TOTAL_DTI, DenialReason.CREDIT_SCORE, DenialReason.CREDIT_HISTORY, DenialReason.INCOME,
-	DenialReason.EMPLOYMENT, DenialReason.AMOUNT, DenialReason.UNVERIFIED,
+	DenialReason.DOWN_PAYMENT, DenialReason.EMPLOYMENT, DenialReason.AMOUNT, DenialReason.UNVERIFIED,
 ]
+
+## What secures a loan (Collateral fields below): a house (home loans), a
+## vehicle (auto), business equipment or property, or nothing.
+enum Collateral { NONE, HOUSE, VEHICLE, EQUIPMENT, PROPERTY }
 
 ## What's wrong with an applicant's documents besides their ID (which has
 ## its own IdCard.Problem): the income stated on the form is more than the pay
@@ -253,6 +259,20 @@ const BAND_RANGES: Array[String] = ["800+", "740-799", "670-739", "580-669", "un
 @export var months_since_collection: int = 0
 @export var months_since_bankruptcy: int = 0
 
+## --- Collateral (LoanApplicantGenerator.issue_collateral(), from the finance
+## generator). A home loan: the purchase price and the bank's appraisal; an
+## auto loan: the vehicle's price, which is its value; a business loan: the
+## equipment or property pledged, if any, and its value; a personal loan:
+## none. An application with no collateral issued (built in a test, or saved
+## before collateral) has no loan-to-value and scores no LTV points. ---
+@export var collateral_issued: bool = false
+@export var collateral_kind: Collateral = Collateral.NONE
+## What's being bought (home and auto; 0 otherwise).
+@export var purchase_price: float = 0.0
+## The appraisal (home), the vehicle's value (auto) or the pledged asset's
+## value (business).
+@export var collateral_value: float = 0.0
+
 ## Computed from the worksheet by calculate_risk_assessment() (cached here
 ## the first time a screen runs the credit check math). Never shown to the
 ## player; grade_decision() grades the player's decision against this alone.
@@ -325,9 +345,199 @@ func monthly_income() -> float:
 	return annual_income / 12.0
 
 ## The new loan's monthly payment for `amount` (the requested amount by
-## default) at this purpose's term and rate.
+## default): principal and interest at this purpose's term and rate, plus
+## mortgage insurance on a home loan over 80% LTV.
 func new_loan_payment(amount: float = -1.0) -> float:
-	return monthly_payment(requested_amount if amount < 0.0 else amount, annual_rate(), term_months())
+	return principal_and_interest(amount) + mortgage_insurance(amount)
+
+func principal_and_interest(amount: float = -1.0) -> float:
+	return monthly_payment(_amount_or_request(amount), annual_rate(), term_months())
+
+func _amount_or_request(amount: float) -> float:
+	return requested_amount if amount < 0.0 else amount
+
+# --- collateral and loan-to-value (bank policy) ----------------------------------------
+
+## A loan with collateral the bank can value: a home, a vehicle, or business
+## equipment or property.
+func is_secured() -> bool:
+	return collateral_issued and collateral_kind != Collateral.NONE and collateral_value > 0.0
+
+## What the loan is measured against: the lower of the purchase price and the
+## appraisal for a home (the bank never lends against more than either), the
+## vehicle's or pledged asset's value otherwise; 0 when unsecured.
+func value_for_ltv() -> float:
+	if not is_secured():
+		return 0.0
+	if collateral_kind == Collateral.HOUSE and purchase_price > 0.0:
+		return minf(purchase_price, collateral_value)
+	return collateral_value
+
+## Loan-to-value: the loan ÷ value_for_ltv(); 0 when unsecured.
+func loan_to_value(amount: float = -1.0) -> float:
+	var value := value_for_ltv()
+	if value <= 0.0:
+		return 0.0
+	return _amount_or_request(amount) / value
+
+## The appraisal came in under the purchase price.
+func has_appraisal_gap() -> bool:
+	return is_secured() and collateral_kind == Collateral.HOUSE and collateral_value < purchase_price
+
+## A purchase with a down payment: a home or a vehicle.
+func has_down_payment() -> bool:
+	return is_secured() and (collateral_kind == Collateral.HOUSE or collateral_kind == Collateral.VEHICLE) and purchase_price > 0.0
+
+## The purchase price minus the loan (negative: the loan is more than the
+## price, with taxes, fees or an old loan rolled in).
+func down_payment(amount: float = -1.0) -> float:
+	return purchase_price - _amount_or_request(amount) if has_down_payment() else 0.0
+
+func down_payment_share(amount: float = -1.0) -> float:
+	return down_payment(amount) / purchase_price if has_down_payment() else 0.0
+
+## LTV guide bands per purpose (bank policy): [healthy up to, stretched up
+## to]; beyond the second, high.
+## - Home: up to 80% (20% down, no mortgage insurance) healthy; up to 95%
+##   stretched; over 95% (under 5% down) high.
+## - Auto: up to 100% normal (no more than the car is worth); up to 120%
+##   stretched (taxes, fees or a small old loan rolled in); over 120% high
+##   (the borrower owes far more than the car is worth from day one).
+## - Business: up to 75% healthy (what lenders usually advance on equipment
+##   or property); up to 100% stretched; over 100% high.
+const LTV_BANDS: Dictionary = {"Home": [0.80, 0.95], "Auto": [1.00, 1.20], "Business": [0.75, 1.00]}
+const LTV_STRETCHED_POINTS: int = 1
+const LTV_HIGH_POINTS: int = 3
+
+## Risk points from the loan-to-value (0 when unsecured): healthy 0,
+## stretched 1, high 3.
+func ltv_points(amount: float = -1.0) -> int:
+	var bands: Array = LTV_BANDS.get(loan_purpose, [])
+	if bands.is_empty() or not is_secured():
+		return 0
+	var ltv := loan_to_value(amount)
+	var healthy: float = bands[0]
+	var stretched: float = bands[1]
+	if ltv <= healthy + 0.000001:
+		return 0
+	if ltv <= stretched + 0.000001:
+		return LTV_STRETCHED_POINTS
+	return LTV_HIGH_POINTS
+
+## Mortgage insurance (bank policy): a home loan over 80% LTV pays it, a
+## yearly share of the loan by LTV, in the monthly payment until the loan is
+## paid down. [LTV up to, yearly rate]: 85% 0.30% · 90% 0.50% · 95% 0.75% ·
+## above 1.00%. About what private mortgage insurance costs a good-credit
+## borrower; it protects the bank, not the borrower.
+const MORTGAGE_INSURANCE_FROM_LTV: float = 0.80
+const MORTGAGE_INSURANCE_RATES: Array = [[0.85, 0.0030], [0.90, 0.0050], [0.95, 0.0075], [INF, 0.0100]]
+
+## The yearly mortgage insurance rate at `ltv` (0 at 80% or less).
+static func mortgage_insurance_rate(ltv: float) -> float:
+	if ltv <= MORTGAGE_INSURANCE_FROM_LTV + 0.000001:
+		return 0.0
+	for band: Array in MORTGAGE_INSURANCE_RATES:
+		var up_to: float = band[0]
+		if ltv <= up_to + 0.000001:
+			var rate: float = band[1]
+			return rate
+	return 0.0
+
+## The monthly mortgage insurance on `amount` (0 unless a secured home loan
+## over 80% LTV).
+func mortgage_insurance(amount: float = -1.0) -> float:
+	if not replaces_housing() or not is_secured():
+		return 0.0
+	return _amount_or_request(amount) * mortgage_insurance_rate(loan_to_value(amount)) / 12.0
+
+## The largest loan (to $100) within the purpose's healthy LTV band: what a
+## counter-offer asking for more down would lend. 0 when unsecured.
+func healthy_ltv_amount() -> float:
+	var bands: Array = LTV_BANDS.get(loan_purpose, [])
+	if bands.is_empty() or not is_secured():
+		return 0.0
+	var healthy: float = bands[0]
+	return floorf(value_for_ltv() * healthy / 100.0 + 0.000001) * 100.0
+
+## "home", "vehicle", "equipment", "business property".
+static func collateral_name(kind: Collateral) -> String:
+	match kind:
+		Collateral.HOUSE:
+			return "home"
+		Collateral.VEHICLE:
+			return "vehicle"
+		Collateral.EQUIPMENT:
+			return "equipment"
+		Collateral.PROPERTY:
+			return "business property"
+		_:
+			return "none"
+
+## "$34,000 (10.0%)", or "None ($3,000 over the vehicle's value)".
+func down_payment_text(amount: float = -1.0) -> String:
+	var down := down_payment(amount)
+	if down < 0.0:
+		return "None (%s over the %s's price)" % [dollars(-down), collateral_name(collateral_kind)]
+	return "%s (%s)" % [dollars(down), percent(down_payment_share(amount))]
+
+## What a counter-offer of `amount` implies, so a smaller loan reads as more
+## down: "A $240,000 loan means a $60,000 down payment (20.0%)." For business
+## collateral, the share of its value; empty when unsecured.
+## When the request's LTV is over the healthy band, the target follows:
+## "Healthy LTV needs a loan of $272,000 or less."
+func counter_offer_collateral_line(amount: float) -> String:
+	var line := ""
+	if has_down_payment():
+		var down := down_payment(amount)
+		if down < 0.0:
+			line = "A %s loan is %s over the %s's price: no down payment." % [dollars(amount), dollars(-down), collateral_name(collateral_kind)]
+		else:
+			line = "A %s loan means a %s down payment (%s)." % [dollars(amount), dollars(down), percent(down_payment_share(amount))]
+	elif is_secured():
+		line = "A %s loan is %s of the %s's value." % [dollars(amount), percent(loan_to_value(amount)), collateral_name(collateral_kind)]
+	if ltv_points() > 0:
+		line += " " + healthy_ltv_text()
+	return line
+
+## "Healthy LTV needs a loan of $272,000 or less."
+func healthy_ltv_text() -> String:
+	return "Healthy LTV needs a loan of %s or less." % dollars(healthy_ltv_amount())
+
+## The LTV is one of the application's real weak points (DOWN_PAYMENT): a
+## counter-offer must then bring it into the healthy band.
+func ltv_is_weak() -> bool:
+	return weak_points().has(DenialReason.DOWN_PAYMENT)
+
+## Does a counter-offer of `amount` fix the LTV (within the healthy band)?
+func fixes_ltv(amount: float) -> bool:
+	return ltv_points(amount) == 0
+
+## One line for the Branch Manager's staff review: "Collateral: home $340,000
+## · appraised $326,000 · down $34,000 (10.0%) · LTV 94.0% · mortgage
+## insurance $170/mo".
+func collateral_summary() -> String:
+	if not is_secured():
+		return "Collateral: none (unsecured)"
+	var parts: PackedStringArray = []
+	if has_down_payment():
+		parts.append("%s %s" % [collateral_name(collateral_kind), dollars(purchase_price)])
+		if collateral_kind == Collateral.HOUSE:
+			parts.append("appraised %s" % dollars(collateral_value))
+		parts.append("down %s" % down_payment_text())
+	else:
+		parts.append("%s %s" % [collateral_name(collateral_kind), dollars(collateral_value)])
+	parts.append("LTV %s" % percent(loan_to_value()))
+	if mortgage_insurance() > 0.0:
+		parts.append("mortgage insurance %s/mo" % dollars(mortgage_insurance()))
+	return "Collateral: " + " · ".join(parts)
+
+## The principal a monthly `payment` covers, with mortgage insurance at
+## `insurance_rate` a year of the principal on top of principal and interest.
+static func principal_for_total_payment(payment: float, rate: float, months: int, insurance_rate: float) -> float:
+	var per_dollar := monthly_payment(1.0, rate, months) + insurance_rate / 12.0
+	if per_dollar <= 0.0:
+		return 0.0
+	return payment / per_dollar
 
 func replaces_housing() -> bool:
 	return loan_purpose == HOME_PURPOSE
@@ -369,15 +579,28 @@ func new_payment_share() -> float:
 
 ## The largest amount the applicant could carry at HEALTHY_DTI total DTI,
 ## rounded down to $100 and capped at the policy maximum; 0 when today's
-## payments already use up the healthy share.
+## payments already use up the healthy share. A home loan's mortgage
+## insurance counts in the payment (so the amount is searched for: a smaller
+## loan has a lower LTV and may pay less insurance, or none).
 func affordable_amount() -> float:
 	var room := HEALTHY_DTI * monthly_income() - monthly_debt_payments
 	if not replaces_housing():
 		room -= monthly_housing_payment
 	if room <= 0.0:
 		return 0.0
-	var amount := floorf(principal_for_payment(room, annual_rate(), term_months()) / 100.0) * 100.0
-	return minf(amount, policy_maximum())
+	var amount := minf(floorf(principal_for_payment(room, annual_rate(), term_months()) / 100.0) * 100.0, policy_maximum())
+	if mortgage_insurance(amount) <= 0.0:
+		return amount
+	# The payment grows with the amount: the largest $100 step within room.
+	var low := 0
+	var high := roundi(amount / 100.0)
+	while low < high:
+		var middle := floori((low + high + 1) / 2.0)
+		if new_loan_payment(middle * 100.0) <= room:
+			low = middle
+		else:
+			high = middle - 1
+	return low * 100.0
 
 ## What a counter-offer is measured against: the affordable amount, or the
 ## request when that's smaller.
@@ -415,16 +638,25 @@ static func credit_score_band(score: int) -> String:
 ##   two years −1.
 ## - Total DTI: up to 36% 0 · up to 43% 1 · up to 50% 3 · over 50% 5.
 ## - Employment: two years or more 0 · under two years 2.
+## - Loan-to-value (ltv_points(), secured loans): healthy 0 · stretched 1 ·
+##   high 3 (LTV_BANDS).
 ## A factor at its weak level (credit under 670, a recent serious mark, DTI
-## over 43%, under two years) costs 2 points or more. The 1-point levels
-## (a good score, a stretched DTI, high utilization) can together reach 3,
-## which weak_points() covers.
+## over 43%, under two years, a high LTV) costs 2 points or more. The 1-point
+## levels (a good score, a stretched DTI, high utilization, a stretched LTV)
+## can together reach 3 or more, which weak_points() covers.
 func risk_points() -> int:
-	return score_only_points() + credit_report_points()
+	return _base_points() + credit_report_points() + ltv_points()
 
-## The risk points without the credit report: the score, DTI and employment
-## alone (for comparing what the report changes).
+## The risk points without the credit report (for comparing what the report
+## changes): the score, DTI, employment and LTV.
 func score_only_points() -> int:
+	return risk_points() - credit_report_points()
+
+## The risk points without the loan-to-value (for comparing what it changes).
+func points_without_ltv() -> int:
+	return risk_points() - ltv_points()
+
+func _base_points() -> int:
 	var points := 0
 	if credit_score < FAIR_CREDIT:
 		points += 5
@@ -449,9 +681,13 @@ func score_only_points() -> int:
 func calculate_risk_assessment() -> RiskTier:
 	return tier_for_points(risk_points())
 
-## The tier the score, DTI and employment alone would give (no report).
+## The tier without the credit report.
 func score_only_assessment() -> RiskTier:
 	return tier_for_points(score_only_points())
+
+## The tier without the loan-to-value.
+func assessment_without_ltv() -> RiskTier:
+	return tier_for_points(points_without_ltv())
 
 static func tier_for_points(points: int) -> RiskTier:
 	if points <= 2:
@@ -498,12 +734,15 @@ func credit_report_points() -> int:
 ## - INCOME: the new payment alone is over 20% of income (28% for a home
 ##   loan), or it's what pushes total DTI over 43% (today's payments are
 ##   within it).
+## - DOWN_PAYMENT: the loan-to-value in its purpose's high band (over 95% for
+##   a home, 120% for a car, 100% for business collateral).
 ## - EMPLOYMENT: under two years.
 ## - AMOUNT: over the policy maximum for the purpose.
 ## A borderline applicant with nothing affordable (nothing_affordable()) is
-## denied for their payments: TOTAL_DTI, unless INCOME already says it. So is
-## one that's MEDIUM or worse from 1-point factors alone (a good score, a
-## stretched DTI and high utilization; the generator never builds one).
+## denied for their payments: TOTAL_DTI, unless INCOME already says it. One
+## that's MEDIUM or worse from 1-point factors alone (the generator never
+## builds one) is denied for the first stretched one: TOTAL_DTI over 36%, else
+## DOWN_PAYMENT for a stretched LTV, else CREDIT_SCORE.
 ## Documents that don't check out make UNVERIFIED the only real reason: the
 ## figures can't be relied on, so nothing else about them is judged.
 func weak_points() -> Array[DenialReason]:
@@ -523,12 +762,19 @@ func weak_points() -> Array[DenialReason]:
 		weak.append(DenialReason.CREDIT_HISTORY)
 	if income:
 		weak.append(DenialReason.INCOME)
+	if ltv_points() >= LTV_HIGH_POINTS:
+		weak.append(DenialReason.DOWN_PAYMENT)
 	if employment_months < STEADY_EMPLOYMENT_MONTHS:
 		weak.append(DenialReason.EMPLOYMENT)
 	if requested_amount > policy_maximum():
 		weak.append(DenialReason.AMOUNT)
 	if weak.is_empty() and calculate_risk_assessment() != RiskTier.LOW:
-		weak.append(DenialReason.TOTAL_DTI)
+		if dti > HEALTHY_DTI:
+			weak.append(DenialReason.TOTAL_DTI)
+		elif ltv_points() > 0:
+			weak.append(DenialReason.DOWN_PAYMENT)
+		else:
+			weak.append(DenialReason.CREDIT_SCORE)
 	return weak
 
 # --- documents ---------------------------------------------------------------
@@ -680,7 +926,9 @@ func is_reasonable_counter(amount: float) -> bool:
 ## A counter-offer, graded on its amount:
 ## - MEDIUM (borderline): affordable and reasonable BEST, otherwise PARTIAL;
 ##   always PARTIAL when nothing worth offering is affordable
-##   (nothing_affordable(): Reject is the right call there).
+##   (nothing_affordable(): Reject is the right call there). When the LTV is
+##   a weak point (ltv_is_weak()), BEST also needs the amount to bring the LTV
+##   into the healthy band (fixes_ltv()); with DTI weak too, it must fix both.
 ## - LOW: PARTIAL (they qualified for the full amount).
 ## - HIGH: an affordable amount PARTIAL; more than they can carry WORST (a
 ##   risky loan went through, just a smaller one).
@@ -690,7 +938,8 @@ func grade_counter_offer(amount: float) -> Grade:
 		RiskTier.MEDIUM:
 			if nothing_affordable():
 				return Grade.PARTIAL
-			return Grade.BEST if affordable and is_reasonable_counter(amount) else Grade.PARTIAL
+			var ltv_ok := not ltv_is_weak() or fixes_ltv(amount)
+			return Grade.BEST if affordable and is_reasonable_counter(amount) and ltv_ok else Grade.PARTIAL
 		RiskTier.HIGH:
 			return Grade.PARTIAL if affordable else Grade.WORST
 		_:
@@ -704,6 +953,10 @@ func counter_offer_note(amount: float) -> String:
 		return "Not below what they asked for."
 	if not is_reasonable_counter(amount):
 		return "Affordable, but far below what they could carry."
+	if ltv_is_weak() and not fixes_ltv(amount):
+		return "Affordable, but the loan-to-value is still %s: %s" % [percent(loan_to_value(amount)), healthy_ltv_text()]
+	if ltv_is_weak():
+		return "Affordable, with a healthy loan-to-value (%s)." % percent(loan_to_value(amount))
 	return "Affordable at a healthy total DTI."
 
 ## Grades the stated reasons for a denial against weak_points(): each right
@@ -838,6 +1091,8 @@ static func denial_reason_label(reason: DenialReason) -> String:
 			return "Amount too large"
 		DenialReason.CREDIT_HISTORY:
 			return "Recent late payments or collections"
+		DenialReason.DOWN_PAYMENT:
+			return "Down payment too small for the value"
 		_:
 			return "Income or identity could not be verified"
 

@@ -293,9 +293,9 @@ func test_verify_documents_shows_them_beside_the_stated_income() -> void:
 	review.verify_documents_button.pressed.emit()
 	assert_bool(review.documents_vbox.visible).is_true()
 	assert_bool(review.decision_hbox.visible).is_true()
-	# The tallest the screen gets: documents, seven reasons.
+	# The tallest the screen gets: documents, eight reasons.
 	review.reject_button.pressed.emit()
-	assert_int(review.reason_checks.size()).is_equal(7)
+	assert_int(review.reason_checks.size()).is_equal(8)
 	await assert_fits()
 
 	# A missing document and no ID read as such.

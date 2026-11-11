@@ -137,6 +137,7 @@ func build_full_career() -> void:
 	loan_item.documents_text = "ID: none shown\nPay stub: Avery Stone · $5,103 gross/mo\nStatement: none"
 	loan_item.docs_missed = true
 	loan_item.docs_problem_text = "there was no bank statement"
+	loan_item.collateral_text = "Collateral: home $400,000 · appraised $370,000 · down $48,000 (12.0%) · LTV 95.1% · mortgage insurance $293/mo"
 	loan_item.credit_report_text = "Credit report: on time 91% · late (2 yrs) 2 × 30-day, 1 × 90-day · utilization 82% · 5 accounts · 3 inquiries · marks: None"
 	StaffReviewManager.queue.append(teller_item)
 	StaffReviewManager.queue.append(loan_item)
@@ -163,7 +164,7 @@ func build_full_career() -> void:
 	# already), a staff member's, the period's figures and today's events.
 	var late_loan := LoanBookManager.book_loan("Kira Ibarra", "Auto", 18500.0, LoanApplication.RiskTier.MEDIUM, false, true, "You")
 	late_loan.stage = BookedLoan.Stage.LATE_REPORTED
-	LoanBookManager.book_loan("Tom Walsh", "Home", 250000.0, LoanApplication.RiskTier.LOW, true, false, "Priya Anand")
+	LoanBookManager.book_loan("Tom Walsh", "Home", 250000.0, LoanApplication.RiskTier.LOW, true, false, "Priya Anand", LoanApplication.Collateral.HOUSE, 312500.0)
 	LoanBookManager.period_first_day = 2
 	LoanBookManager.last_closed_day = 2
 	var player_stats: Dictionary = LoanBookManager.period_stats[LoanBookManager.PLAYER]
@@ -343,6 +344,10 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_int(LoanBookManager.today_events.size()).is_equal(1)
 	assert_str(StaffReviewManager.queue[1].docs_problem_text).is_equal("there was no bank statement")
 	assert_str(StaffReviewManager.queue[1].credit_report_text).contains("1 × 90-day · utilization 82%")
+	assert_str(StaffReviewManager.queue[1].collateral_text).contains("appraised $370,000")
+	var secured: BookedLoan = LoanBookManager.book.filter(func(loan: BookedLoan) -> bool: return loan.borrower == "Tom Walsh")[0]
+	assert_int(secured.collateral_kind).is_equal(LoanApplication.Collateral.HOUSE)
+	assert_float(secured.collateral_value).is_equal(312500.0)
 
 ## Game time builds up from frame deltas, so it can be any float; a value
 ## the JSON parser can't read back exactly once made a CI round trip fail

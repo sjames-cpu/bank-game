@@ -102,6 +102,11 @@ theme_type_variation = &"MutedLabel"
 text = "Terms"
 autowrap_mode = 2
 
+[node name="CollateralLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
+layout_mode = 2
+text = "Purchase price"
+autowrap_mode = 2
+
 [node name="CreditScoreLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/ApplicantSection/ApplicantVBox"]
 layout_mode = 2
 text = "Credit score: 0"
@@ -155,6 +160,11 @@ layout_mode = 2
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
 text = "Affordable at 36% total DTI: $0"
+autowrap_mode = 2
+
+[node name="CounterOfferDownLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/CounterOfferVBox"]
+layout_mode = 2
+text = "A $0 loan means a $0 down payment."
 autowrap_mode = 2
 
 [node name="CounterOfferHBox" type="HBoxContainer" parent="Panel/VBox/Columns/LeftVBox/CounterOfferVBox"]
@@ -247,7 +257,17 @@ text = "Verify the documents, then run the credit check to fill in the worksheet
 horizontal_alignment = 1
 autowrap_mode = 2
 
+[node name="WorksheetTabs" type="TabBar" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
+visible = false
+layout_mode = 2
+tab_alignment = 1
+
 [node name="WorksheetRows" type="VBoxContainer" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="CollateralRows" type="VBoxContainer" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox"]
+visible = false
 layout_mode = 2
 theme_override_constants/separation = 1
 

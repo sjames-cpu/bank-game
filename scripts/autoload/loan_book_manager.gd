@@ -9,7 +9,8 @@ extends Node
 ## look, from its own generator seeded by the career and the loan's number),
 ## and plays out over the next SETTLE_DAYS business days: paid on time, a
 ## payment going late and then caught up, or a payment going late and then a
-## default with part of the loan written off (LOSS_SHARE by purpose). The
+## default with part of the loan written off (loss_share(): what selling the
+## collateral doesn't recover, so a lower LTV loses less). The
 ## events are processed at each End of Day (close_day()), and the notable ones
 ## shown in its summary.
 ##
@@ -41,9 +42,40 @@ const OUTCOME_ODDS: Dictionary = {
 }
 const UNVERIFIED_ODDS: Array[float] = [0.30, 0.20, 0.50]
 
-## Share of a defaulted loan written off, by purpose: a home or car can be
-## sold to recover most of it; a personal or business loan much less.
+## Share of a defaulted loan written off, by purpose, for a loan booked
+## without its collateral known (one saved before collateral, or booked
+## directly in a test).
 const LOSS_SHARE: Dictionary = {"Home": 0.25, "Auto": 0.40, "Personal": 0.75, "Business": 0.60}
+
+## Loss on default, with the collateral known (bank policy): the collateral
+## is sold and recovers RECOVERY_SHARE of its value after the costs of
+## taking and selling it (a foreclosure 75%, a repossessed car at auction
+## 60%, used equipment 50%, business property 70%); the rest of the loan is
+## written off. So the share lost is 1 − recovery ÷ LTV, never under
+## MIN_LOSS_SHARE (missed interest and costs) nor over the whole loan:
+## a home at 80% LTV loses 10% (the floor), at 95% 21%; a car at 100% 40%
+## (the old flat share), at 125% 52%; equipment at 75% 33%. An unsecured
+## loan loses UNSECURED_LOSS_SHARE.
+const RECOVERY_SHARE: Dictionary = {
+	LoanApplication.Collateral.HOUSE: 0.75,
+	LoanApplication.Collateral.VEHICLE: 0.60,
+	LoanApplication.Collateral.EQUIPMENT: 0.50,
+	LoanApplication.Collateral.PROPERTY: 0.70,
+}
+const MIN_LOSS_SHARE: float = 0.10
+const UNSECURED_LOSS_SHARE: float = 0.75
+## A booked loan's collateral_kind when it isn't known (LOSS_SHARE applies).
+const COLLATERAL_UNKNOWN: int = -1
+
+## The share of `amount` written off on a default, for a `purpose` loan
+## secured by `kind` collateral worth `value` (see RECOVERY_SHARE).
+func loss_share(purpose: String, kind: int, amount: float, value: float) -> float:
+	if kind == COLLATERAL_UNKNOWN:
+		return LOSS_SHARE.get(purpose, 0.6)
+	if kind == LoanApplication.Collateral.NONE or value <= 0.0 or amount <= 0.0:
+		return UNSECURED_LOSS_SHARE
+	var recovery: float = RECOVERY_SHARE.get(kind, 0.0)
+	return clampf(1.0 - recovery * value / amount, MIN_LOSS_SHARE, 1.0)
 
 ## When things happen (business days after the loan): a payment going late
 ## that's then caught up, and the days after it to catch up; a payment going
@@ -92,6 +124,8 @@ const MAX_EVENT_LINES: int = 3
 const STAT_KEYS: Array[String] = [
 	"made", "lent", "on_time", "late", "defaulted", "defaulted_unverified", "losses",
 	"settled_amount", "good_seen", "turned_away", "turned_away_amount",
+	# Secured loans made, what they lent and the value behind them.
+	"secured_made", "secured_lent", "secured_value",
 ]
 const PLAYER: String = "player"
 ## Who made a loan the player made.
@@ -139,15 +173,20 @@ func note_decision(application: LoanApplication, by_player: bool, made_by: Strin
 		_add("good_seen", 1.0, by_player)
 	match application.decision:
 		LoanApplication.DecisionType.APPROVE, LoanApplication.DecisionType.COUNTER_OFFER:
-			return book_loan(application.applicant_name, application.loan_purpose, application.decision_amount, tier, documents_ok, by_player, made_by)
+			var kind := COLLATERAL_UNKNOWN
+			if application.collateral_issued:
+				kind = application.collateral_kind if application.is_secured() else LoanApplication.Collateral.NONE
+			return book_loan(application.applicant_name, application.loan_purpose, application.decision_amount, tier, documents_ok, by_player, made_by, kind, application.value_for_ltv())
 		LoanApplication.DecisionType.REJECT:
 			if good:
 				_add("turned_away", 1.0, by_player)
 				_add("turned_away_amount", application.requested_amount, by_player)
 	return null
 
-## Books a loan made today, with its outcome rolled.
-func book_loan(borrower: String, purpose: String, amount: float, tier: LoanApplication.RiskTier, documents_ok: bool, by_player: bool, made_by: String) -> BookedLoan:
+## Books a loan made today, with its outcome rolled. `collateral_kind` and
+## `collateral_value` (the value its LTV is measured on) set the loss on a
+## default (loss_share()); COLLATERAL_UNKNOWN uses LOSS_SHARE.
+func book_loan(borrower: String, purpose: String, amount: float, tier: LoanApplication.RiskTier, documents_ok: bool, by_player: bool, made_by: String, collateral_kind: int = COLLATERAL_UNKNOWN, collateral_value: float = 0.0) -> BookedLoan:
 	var loan := BookedLoan.new()
 	loan.loan_id = next_loan_id
 	next_loan_id += 1
@@ -159,10 +198,16 @@ func book_loan(borrower: String, purpose: String, amount: float, tier: LoanAppli
 	loan.by_player = by_player
 	loan.made_by = made_by
 	loan.made_day = BusinessDay.stats_day
+	loan.collateral_kind = collateral_kind
+	loan.collateral_value = collateral_value
 	roll_outcome(loan, outcome_rng(loan.loan_id))
 	book.append(loan)
 	_add("made", 1.0, by_player)
 	_add("lent", amount, by_player)
+	if collateral_kind > LoanApplication.Collateral.NONE and collateral_value > 0.0:
+		_add("secured_made", 1.0, by_player)
+		_add("secured_lent", amount, by_player)
+		_add("secured_value", collateral_value, by_player)
 	return loan
 
 ## The loan's own generator: from the career's seed and the loan's number
@@ -200,8 +245,7 @@ func roll_outcome(loan: BookedLoan, rng: RandomNumberGenerator) -> void:
 		loan.late_day = loan.made_day + rng.randi_range(DEFAULT_LATE_AFTER[0], DEFAULT_LATE_AFTER[1])
 		loan.days_late = DAYS_LATE_DEFAULTING
 		loan.resolve_day = mini(loan.late_day + rng.randi_range(DEFAULT_AFTER[0], DEFAULT_AFTER[1]), loan.made_day + SETTLE_DAYS)
-		var share: float = LOSS_SHARE.get(loan.purpose, 0.6)
-		loan.loss = roundf(loan.amount * share)
+		loan.loss = roundf(loan.amount * loss_share(loan.purpose, loan.collateral_kind, loan.amount, loan.collateral_value))
 
 # --- the day's events -------------------------------------------------------------------
 
@@ -404,6 +448,16 @@ func run_report(day: int) -> Dictionary:
 	portfolio_reported.emit(result)
 	return result
 
+## "Secured loans: 4 at an average 86.0% loan-to-value (the lower it is, the
+## less a default loses)", or that there were none.
+func secured_line(stats: Dictionary) -> String:
+	var secured := roundi(stat(stats, "secured_made"))
+	var value := stat(stats, "secured_value")
+	if secured == 0 or value <= 0.0:
+		return "Secured loans: none (unsecured loans lose the most on a default)"
+	return "Secured loans: %d at an average %s loan-to-value (the lower it is, the less a default loses)" % [
+		secured, LoanApplication.percent(stat(stats, "secured_lent") / value)]
+
 func report_rating_text(result: Dictionary) -> String:
 	var rating: Dictionary = result["rating"]
 	if not rating["rated"]:
@@ -425,6 +479,7 @@ func report_body(result: Dictionary) -> String:
 		"Loans made: %d (%s lent)" % [made, LoanApplication.dollars(stat(stats, "lent"))],
 		"Settled: %d paid on time · %d ran late, then caught up · %d defaulted" % [roundi(stat(stats, "on_time")), roundi(stat(stats, "late")), roundi(stat(stats, "defaulted"))],
 		"Losses: %s written off" % LoanApplication.dollars(stat(stats, "losses")),
+		secured_line(stats),
 		"Good applicants turned away: %d of %d (%s of sound lending)" % [roundi(stat(stats, "turned_away")), roundi(stat(stats, "good_seen")), LoanApplication.dollars(stat(stats, "turned_away_amount"))],
 		"",
 		"Lending quality: %s" % report_rating_text(result),

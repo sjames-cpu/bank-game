@@ -101,6 +101,7 @@ func decide_next(application: LoanApplication = null) -> void:
 		application = LoanDeskManager.next_staff_application()
 	# The same credit report and pricing as the player's desk.
 	LoanDeskManager.ensure_credit_report(application)
+	LoanDeskManager.ensure_collateral(application)
 	application.risk_assessment = application.calculate_risk_assessment()
 
 	# The documents first. A problem is caught (and the application rejected)
@@ -155,6 +156,10 @@ static func _decision_amount(application: LoanApplication, decision: LoanApplica
 			# The worksheet's reference: what they could carry at a healthy
 			# total DTI, kept below the request.
 			var reference := application.counter_offer_reference()
+			# Too little down: lend what a healthy LTV allows (asking for more
+			# down), if that's less.
+			if application.ltv_points() > 0 and application.healthy_ltv_amount() >= 100.0:
+				reference = minf(reference, application.healthy_ltv_amount())
 			if reference >= application.requested_amount:
 				reference -= 100.0
 			if reference >= 100.0:

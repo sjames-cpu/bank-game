@@ -262,7 +262,7 @@ func slim(result: Dictionary) -> Dictionary:
 	return copy
 
 func test_the_new_denial_reason() -> void:
-	assert_int(Reason.values().size()).is_equal(7)
+	assert_int(Reason.values().size()).is_equal(8)
 	assert_str(LoanApplication.denial_reason_label(Reason.UNVERIFIED)).is_equal("Income or identity could not be verified")
 	# Only a real weak point when the documents don't check out.
 	assert_bool(clean("Marcus Webb").weak_points().has(Reason.UNVERIFIED)).is_false()

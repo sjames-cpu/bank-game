@@ -32,6 +32,11 @@ enum Stage { BOOKED, LATE_REPORTED }
 ## The business day the outcome is settled: paid on time through the
 ## settling period, caught up, or defaulted.
 @export var resolve_day: int = 0
+## What secures it (LoanApplication.Collateral, or
+## LoanBookManager.COLLATERAL_UNKNOWN for a loan saved before collateral) and
+## the value its LTV was measured on: they set the loss on a default.
+@export var collateral_kind: int = -1
+@export var collateral_value: float = 0.0
 ## Written off on a default (whole dollars).
 @export var loss: float = 0.0
 @export var stage: Stage = Stage.BOOKED

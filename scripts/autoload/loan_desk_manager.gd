@@ -62,6 +62,7 @@ func current_player_application() -> LoanApplication:
 	var application := player_queue[0]
 	ensure_documents(application)
 	ensure_credit_report(application)
+	ensure_collateral(application)
 	_note_name(application.applicant_name)
 	return application
 
@@ -76,6 +77,17 @@ func ensure_credit_report(application: LoanApplication) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([career_seed, "credit-report", application.applicant_name])
 	CreditReport.issue(application, rng, CreditReport.Story.NORMAL)
+
+## Gives `application` collateral if it has none issued: one saved before
+## collateral (or built in a test). Its loan-to-value is healthy (no LTV
+## points, no mortgage insurance), so it never changes the call; seeded from
+## the career and the name, never the global generator.
+func ensure_collateral(application: LoanApplication) -> void:
+	if application.collateral_issued:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([career_seed, "collateral", application.applicant_name])
+	LoanApplicantGenerator.issue_collateral(application, rng, 0)
 
 ## Gives `application` its documents if it has none yet: the hand-written
 ## samples (the teaching cases among them), whose documents always check out,
@@ -176,6 +188,8 @@ func load_data(data: Dictionary) -> void:
 		application.applicant_look = clampi(application.applicant_look, 0, CustomerNPC.CUSTOMER_FRAME_SETS.size() - 1)
 		# Saved before credit reports: one in line with the score.
 		ensure_credit_report(application)
+		# Saved before collateral: a healthy LTV.
+		ensure_collateral(application)
 		application.risk_assessment = application.calculate_risk_assessment()
 		player_queue.append(application)
 	names_day = SaveGame.int_of(data, "names_day", 0)

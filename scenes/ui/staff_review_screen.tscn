@@ -151,7 +151,7 @@ text = "Result"
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="TerminateVBox" type="VBoxContainer" parent="Panel/VBox"]
+[node name="TerminateVBox" type="HFlowContainer" parent="Panel/VBox"]
 layout_mode = 2
 
 [node name="CloseButton" type="Button" parent="Panel/VBox"]
