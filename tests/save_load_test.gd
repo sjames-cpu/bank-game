@@ -137,6 +137,7 @@ func build_full_career() -> void:
 	loan_item.documents_text = "ID: none shown\nPay stub: Avery Stone · $5,103 gross/mo\nStatement: none"
 	loan_item.docs_missed = true
 	loan_item.docs_problem_text = "there was no bank statement"
+	loan_item.credit_report_text = "Credit report: on time 91% · late (2 yrs) 2 × 30-day, 1 × 90-day · utilization 82% · 5 accounts · 3 inquiries · marks: None"
 	StaffReviewManager.queue.append(teller_item)
 	StaffReviewManager.queue.append(loan_item)
 	StaffReviewManager.staff_reports["Derek Voss"] = PackedStringArray(["late", "short"])
@@ -341,6 +342,7 @@ func test_save_then_load_restores_every_saved_value() -> void:
 	assert_float(LoanBookManager.stat(loaded_branch, "lent")).is_equal(268500.0)
 	assert_int(LoanBookManager.today_events.size()).is_equal(1)
 	assert_str(StaffReviewManager.queue[1].docs_problem_text).is_equal("there was no bank statement")
+	assert_str(StaffReviewManager.queue[1].credit_report_text).contains("1 × 90-day · utilization 82%")
 
 ## Game time builds up from frame deltas, so it can be any float; a value
 ## the JSON parser can't read back exactly once made a CI round trip fail

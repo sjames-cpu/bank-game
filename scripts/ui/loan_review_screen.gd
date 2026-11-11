@@ -7,9 +7,12 @@ class_name LoanReviewScreen
 ## left column shows the application, with the applicant's portrait; "Run
 ## Credit Check" fills in the worksheet on the right (monthly income,
 ## housing, existing debt payments, the new loan's payment at its purpose's
-## term and rate, front-end and total DTI, credit score band, employment
-## and the amount affordable at a healthy total DTI), each ratio with a
-## one-line explanation. No risk tier or approve/reject hint is ever shown.
+## term and the rate offered for the credit band (and why), front-end and
+## total DTI, credit score band, employment and the amount affordable at a
+## healthy total DTI), each ratio with a one-line explanation, and pulls the
+## credit report into a third column beside it (CreditReport.rows(), each
+## item explained, then the policy). No risk tier or approve/reject hint is
+## ever shown.
 ## The decision — Approve, Reject (with 1-2 stated reasons) or Counter-Offer
 ## (an amount, with the affordable amount as a reference) — is gated behind
 ## the credit check and graded against risk_assessment (see
@@ -64,7 +67,11 @@ class_name LoanReviewScreen
 @onready var stub_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/StubLabel
 @onready var statement_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/StatementLabel
 @onready var documents_policy_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/DocumentsPolicyLabel
-@onready var close_button: Button = $Panel/VBox/CloseButton
+@onready var credit_report_placeholder_label: Label = $Panel/VBox/Columns/CreditReportSection/CreditReportVBox/CreditReportPlaceholderLabel
+@onready var credit_report_rows_vbox: VBoxContainer = $Panel/VBox/Columns/CreditReportSection/CreditReportVBox/CreditReportRows
+@onready var credit_report_policy_label: Label = $Panel/VBox/Columns/CreditReportSection/CreditReportVBox/CreditReportPolicyLabel
+## Beside the title, so three columns fit the window's height.
+@onready var close_button: Button = $Panel/VBox/TitleHBox/CloseButton
 
 signal decision_graded(score_delta: int, reputation_delta: int, xp_delta: int)
 signal closed(was_decided: bool)
@@ -94,7 +101,8 @@ const COMPACT_FONT_SIZE: int = 13
 var _paused_by_self: bool = false
 var _current_application: LoanApplication = null
 
-## One CheckBox per LoanApplication.DenialReason, in enum order.
+## One CheckBox per LoanApplication.DenialReason, indexed by the reason's
+## value (listed on screen in LoanApplication.DENIAL_REASON_ORDER).
 var reason_checks: Array[CheckBox] = []
 
 ## Whether _record_decision() has run for _current_application yet — reset
@@ -116,9 +124,11 @@ func _ready() -> void:
 	submit_denial_button.pressed.connect(_on_submit_denial_button_pressed)
 	cancel_denial_button.pressed.connect(_on_cancel_denial_button_pressed)
 	decision_status_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
-	for reason: int in LoanApplication.DenialReason.values():
+	terms_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
+	reason_checks.resize(LoanApplication.DenialReason.size())
+	for reason: LoanApplication.DenialReason in LoanApplication.DENIAL_REASON_ORDER:
 		var check := CheckBox.new()
-		check.text = LoanApplication.denial_reason_label(reason as LoanApplication.DenialReason)
+		check.text = LoanApplication.denial_reason_label(reason)
 		# Compact rows: the theme's button panel makes each twice as tall.
 		var compact := StyleBoxEmpty.new()
 		compact.content_margin_left = 4.0
@@ -126,12 +136,12 @@ func _ready() -> void:
 		compact.content_margin_bottom = 0.0
 		for style: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 			check.add_theme_stylebox_override(style, compact)
-		# Six reasons in the left column: a size smaller than body text keeps the
-		# screen clear of the controls line at its tallest.
+		# Seven reasons in the left column: a size smaller than body text keeps
+		# the screen clear of the controls line at its tallest.
 		check.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 		check.toggled.connect(_on_reason_toggled.bind(check))
 		reason_checks_vbox.add_child(check)
-		reason_checks.append(check)
+		reason_checks[reason] = check
 
 func show_screen() -> void:
 	_display_next_application()
@@ -187,6 +197,7 @@ func _display_next_application() -> void:
 	worksheet_placeholder_label.visible = true
 	documents_vbox.visible = false
 	_clear_worksheet()
+	_clear_credit_report()
 	decision_hbox.visible = false
 	counter_offer_vbox.visible = false
 	reasons_vbox.visible = false
@@ -270,7 +281,8 @@ static func worksheet_rows(application: LoanApplication) -> Array[PackedStringAr
 		PackedStringArray(["Monthly income", LoanApplication.dollars(application.monthly_income()), ""]),
 		PackedStringArray(["Housing payment", housing, ""]),
 		PackedStringArray(["Existing debt payments", LoanApplication.dollars(application.monthly_debt_payments), ""]),
-		PackedStringArray(["New loan payment", "%s (%d months at %.2f%%)" % [LoanApplication.dollars(application.new_loan_payment()), application.term_months(), application.annual_rate() * 100.0], ""]),
+		PackedStringArray(["Rate offered", "%.2f%%" % (application.annual_rate() * 100.0), application.rate_reason()]),
+		PackedStringArray(["New loan payment", "%s (%d months)" % [LoanApplication.dollars(application.new_loan_payment()), application.term_months()], ""]),
 		PackedStringArray(["Front-end DTI", LoanApplication.percent(application.front_end_dti()), "Housing ÷ income: the share of pay that goes on housing."]),
 		PackedStringArray(["Total DTI", LoanApplication.percent(application.total_dti()), "Housing + debts + new payment ÷ income. Policy guide: about 36% healthy, 43% stretched, 50% high."]),
 		PackedStringArray(["Credit score", "%d — %s" % [application.credit_score, LoanApplication.credit_score_band(application.credit_score)], ""]),
@@ -286,25 +298,61 @@ func _clear_worksheet() -> void:
 
 func _fill_worksheet(application: LoanApplication) -> void:
 	_clear_worksheet()
-	for row in worksheet_rows(application):
+	_add_rows(worksheet_rows_vbox, worksheet_rows(application))
+
+## [label, value, explanation] rows as labels: the line, then its muted
+## explanation (if any).
+static func _add_rows(box: VBoxContainer, rows: Array[PackedStringArray], font_size: int = 0) -> void:
+	for row in rows:
 		var line := Label.new()
 		line.text = "%s: %s" % [row[0], row[1]]
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		worksheet_rows_vbox.add_child(line)
+		if font_size > 0:
+			line.add_theme_font_size_override("font_size", font_size)
+		box.add_child(line)
 		if row[2] != "":
 			var explanation := Label.new()
 			explanation.theme_type_variation = &"MutedLabel"
 			explanation.add_theme_font_size_override("font_size", EXPLANATION_FONT_SIZE)
 			explanation.text = row[2]
 			explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			worksheet_rows_vbox.add_child(explanation)
+			box.add_child(explanation)
 
 ## The worksheet's text as shown, one line per label (for tests).
 func worksheet_text() -> String:
+	return _box_text(worksheet_rows_vbox)
+
+static func _box_text(box: VBoxContainer) -> String:
 	var lines: PackedStringArray = []
-	for child in worksheet_rows_vbox.get_children():
+	for child in box.get_children():
 		lines.append((child as Label).text)
 	return "\n".join(lines)
+
+# --- the credit report -----------------------------------------------------------------
+
+func _clear_credit_report() -> void:
+	for child in credit_report_rows_vbox.get_children():
+		credit_report_rows_vbox.remove_child(child)
+		child.queue_free()
+	credit_report_placeholder_label.visible = true
+	credit_report_policy_label.visible = false
+
+## Pulled with the credit check, beside the worksheet: the report's facts and
+## what each means, then the policy. Never the verdict.
+func _fill_credit_report(application: LoanApplication) -> void:
+	_clear_credit_report()
+	credit_report_placeholder_label.visible = false
+	_add_rows(credit_report_rows_vbox, CreditReport.rows(application), COMPACT_FONT_SIZE)
+	credit_report_policy_label.text = CreditReport.POLICY_TEXT
+	credit_report_policy_label.visible = true
+
+## The credit report's text as shown, one line per label, with the policy
+## (for tests).
+func credit_report_text() -> String:
+	var text := _box_text(credit_report_rows_vbox)
+	if credit_report_policy_label.visible:
+		text += "\n" + credit_report_policy_label.text
+	return text
 
 func _on_close_button_pressed() -> void:
 	hide_screen()
@@ -319,6 +367,7 @@ func _on_run_credit_check_button_pressed() -> void:
 	credit_score_label.text = "Credit score: %d — %s" % [application.credit_score, LoanApplication.credit_score_band(application.credit_score)]
 	if first:
 		_fill_worksheet(application)
+		_fill_credit_report(application)
 	_show_documents_view(false)
 
 	# Decisions are gated behind having run the credit check first, so the
@@ -357,11 +406,12 @@ func _on_reason_toggled(pressed: bool, check: CheckBox) -> void:
 		check.set_pressed_no_signal(false)
 	submit_denial_button.disabled = selected_reasons().is_empty()
 
+## The ticked reasons, in their listed order.
 func selected_reasons() -> Array[LoanApplication.DenialReason]:
 	var reasons: Array[LoanApplication.DenialReason] = []
-	for i in reason_checks.size():
-		if reason_checks[i].button_pressed:
-			reasons.append(i as LoanApplication.DenialReason)
+	for reason in LoanApplication.DENIAL_REASON_ORDER:
+		if reason_checks[reason].button_pressed:
+			reasons.append(reason)
 	return reasons
 
 func _on_submit_denial_button_pressed() -> void:

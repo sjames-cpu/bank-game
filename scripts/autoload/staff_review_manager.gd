@@ -185,6 +185,8 @@ func add_loan_decision(staff: StaffMember, slot_name: String, application: LoanA
 	item.total_dti = application.total_dti()
 	item.employment_months = application.employment_months
 	item.affordable_amount = application.affordable_amount()
+	if application.credit_report_issued:
+		item.credit_report_text = CreditReport.summary(application)
 	item.decision = application.decision
 	item.decision_amount = application.decision_amount
 	item.grade = grade

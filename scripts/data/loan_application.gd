@@ -10,8 +10,9 @@ class_name LoanApplication
 ## two agree.
 ##
 ## The rules here are presented in game as bank policy, not as any law:
-## the term and rate for each purpose, the DTI guide bands, the policy
-## maximums and the denial reasons are the branch's own lending policy.
+## the term for each purpose, the rate table by credit band, how the credit
+## report counts, the DTI guide bands, the policy maximums and the denial
+## reasons are the branch's own lending policy.
 ##
 ## The money figures here stay whole-dollar floats, not the int cents the
 ## teller/ATM/drawer use (B3, see MoneyMath). They're figures the player
@@ -33,7 +34,17 @@ enum Grade { BEST, PARTIAL, BAD, WORST }
 ## The main reasons a loan officer can state for a denial (the player picks
 ## 1-2). Each is a real weak point of an application when weak_points()
 ## says so. UNVERIFIED: the documents didn't check out (documents_check_out()).
-enum DenialReason { TOTAL_DTI, CREDIT_SCORE, INCOME, EMPLOYMENT, AMOUNT, UNVERIFIED }
+## CREDIT_HISTORY: a serious mark in the last two years on the credit report
+## (appended last so saved values keep their meaning; DENIAL_REASON_ORDER is
+## the order they're listed in).
+enum DenialReason { TOTAL_DTI, CREDIT_SCORE, INCOME, EMPLOYMENT, AMOUNT, UNVERIFIED, CREDIT_HISTORY }
+
+## How the reasons are listed on the review screen: the credit reasons
+## together.
+const DENIAL_REASON_ORDER: Array[DenialReason] = [
+	DenialReason.TOTAL_DTI, DenialReason.CREDIT_SCORE, DenialReason.CREDIT_HISTORY, DenialReason.INCOME,
+	DenialReason.EMPLOYMENT, DenialReason.AMOUNT, DenialReason.UNVERIFIED,
+]
 
 ## What's wrong with an applicant's documents besides their ID (which has
 ## its own IdCard.Problem): the income stated on the form is more than the pay
@@ -135,25 +146,47 @@ const MIN_COUNTER_SHARE: float = 0.25
 
 const HOME_PURPOSE: String = "Home"
 
-## Bank policy per loan purpose: term (months), annual rate and the most the
-## branch lends for it. Typical 2025-26 US figures, one rate per purpose
-## (real lenders also price by credit score; the game keeps one rate so the
-## worksheet stays readable):
-## - Auto: 5 years at 7.0%, about what a new-car loan cost a good-credit
-##   borrower; $75,000 covers nearly any new car.
-## - Home: a 30-year fixed mortgage at 6.5% (principal and interest only).
-##   It replaces the applicant's current rent, so the new payment becomes
-##   their housing payment. $800,000 is about the conforming loan limit.
-## - Personal: an unsecured 3-year loan at 12.0%, about the average personal
-##   loan rate; capped at $50,000.
-## - Business: a 10-year small-business term loan at 9.0% (about prime plus
-##   two points); capped at $250,000 for a branch to decide.
+## Bank policy per loan purpose: term (months) and the most the branch lends
+## for it (the rate comes from RATE_TABLE):
+## - Auto: 5 years; $75,000 covers nearly any new car.
+## - Home: a 30-year fixed mortgage (principal and interest only). It replaces
+##   the applicant's current rent, so the new payment becomes their housing
+##   payment. $800,000 is about the conforming loan limit.
+## - Personal: an unsecured 3-year loan, capped at $50,000.
+## - Business: a 10-year small-business term loan, capped at $250,000 for a
+##   branch to decide.
 const PURPOSE_TERMS: Dictionary = {
-	"Auto": {"months": 60, "rate": 0.07, "max": 75000.0},
-	"Home": {"months": 360, "rate": 0.065, "max": 800000.0},
-	"Personal": {"months": 36, "rate": 0.12, "max": 50000.0},
-	"Business": {"months": 120, "rate": 0.09, "max": 250000.0},
+	"Auto": {"months": 60, "max": 75000.0},
+	"Home": {"months": 360, "max": 800000.0},
+	"Personal": {"months": 36, "max": 50000.0},
+	"Business": {"months": 120, "max": 250000.0},
 }
+
+## Risk-based pricing (bank policy): the annual rate, in percent, by purpose
+## and credit band, best first: Excellent 800+, Very Good 740-799, Good
+## 670-739, Fair 580-669, Poor under 580 (credit_score_band()). Pitched at
+## typical 2025-26 US rates; the Good column is the one rate per purpose the
+## branch used before:
+## - Auto (60 months): 5.50 / 6.25 / 7.00 / 10.50 / 14.50. A car secures the
+##   loan, so the spread is moderate; subprime auto rates run in the teens.
+## - Home (30-year fixed): 6.25 / 6.50 / 6.75 / 7.25 / 8.25. The house
+##   secures it and credit moves a mortgage rate least, about two points
+##   from best to worst.
+## - Personal (36 months, unsecured): 9.50 / 11.00 / 14.00 / 19.00 / 26.00.
+##   Nothing secures it, so credit moves it most.
+## - Business (120 months): 7.75 / 8.25 / 9.00 / 10.75 / 13.00, about prime
+##   plus half a point to prime plus six.
+## The rate is the lender's charge for the risk of not being repaid: lower
+## credit pays more. It depends on the purpose and the score alone (fair
+## lending), and it moves the new payment, the DTI and the amount affordable.
+const RATE_TABLE: Dictionary = {
+	"Auto": [5.50, 6.25, 7.00, 10.50, 14.50],
+	"Home": [6.25, 6.50, 6.75, 7.25, 8.25],
+	"Personal": [9.50, 11.00, 14.00, 19.00, 26.00],
+	"Business": [7.75, 8.25, 9.00, 10.75, 13.00],
+}
+## The score range of each RATE_TABLE column, for the worksheet.
+const BAND_RANGES: Array[String] = ["800+", "740-799", "670-739", "580-669", "under 580"]
 
 @export var applicant_name: String = ""
 @export var requested_amount: float = 0.0
@@ -202,6 +235,24 @@ const PURPOSE_TERMS: Dictionary = {
 @export var statement_name: String = ""
 @export var statement_deposits: PackedInt32Array = PackedInt32Array()
 
+## --- The credit report (CreditReport.issue(), from the finance generator
+## and the credit score alone; see CreditReport for the policy). Late
+## payments and hard inquiries are counted over the last two years and six
+## months; serious marks over seven years (months since: 0 means none). An
+## application with no report (credit_report_issued false: built in a test,
+## or saved before reports) scores no report points. ---
+@export var credit_report_issued: bool = false
+@export var on_time_percent: int = 100
+@export var late_30_days: int = 0
+@export var late_60_days: int = 0
+@export var late_90_days: int = 0
+@export var utilization_percent: int = 0
+@export var open_accounts: int = 0
+@export var hard_inquiries: int = 0
+@export var collections: int = 0
+@export var months_since_collection: int = 0
+@export var months_since_bankruptcy: int = 0
+
 ## Computed from the worksheet by calculate_risk_assessment() (cached here
 ## the first time a screen runs the credit check math). Never shown to the
 ## player; grade_decision() grades the player's decision against this alone.
@@ -221,8 +272,28 @@ const PURPOSE_TERMS: Dictionary = {
 func term_months() -> int:
 	return _terms().get("months", 60)
 
+## The rate offered: RATE_TABLE for the purpose and the credit band.
 func annual_rate() -> float:
-	return _terms().get("rate", 0.10)
+	return rate_for(loan_purpose, credit_score)
+
+static func rate_for(purpose: String, score: int) -> float:
+	var rates: Array = RATE_TABLE.get(purpose, [])
+	if rates.is_empty():
+		return 0.10
+	var percent_rate: float = rates[CreditReport.band_index(score)]
+	return percent_rate / 100.0
+
+## Why this rate: "Priced for Good credit (670-739); auto rates run 5.50% to
+## 14.50%, lower credit paying more."
+func rate_reason() -> String:
+	var rates: Array = RATE_TABLE.get(loan_purpose, [])
+	if rates.is_empty():
+		return ""
+	var best: float = rates[0]
+	var worst: float = rates[rates.size() - 1]
+	return "Priced for %s credit (%s); %s rates run %.2f%% to %.2f%%, lower credit paying more." % [
+		credit_score_band(credit_score), BAND_RANGES[CreditReport.band_index(credit_score)], loan_purpose.to_lower(), best, worst,
+	]
 
 func policy_maximum() -> float:
 	return _terms().get("max", 0.0)
@@ -336,15 +407,24 @@ static func credit_score_band(score: int) -> String:
 	else:
 		return "Poor"
 
-## Risk points from the worksheet (lower = safer), summed into a tier by
-## calculate_risk_assessment():
+## Risk points from the worksheet and the credit report (lower = safer),
+## summed into a tier by calculate_risk_assessment():
 ## - Credit score: 740+ 0 · 670-739 1 · 580-669 3 · under 580 5.
+## - Credit report (credit_report_points()): a serious mark in the last two
+##   years +2; utilization over 75% +1; a score under 670 with a clean last
+##   two years −1.
 ## - Total DTI: up to 36% 0 · up to 43% 1 · up to 50% 3 · over 50% 5.
 ## - Employment: two years or more 0 · under two years 2.
-## A factor at its weak level (credit under 670, DTI over 43%, under two
-## years) costs 2 points or more, and the 1-point levels together reach only
-## 2, so every MEDIUM or HIGH application has at least one weak point.
+## A factor at its weak level (credit under 670, a recent serious mark, DTI
+## over 43%, under two years) costs 2 points or more. The 1-point levels
+## (a good score, a stretched DTI, high utilization) can together reach 3,
+## which weak_points() covers.
 func risk_points() -> int:
+	return score_only_points() + credit_report_points()
+
+## The risk points without the credit report: the score, DTI and employment
+## alone (for comparing what the report changes).
+func score_only_points() -> int:
 	var points := 0
 	if credit_score < FAIR_CREDIT:
 		points += 5
@@ -367,23 +447,63 @@ func risk_points() -> int:
 
 ## 0-2 points LOW, 3-4 MEDIUM, 5 or more HIGH.
 func calculate_risk_assessment() -> RiskTier:
-	var points := risk_points()
+	return tier_for_points(risk_points())
+
+## The tier the score, DTI and employment alone would give (no report).
+func score_only_assessment() -> RiskTier:
+	return tier_for_points(score_only_points())
+
+static func tier_for_points(points: int) -> RiskTier:
 	if points <= 2:
 		return RiskTier.LOW
 	elif points <= 4:
 		return RiskTier.MEDIUM
 	return RiskTier.HIGH
 
+## --- The credit report in the assessment (bank policy, see CreditReport) ---
+
+## A 90-day late payment, a collection or a bankruptcy in the last two years.
+func has_recent_serious_mark() -> bool:
+	if not credit_report_issued:
+		return false
+	var recent := CreditReport.RECENT_MONTHS
+	return late_90_days > 0 \
+		or (collections > 0 and months_since_collection <= recent) \
+		or (months_since_bankruptcy > 0 and months_since_bankruptcy <= recent)
+
+func has_high_utilization() -> bool:
+	return credit_report_issued and utilization_percent > CreditReport.HIGH_UTILIZATION_PERCENT
+
+## Nothing late and no serious mark in the last two years, and utilization at
+## most 30%.
+func has_clean_recent_history() -> bool:
+	return credit_report_issued and late_30_days + late_60_days + late_90_days == 0 \
+		and not has_recent_serious_mark() and utilization_percent <= CreditReport.CLEAN_UTILIZATION_PERCENT
+
+func credit_report_points() -> int:
+	var points := 0
+	if has_recent_serious_mark():
+		points += CreditReport.SERIOUS_MARK_POINTS
+	if has_high_utilization():
+		points += CreditReport.HIGH_UTILIZATION_POINTS
+	if credit_score < GOOD_CREDIT and has_clean_recent_history():
+		points += CreditReport.CLEAN_HISTORY_POINTS
+	return points
+
 ## The application's real weak points, the right reasons for a denial:
 ## - TOTAL_DTI: total DTI over 43%.
-## - CREDIT_SCORE: under 670.
+## - CREDIT_SCORE: under 670 (even when a clean recent history offsets it).
+## - CREDIT_HISTORY: a serious mark in the last two years on the credit
+##   report (a 90-day late payment, a collection or a bankruptcy).
 ## - INCOME: the new payment alone is over 20% of income (28% for a home
 ##   loan), or it's what pushes total DTI over 43% (today's payments are
 ##   within it).
 ## - EMPLOYMENT: under two years.
 ## - AMOUNT: over the policy maximum for the purpose.
 ## A borderline applicant with nothing affordable (nothing_affordable()) is
-## denied for their payments: TOTAL_DTI, unless INCOME already says it.
+## denied for their payments: TOTAL_DTI, unless INCOME already says it. So is
+## one that's MEDIUM or worse from 1-point factors alone (a good score, a
+## stretched DTI and high utilization; the generator never builds one).
 ## Documents that don't check out make UNVERIFIED the only real reason: the
 ## figures can't be relied on, so nothing else about them is judged.
 func weak_points() -> Array[DenialReason]:
@@ -399,12 +519,16 @@ func weak_points() -> Array[DenialReason]:
 		weak.append(DenialReason.TOTAL_DTI)
 	if credit_score < GOOD_CREDIT:
 		weak.append(DenialReason.CREDIT_SCORE)
+	if has_recent_serious_mark():
+		weak.append(DenialReason.CREDIT_HISTORY)
 	if income:
 		weak.append(DenialReason.INCOME)
 	if employment_months < STEADY_EMPLOYMENT_MONTHS:
 		weak.append(DenialReason.EMPLOYMENT)
 	if requested_amount > policy_maximum():
 		weak.append(DenialReason.AMOUNT)
+	if weak.is_empty() and calculate_risk_assessment() != RiskTier.LOW:
+		weak.append(DenialReason.TOTAL_DTI)
 	return weak
 
 # --- documents ---------------------------------------------------------------
@@ -712,6 +836,8 @@ static func denial_reason_label(reason: DenialReason) -> String:
 			return "Employment too short"
 		DenialReason.AMOUNT:
 			return "Amount too large"
+		DenialReason.CREDIT_HISTORY:
+			return "Recent late payments or collections"
 		_:
 			return "Income or identity could not be verified"
 

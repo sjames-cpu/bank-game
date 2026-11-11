@@ -42,18 +42,21 @@ func test_the_amortization_formula() -> void:
 	var payment := LoanApplication.monthly_payment(30000.0, 0.07, 60)
 	assert_float(LoanApplication.principal_for_payment(payment, 0.07, 60)).is_equal_approx(30000.0, 0.01)
 
+## The term and maximum per purpose; the rate by credit band (credit 750 is
+## Very Good: credit_report_test.gd covers the whole table).
 func test_each_purpose_has_its_term_rate_and_maximum() -> void:
 	var expected := {
-		"Auto": [60, 0.07, 75000.0],
+		"Auto": [60, 0.0625, 75000.0],
 		"Home": [360, 0.065, 800000.0],
-		"Personal": [36, 0.12, 50000.0],
-		"Business": [120, 0.09, 250000.0],
+		"Personal": [36, 0.11, 50000.0],
+		"Business": [120, 0.0825, 250000.0],
 	}
 	for purpose: String in expected:
 		var application := applicant(purpose, 10000.0, 750, 60000.0, 1000.0, 0.0, 60)
 		var terms: Array = expected[purpose]
 		assert_int(application.term_months()).is_equal(terms[0])
-		assert_float(application.annual_rate()).is_equal(terms[1])
+		var rate: float = terms[1]
+		assert_float(application.annual_rate()).is_equal_approx(rate, 0.000001)
 		assert_float(application.policy_maximum()).is_equal(terms[2])
 	# Every sample uses one of them.
 	for application in LoanApplicationsData.get_applications():
@@ -74,7 +77,8 @@ func test_front_end_and_total_dti() -> void:
 	# the rent isn't counted as well.
 	var david := sample("David Okafor")
 	var mortgage := david.new_loan_payment()
-	assert_float(mortgage).is_equal_approx(2528.27, 0.005)
+	# 6.25% for excellent credit.
+	assert_float(mortgage).is_equal_approx(2462.87, 0.005)
 	assert_float(david.housing_payment_after_loan()).is_equal(mortgage)
 	assert_float(david.front_end_dti()).is_equal_approx(mortgage / 15000.0, 0.000001)
 	assert_float(david.total_dti()).is_equal_approx((mortgage + 1000.0) / 15000.0, 0.000001)
@@ -129,7 +133,8 @@ func test_the_affordable_amount() -> void:
 	assert_float(angela.affordable_amount()).is_equal(12100.0)
 	assert_float(angela.total_dti(angela.affordable_amount())).is_less_equal(LoanApplication.HEALTHY_DTI)
 	assert_float(angela.total_dti(angela.affordable_amount() + 100.0)).is_greater(LoanApplication.HEALTHY_DTI)
-	assert_float(sample("Priya Sharma").affordable_amount()).is_equal(4500.0)
+	# 19% for fair credit on a personal loan.
+	assert_float(sample("Priya Sharma").affordable_amount()).is_equal(4000.0)
 	# A home loan's room isn't reduced by the rent it replaces.
 	assert_float(sample("Elena Petrova").affordable_amount()).is_equal(300600.0)
 	# Today's payments already over 36%: nothing.
@@ -139,7 +144,7 @@ func test_the_affordable_amount() -> void:
 	var wealthy := applicant("Auto", 50000.0, 800, 600000.0, 3000.0, 0.0, 120)
 	assert_float(wealthy.affordable_amount()).is_equal(75000.0)
 	# The counter-offer reference is the smaller of it and the request.
-	assert_float(sample("Noah Kim").affordable_amount()).is_equal(12000.0)
+	assert_float(sample("Noah Kim").affordable_amount()).is_equal(11700.0)
 	assert_float(sample("Noah Kim").counter_offer_reference()).is_equal(10000.0)
 
 # --- counter-offers ----------------------------------------------------------------------
@@ -165,7 +170,7 @@ func test_counter_offer_grading() -> void:
 	assert_int(maria.grade_counter_offer(12000.0)).is_equal(Grade.PARTIAL)
 	# HIGH: affordable is reasonable; more than they can carry is a risky loan.
 	var sophie := sample("Sophie Laurent")
-	assert_float(sophie.affordable_amount()).is_equal(10100.0)
+	assert_float(sophie.affordable_amount()).is_equal(8500.0)
 	assert_int(sophie.grade_counter_offer(8000.0)).is_equal(Grade.PARTIAL)
 	assert_int(sophie.grade_counter_offer(15000.0)).is_equal(Grade.WORST)
 	# grade_decision() reads the amount for a counter-offer.
@@ -183,7 +188,7 @@ func stretched_by_debts() -> LoanApplication:
 	return applicant("Personal", 5000.0, 650, 60000.0, 1300.0, 600.0, 60)
 
 ## Borderline with a little room: today's payments 33% of income, so only
-## $7,500 of the $40,000 car is affordable (under a quarter).
+## $7,700 of the $40,000 car is affordable at 6.25% (under a quarter).
 func little_room() -> LoanApplication:
 	return applicant("Auto", 40000.0, 760, 60000.0, 1200.0, 450.0, 60)
 
@@ -210,13 +215,13 @@ func test_a_borderline_applicant_with_nothing_worth_offering_is_rejected() -> vo
 	# When the loan is what's too big, "Income too low for the amount" says it.
 	var room := little_room()
 	assert_int(room.risk_assessment).is_equal(Tier.MEDIUM)
-	assert_float(room.affordable_amount()).is_equal(7500.0)
+	assert_float(room.affordable_amount()).is_equal(7700.0)
 	assert_bool(room.nothing_affordable()).is_true()
 	assert_array(room.weak_points()).is_equal(reasons([Reason.TOTAL_DTI, Reason.INCOME]))
 	assert_int(room.correct_decision()).is_equal(LoanApplication.DecisionType.REJECT)
 	assert_int(room.grade_counter_offer(7500.0)).is_equal(Grade.PARTIAL)
 
-	# The cutoff is a quarter of the request: at $30,000, $7,500 is enough.
+	# The cutoff is a quarter of the request: at $30,000, $7,700 is enough.
 	var smaller := applicant("Auto", 30000.0, 760, 60000.0, 1200.0, 450.0, 60)
 	assert_int(smaller.risk_assessment).is_equal(Tier.MEDIUM)
 	assert_float(smaller.affordable_amount()).is_greater_equal(LoanApplication.MIN_COUNTER_SHARE * 30000.0)

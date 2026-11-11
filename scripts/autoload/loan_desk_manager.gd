@@ -61,8 +61,21 @@ func current_player_application() -> LoanApplication:
 	_top_up()
 	var application := player_queue[0]
 	ensure_documents(application)
+	ensure_credit_report(application)
 	_note_name(application.applicant_name)
 	return application
+
+## Gives `application` a credit report if it has none: one saved before
+## reports existed (or built in a test). Its history is in line with the
+## score and adds no risk points (CreditReport.Story.NORMAL), so the report
+## never changes such an applicant's call; seeded from the career and the
+## name, never the global generator.
+func ensure_credit_report(application: LoanApplication) -> void:
+	if application.credit_report_issued:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([career_seed, "credit-report", application.applicant_name])
+	CreditReport.issue(application, rng, CreditReport.Story.NORMAL)
 
 ## Gives `application` its documents if it has none yet: the hand-written
 ## samples (the teaching cases among them), whose documents always check out,
@@ -161,6 +174,8 @@ func load_data(data: Dictionary) -> void:
 		if not LoanApplication.PURPOSE_TERMS.has(application.loan_purpose):
 			continue
 		application.applicant_look = clampi(application.applicant_look, 0, CustomerNPC.CUSTOMER_FRAME_SETS.size() - 1)
+		# Saved before credit reports: one in line with the score.
+		ensure_credit_report(application)
 		application.risk_assessment = application.calculate_risk_assessment()
 		player_queue.append(application)
 	names_day = SaveGame.int_of(data, "names_day", 0)

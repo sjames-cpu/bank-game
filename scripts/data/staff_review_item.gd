@@ -77,6 +77,10 @@ enum TellerMistake { AMOUNT_SHORT, AMOUNT_OVER, WRONG_TYPE, WRONG_ACCOUNT }
 @export var total_dti: float = 0.0
 @export var employment_months: int = 0
 @export var affordable_amount: float = 0.0
+## The credit report as pulled (CreditReport.summary()), frozen at the
+## decision; empty for an item from before credit reports. annual_rate above
+## is the rate offered for the applicant's credit band.
+@export var credit_report_text: String = ""
 @export var decision: LoanApplication.DecisionType = LoanApplication.DecisionType.NONE
 @export var decision_amount: float = 0.0
 ## The applicant's documents as handed over (LoanApplication

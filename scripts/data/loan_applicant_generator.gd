@@ -14,7 +14,9 @@ class_name LoanApplicantGenerator
 ## more than the purpose's policy maximum. The values are then built to land
 ## there: a credit score in its band, a target total DTI in its band, an
 ## income, the new payment's share of it (from which the amount follows, at
-## the purpose's real term and rate), housing, and existing debt payments
+## the purpose's term and the rate its credit band is priced at,
+## LoanApplication.RATE_TABLE), a credit report telling the profile's story
+## (CreditReport), housing, and existing debt payments
 ## making up the rest of the target, with a balance about 30-50 times the
 ## payment. About a third of applicants put one factor just inside a band
 ## edge (NEAR_EDGE_CHANCE), so the call isn't obvious.
@@ -31,13 +33,15 @@ class_name LoanApplicantGenerator
 ##
 ## Fair lending (bank policy): the name and look come from assign_identity(),
 ## with its own random generator, after and apart from every financial value,
-## and nothing graded reads them. No age, sex, race, religion, national
+## and nothing graded reads them. The credit report comes from the finance
+## generator and the score, and the rate from the purpose and the score. No age, sex, race, religion, national
 ## origin, marital status or any similar characteristic is generated or
 ## stored. loan_generator_test.gd checks the tiers don't depend on the name or
 ## look.
 
 const Tier := LoanApplication.RiskTier
 const Reason := LoanApplication.DenialReason
+const Story := CreditReport.Story
 
 ## What drives the payments. NONE: nothing (a payment within the guides, DTI
 ## within 43%). LOAN: the new payment is too big for the income (over 20% of
@@ -55,35 +59,59 @@ const TIER_WEIGHTS: Dictionary = {Tier.LOW: 40, Tier.MEDIUM: 35, Tier.HIGH: 25}
 ## 5+ HIGH. Each profile's weak points follow from it: credit points 3+ is
 ## CREDIT_SCORE, DTI points 3+ TOTAL_DTI, a LOAN driver INCOME, a short job
 ## EMPLOYMENT, over the maximum AMOUNT.
+##
+## The last column is the credit report's story options (CreditReport.Story:
+## NORMAL 0 points, REBUILT −1, MAXED +1, RECENT_MARK +2, RECENT_MARK_MAXED
+## +3). A recent mark is the CREDIT_HISTORY weak point. Some rows are there
+## because the report changes the call the score alone would make: a fair or
+## poor score with a clean last two years (REBUILT) a tier safer, a good or
+## fair score hiding a recent serious mark a tier riskier.
 const PROFILES: Array = [
 	# LOW: clean; one or two 1-point factors; or a new job with nothing else.
-	[Tier.LOW, 12, [0], [0], false, [Driver.NONE], false],
-	[Tier.LOW, 10, [1], [0], false, [Driver.NONE], false],
-	[Tier.LOW, 8, [0], [1], false, [Driver.NONE], false],
-	[Tier.LOW, 6, [1], [1], false, [Driver.NONE], false],
-	[Tier.LOW, 4, [0], [0], true, [Driver.NONE], false],
+	[Tier.LOW, 11, [0], [0], false, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.LOW, 8, [1], [0], false, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.LOW, 2, [1], [0], false, [Driver.NONE], false, [Story.MAXED]],
+	[Tier.LOW, 7, [0], [1], false, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.LOW, 5, [1], [1], false, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.LOW, 4, [0], [0], true, [Driver.NONE], false, [Story.NORMAL]],
+	# A fair score from older trouble, with a clean last two years.
+	[Tier.LOW, 3, [3], [0], false, [Driver.NONE], false, [Story.REBUILT]],
 	# MEDIUM: fair credit, alone or with a payment too big for the income; a
 	# stretched DTI from the loan or from today's debts (which leaves nothing
 	# worth counter-offering: LoanApplication.nothing_affordable()); a short
 	# job with a 1-point factor; a big loan over the maximum.
-	[Tier.MEDIUM, 6, [3], [0], false, [Driver.NONE], false],
-	[Tier.MEDIUM, 4, [3], [1], false, [Driver.NONE], false],
-	[Tier.MEDIUM, 5, [3], [0, 1], false, [Driver.LOAN], false],
-	[Tier.MEDIUM, 7, [0, 1], [3], false, [Driver.LOAN], false],
-	[Tier.MEDIUM, 4, [0, 1], [3], false, [Driver.DEBTS], false],
-	[Tier.MEDIUM, 3, [1], [0], true, [Driver.NONE], false],
-	[Tier.MEDIUM, 3, [0], [1], true, [Driver.NONE], false],
-	[Tier.MEDIUM, 3, [0, 1], [3], false, [Driver.LOAN], true],
-	# HIGH: poor credit; fair credit with a stretched DTI or a short job; a
-	# stretched DTI and a short job; payments over half of income from debts or
-	# from the loan; a loan over the maximum that's far too big.
-	[Tier.HIGH, 6, [5], [0, 1], false, [Driver.NONE], false],
-	[Tier.HIGH, 4, [3], [3], false, [Driver.LOAN, Driver.DEBTS], false],
-	[Tier.HIGH, 3, [3], [0], true, [Driver.NONE], false],
-	[Tier.HIGH, 3, [0, 1], [3], true, [Driver.LOAN, Driver.DEBTS], false],
-	[Tier.HIGH, 4, [0, 1, 3], [5], false, [Driver.DEBTS], false],
-	[Tier.HIGH, 3, [0, 1, 3], [5], false, [Driver.LOAN], false],
-	[Tier.HIGH, 2, [0, 1], [5], false, [Driver.LOAN], true],
+	[Tier.MEDIUM, 5, [3], [0], false, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.MEDIUM, 1, [3], [0], false, [Driver.NONE], false, [Story.MAXED]],
+	[Tier.MEDIUM, 3, [3], [1], false, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.MEDIUM, 1, [3], [1], false, [Driver.NONE], false, [Story.REBUILT]],
+	[Tier.MEDIUM, 4, [3], [0, 1], false, [Driver.LOAN], false, [Story.NORMAL]],
+	[Tier.MEDIUM, 6, [0, 1], [3], false, [Driver.LOAN], false, [Story.NORMAL]],
+	[Tier.MEDIUM, 4, [0, 1], [3], false, [Driver.DEBTS], false, [Story.NORMAL]],
+	[Tier.MEDIUM, 3, [1], [0], true, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.MEDIUM, 2, [0], [1], true, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.MEDIUM, 3, [0, 1], [3], false, [Driver.LOAN], true, [Story.NORMAL]],
+	# A good score hiding a recent serious mark.
+	[Tier.MEDIUM, 3, [1], [0, 1], false, [Driver.NONE], false, [Story.RECENT_MARK]],
+	# A poor score from older trouble, clean for two years.
+	[Tier.MEDIUM, 2, [5], [0], false, [Driver.NONE], false, [Story.REBUILT]],
+	# HIGH: poor credit (usually with something recent on the report); fair
+	# credit with a stretched DTI or a short job; a stretched DTI and a short
+	# job; payments over half of income from debts or from the loan; a loan
+	# over the maximum that's far too big.
+	[Tier.HIGH, 6, [5], [0, 1], false, [Driver.NONE], false, [Story.NORMAL, Story.RECENT_MARK, Story.MAXED, Story.RECENT_MARK_MAXED]],
+	[Tier.HIGH, 1, [5], [1], false, [Driver.NONE], false, [Story.REBUILT]],
+	[Tier.HIGH, 4, [3], [3], false, [Driver.LOAN, Driver.DEBTS], false, [Story.NORMAL, Story.RECENT_MARK]],
+	[Tier.HIGH, 3, [3], [0], true, [Driver.NONE], false, [Story.NORMAL]],
+	[Tier.HIGH, 3, [0, 1], [3], true, [Driver.LOAN, Driver.DEBTS], false, [Story.NORMAL]],
+	[Tier.HIGH, 4, [0, 1, 3], [5], false, [Driver.DEBTS], false, [Story.NORMAL]],
+	[Tier.HIGH, 3, [0, 1, 3], [5], false, [Driver.LOAN], false, [Story.NORMAL]],
+	[Tier.HIGH, 2, [0, 1], [5], false, [Driver.LOAN], true, [Story.NORMAL]],
+	# A fair score with a recent serious mark; a good score with one and a
+	# stretched DTI, maxed-out cards, a short job or a high DTI.
+	[Tier.HIGH, 3, [3], [0], false, [Driver.NONE], false, [Story.RECENT_MARK]],
+	[Tier.HIGH, 1, [1], [1], false, [Driver.NONE], false, [Story.RECENT_MARK_MAXED]],
+	[Tier.HIGH, 1, [1], [0], true, [Driver.NONE], false, [Story.RECENT_MARK]],
+	[Tier.HIGH, 2, [1], [3], false, [Driver.LOAN, Driver.DEBTS], false, [Story.RECENT_MARK]],
 ]
 
 ## Loan purposes and how often each is asked for. A Home loan's mortgage
@@ -180,9 +208,14 @@ class Profile:
 	var short_job: bool = false
 	var driver: LoanApplicantGenerator.Driver = LoanApplicantGenerator.Driver.NONE
 	var over_max: bool = false
+	var story: CreditReport.Story = CreditReport.Story.NORMAL
 
 	func risk_points() -> int:
-		return credit_points + dti_points + (2 if short_job else 0)
+		return credit_points + dti_points + (2 if short_job else 0) + CreditReport.story_points(story)
+
+	## The points without the credit report.
+	func score_only_points() -> int:
+		return risk_points() - CreditReport.story_points(story)
 
 # --- generating ----------------------------------------------------------------------
 
@@ -218,6 +251,7 @@ static func pick_profile(rng: RandomNumberGenerator) -> Profile:
 	var short_job: bool = chosen[4]
 	var driver_options: Array = chosen[5]
 	var over_max: bool = chosen[6]
+	var story_options: Array = chosen[7]
 	var profile := Profile.new()
 	profile.tier = tier as LoanApplication.RiskTier
 	profile.credit_points = _pick(rng, credit_options)
@@ -225,6 +259,7 @@ static func pick_profile(rng: RandomNumberGenerator) -> Profile:
 	profile.short_job = short_job
 	profile.driver = _pick(rng, driver_options) as Driver
 	profile.over_max = over_max
+	profile.story = _pick(rng, story_options) as CreditReport.Story
 	return profile
 
 ## An applicant matching `profile` (see matches()), or null when MAX_ATTEMPTS
@@ -248,6 +283,7 @@ static func matches(application: LoanApplication, profile: Profile) -> bool:
 	# for their payments too (LoanApplication.weak_points()).
 	var payments_reason := application.nothing_affordable() and profile.driver != Driver.LOAN
 	return weak.has(Reason.CREDIT_SCORE) == (profile.credit_points >= 3) \
+		and weak.has(Reason.CREDIT_HISTORY) == CreditReport.has_recent_mark(profile.story) \
 		and weak.has(Reason.TOTAL_DTI) == (profile.dti_points >= 3 or payments_reason) \
 		and weak.has(Reason.INCOME) == (profile.driver == Driver.LOAN) \
 		and weak.has(Reason.EMPLOYMENT) == profile.short_job \
@@ -262,6 +298,8 @@ static func _attempt(rng: RandomNumberGenerator, profile: Profile) -> LoanApplic
 	application.loan_purpose = _pick_purpose(rng, profile)
 	application.risk_tier = profile.tier
 	application.credit_score = _credit_score(rng, profile.credit_points, edge == 0)
+	# The credit report, from the score and this generator alone.
+	CreditReport.issue(application, rng, profile.story)
 	application.employment_months = _employment(rng, profile.short_job, edge == 2)
 	var target := _target_dti(rng, profile, edge == 1)
 	var home := application.replaces_housing()

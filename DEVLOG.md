@@ -312,6 +312,16 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **Regional review**: a new Lending quality area (weight 10) uses the same rating on the branch's loans; vault reconciliation and fairness of reports went from 20 to 15 each.
 - The End of Day summary got wider, and its text now scrolls when a busy day would run it off the window. A test found the busiest summary was already too tall.
 
+## Session 36 — Nov 11, 2026: Credit reports and risk-based pricing (Loan Officer improvements, part 4a)
+
+- **A credit report for every applicant**, at the player's desk and the staff desks: the on-time payment rate, 30-, 60- and 90-day late payments in the last 2 years, credit utilization, open accounts, hard inquiries in the last 6 months, and serious marks (collections, or a bankruptcy, in the last 7 years). Reports follow the score: over 2,000 applicants, utilization averages 6% at 800+ and 49% under 580, the on-time rate 99.5% down to 82.4%, and serious marks appear for none of those at 740+ but 66% of those under 580. Each report also tells its own story (a normal history, a clean recent one, maxed-out cards, a recent serious mark), so similar scores can read very differently.
+- **The report counts in the hidden assessment** (bank policy): a 90-day late payment, a collection or a bankruptcy in the last 2 years adds 2 risk points, utilization over 75% adds 1, and a score under 670 with a clean last 2 years takes 1 away. The tier mix stays 40.8/34.7/24.5%, and the report changes the tier the score alone would give for 13.4% of applicants: 8.6% riskier (a good score hiding a recent collection), 4.9% safer (a fair score with a clean recent history). Loan outcomes still depend only on the tier.
+- **Shown on the review screen**: Run Credit Check now also pulls the report into a third column beside the worksheet, each item with a one-line explanation and the policy below. The screen is wider, sits at the top of the window, and has Close beside the title, so its tallest state still fits.
+- **Risk-based pricing**: one rate per purpose became a table by purpose and credit band: auto 5.50-14.50%, home 6.25-8.25%, personal 9.50-26.00%, business 7.75-13.00%, with the old rates as the Good column. The worksheet shows the rate offered and why, and the new payment, DTI and affordable amount use it. Several sample figures moved; Sophie Laurent now asks for $18,000 so she stays weak on credit alone.
+- **A new denial reason**, "Recent late payments or collections", graded like the others: right when the report has a serious mark in the last 2 years.
+- **Staff officers and staff review** use the same report and pricing; review items now show the report. The staff review panel got wider and its details a size smaller, since the busiest item ran off the window.
+- **Fair lending**: the report comes from the applicant's finances and score, and the rate from the purpose and score; tests check neither depends on the name or look. Reports save with each application; an application saved before reports gets one in line with its score that doesn't change its call.
+
 ## Notes for next session
 
 - The hiring interview is switched off (`InterviewManager.INTERVIEW_ENABLED`); decide how it fits into the game, then turn it back on.

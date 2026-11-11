@@ -82,6 +82,8 @@ func test_the_worksheet_appears_after_the_credit_check() -> void:
 	assert_str(review.employment_label.text).is_equal("Employment: 3 years")
 	assert_str(review.worksheet_text()).is_empty()
 	assert_bool(review.worksheet_placeholder_label.visible).is_true()
+	assert_str(review.credit_report_text()).is_empty()
+	assert_bool(review.credit_report_placeholder_label.visible).is_true()
 	assert_bool(review.decision_hbox.visible).is_false()
 	await assert_fits()
 
@@ -94,7 +96,9 @@ func test_the_worksheet_appears_after_the_credit_check() -> void:
 		"Monthly income: $4,000",
 		"Housing payment: $950",
 		"Existing debt payments: $250",
-		"New loan payment: $594 (60 months at 7.00%)",
+		"Rate offered: 7.00%",
+		"Priced for Good credit (670-739); auto rates run 5.50% to 14.50%, lower credit paying more.",
+		"New loan payment: $594 (60 months)",
 		"Front-end DTI: 23.8%",
 		"Housing ÷ income: the share of pay that goes on housing.",
 		"Total DTI: 44.9%",
@@ -104,9 +108,27 @@ func test_the_worksheet_appears_after_the_credit_check() -> void:
 		"Affordable at 36% total DTI: $12,100",
 	]:
 		assert_str(text).contains(line)
+	# The credit report beside it, each item with what it means, and the policy.
+	assert_bool(review.credit_report_placeholder_label.visible).is_false()
+	var report := review.credit_report_text()
+	for line: String in [
+		"On-time payments: 97%",
+		"Share of all payments made on time.",
+		"Late payments (2 yrs): 1 × 30-day",
+		"30, 60 or 90+ days overdue.",
+		"Credit utilization: 41%",
+		"Card balances ÷ limits; 30% or less is healthy.",
+		"Open accounts: 6",
+		"Hard inquiries (6 mo): 2",
+		"Serious marks: None",
+		"Collections and bankruptcies stay 7 years.",
+		CreditReport.POLICY_TEXT,
+	]:
+		assert_str(report).contains(line)
 	# The hidden verdict is never shown.
-	for hidden: String in ["low risk", "medium risk", "high risk", "Low", "Medium", "High risk", "Approve", "Reject"]:
-		assert_str(text).not_contains(hidden)
+	for shown: String in [text, report]:
+		for hidden: String in ["low risk", "medium risk", "high risk", "Low", "Medium", "High risk", "Approve", "Reject", "points"]:
+			assert_str(shown).not_contains(hidden)
 	await assert_fits()
 
 func test_a_home_loans_mortgage_replaces_the_rent_on_the_worksheet() -> void:
@@ -114,7 +136,8 @@ func test_a_home_loans_mortgage_replaces_the_rent_on_the_worksheet() -> void:
 	review.run_credit_check_button.pressed.emit()
 	var text := review.worksheet_text()
 	assert_str(text).contains("Housing payment: $1,959 (new mortgage; replaces $1,500)")
-	assert_str(text).contains("New loan payment: $1,959 (360 months at 6.50%)")
+	assert_str(text).contains("Rate offered: 6.50%")
+	assert_str(text).contains("New loan payment: $1,959 (360 months)")
 	assert_str(text).contains("Total DTI: 36.6%")
 	await assert_fits()
 
@@ -152,7 +175,12 @@ func test_a_denial_needs_one_or_two_reasons_graded_against_the_weak_points() -> 
 	review.reject_button.pressed.emit()
 	assert_bool(review.reasons_vbox.visible).is_true()
 	assert_bool(review.decision_hbox.visible).is_false()
-	assert_int(review.reason_checks.size()).is_equal(6)
+	assert_int(review.reason_checks.size()).is_equal(7)
+	# Listed with the credit reasons together.
+	var listed: Array[String] = []
+	for child in review.reason_checks_vbox.get_children():
+		listed.append((child as CheckBox).text)
+	assert_array(listed).is_equal(["Total DTI too high", "Credit score too low", "Recent late payments or collections", "Income too low for the amount", "Employment too short", "Amount too large", "Income or identity could not be verified"])
 	assert_bool(review.submit_denial_button.disabled).is_true()
 	await assert_fits()
 	# A third reason is unticked again.
@@ -299,7 +327,7 @@ func test_staff_still_decide_every_application_against_the_new_assessment() -> v
 		worker.decide_next(application)
 	assert_array(results).not_contains([false])
 	assert_int(results.size()).is_equal(10)
-	assert_dict(counters).is_equal({"Priya Sharma": 4500.0, "Angela Reyes": 12100.0, "Jamal Green": 44200.0, "Noah Kim": 9900.0})
+	assert_dict(counters).is_equal({"Priya Sharma": 4000.0, "Angela Reyes": 12100.0, "Jamal Green": 41000.0, "Noah Kim": 9900.0})
 	assert_int(StaffReviewManager.queue.size()).is_equal(0)
 
 	# The weakest officer gets every call wrong, and each lands in the review
@@ -315,7 +343,7 @@ func test_staff_still_decide_every_application_against_the_new_assessment() -> v
 	assert_float(angela.total_dti).is_equal_approx(0.4485, 0.0001)
 	assert_float(angela.affordable_amount).is_equal(12100.0)
 	var details := StaffReviewScreen.details_text(angela)
-	assert_str(details).starts_with("Applicant: Angela Reyes — $30,000 auto loan (60 months at 7.00%)\nCredit score 710 (Good) · Employed 3 years\nStated income $4,000/mo · Housing $950 · Debts $250/mo · New payment $594/mo\nFront-end DTI 23.8% · Total DTI 44.9% · Affordable at 36%: $12,100\nDecision: ")
+	assert_str(details).starts_with("Applicant: Angela Reyes — $30,000 auto loan (60 months at 7.00%)\nCredit score 710 (Good) · Employed 3 years\nCredit report: on time 97% · late (2 yrs) 1 × 30-day · utilization 41% · 6 accounts · 2 inquiries · marks: None\nStated income $4,000/mo · Housing $950 · Debts $250/mo · New payment $594/mo\nFront-end DTI 23.8% · Total DTI 44.9% · Affordable at 36%: $12,100\nDecision: ")
 	assert_str(details).not_contains("Loan-to-income")
 	var elena: StaffReviewItem = StaffReviewManager.queue.filter(func(item: StaffReviewItem) -> bool: return item.applicant_name == "Elena Petrova")[0]
 	assert_str(StaffReviewScreen.details_text(elena)).contains("Mortgage $1,959 (replaces $1,500)")
@@ -329,6 +357,118 @@ func test_staff_still_decide_every_application_against_the_new_assessment() -> v
 	await frames(4)
 	var problems := layout_problems(bm.staff_review_screen.get_node("Panel") as Control)
 	assert_array(problems).override_failure_message("\n".join(problems)).is_empty()
+
+# --- the credit report ------------------------------------------------------------------
+
+## A good score hiding a recent collection: a borderline applicant the score
+## alone would call safe. Its report shows the collection, and "Recent late
+## payments or collections" is the reason to give.
+func hidden_collection() -> LoanApplication:
+	var application := LoanApplication.new()
+	application.applicant_name = "Kira Ibarra"
+	application.loan_purpose = "Auto"
+	application.requested_amount = 20000.0
+	application.credit_score = 705
+	application.annual_income = 90000.0
+	application.monthly_housing_payment = 1800.0
+	application.existing_debt = 9000.0
+	application.monthly_debt_payments = 250.0
+	application.employment_months = 70
+	application.risk_tier = LoanApplication.RiskTier.MEDIUM
+	application.documents_issued = true
+	application.credit_report_issued = true
+	application.on_time_percent = 96
+	application.late_30_days = 1
+	application.utilization_percent = 38
+	application.open_accounts = 6
+	application.hard_inquiries = 1
+	application.collections = 1
+	application.months_since_collection = 9
+	return application
+
+func test_a_recent_collection_on_the_report_through_the_screen() -> void:
+	clock_in_at_loan_desk()
+	var application := open_next(hidden_collection())
+	assert_int(application.score_only_assessment()).is_equal(LoanApplication.RiskTier.LOW)
+	assert_int(application.calculate_risk_assessment()).is_equal(LoanApplication.RiskTier.MEDIUM)
+	review.run_credit_check_button.pressed.emit()
+	assert_str(review.credit_report_text()).contains("Serious marks: 1 collection, latest 9 months ago")
+	await assert_fits()
+	# Rejected for the history: reasonable for a borderline applicant, with the
+	# one real reason named.
+	review.reject_button.pressed.emit()
+	tick([LoanApplication.DenialReason.CREDIT_HISTORY])
+	await assert_fits()
+	var start := totals()
+	review.submit_denial_button.pressed.emit()
+	var score := LoanApplication.PARTIAL_CREDIT_SCORE + LoanApplication.REASON_RIGHT_SCORE
+	assert_int((totals() - start).x).is_equal(score)
+	assert_str(review.decision_status_label.text).contains("Stated reasons: 1 right (+2 Score).")
+	var record: DecisionRecord = HistoryManager.records[-1]
+	assert_str(record.description).is_equal("Loan rejected: Kira Ibarra (medium risk applicant) — reasons: Recent late payments or collections")
+	review.close_button.pressed.emit()
+
+	# Naming the score instead is wrong, and the history is missed.
+	var again := hidden_collection()
+	again.applicant_name = "Hugo Valdez"
+	open_next(again)
+	review.run_credit_check_button.pressed.emit()
+	review.reject_button.pressed.emit()
+	tick([LoanApplication.DenialReason.CREDIT_SCORE])
+	start = totals()
+	review.submit_denial_button.pressed.emit()
+	assert_int((totals() - start).x).is_equal(LoanApplication.PARTIAL_CREDIT_SCORE + LoanApplication.REASON_WRONG_SCORE + LoanApplication.REASON_MISSING_SCORE)
+
+## An application with no report (saved before reports) gets one when it
+## comes up, in line with its score and adding nothing to its call.
+func test_an_application_without_a_report_gets_one() -> void:
+	clock_in_at_loan_desk()
+	var application := open_next(stretched_by_debts())
+	assert_bool(application.credit_report_issued).is_true()
+	assert_int(application.credit_report_points()).is_equal(0)
+	review.run_credit_check_button.pressed.emit()
+	assert_str(review.credit_report_text()).contains("On-time payments: ")
+
+## Staff loan officers judge the same report and pricing: a perfect officer
+## counters the applicant the report makes borderline (at what they can
+## afford at their credit band's rate), and the weakest officer's call on
+## them is a review item carrying the report.
+func test_staff_officers_use_the_report_and_pricing() -> void:
+	XPManager._grant_branch_manager()
+	acknowledge_letters()
+	var worker := room.loan_desk_worker
+	worker.staff_doc_slips = false
+	var staff := worker.staff_npc.staff
+	var decided: Array[LoanApplication] = []
+	var correct: Array[bool] = []
+	worker.decision_made.connect(func(application: LoanApplication, _s: StaffMember, right: bool) -> void:
+		decided.append(application)
+		correct.append(right))
+	staff.skill = 10
+	worker.decide_next(hidden_collection())
+	assert_int(decided[0].risk_assessment).is_equal(LoanApplication.RiskTier.MEDIUM)
+	assert_int(decided[0].decision).is_equal(LoanApplication.DecisionType.COUNTER_OFFER)
+	# They could carry the whole $20,000: the offer is just below it.
+	assert_float(decided[0].affordable_amount()).is_greater(20000.0)
+	assert_float(decided[0].decision_amount).is_equal(19900.0)
+	assert_float(decided[0].annual_rate()).is_equal_approx(0.07, 0.000001)
+	assert_array(correct).is_equal([true])
+
+	# The weakest officer gets it wrong: a review item with the report frozen
+	# on it, and the rate offered.
+	staff.skill = 0
+	worker.decide_next(hidden_collection())
+	assert_array(correct).is_equal([true, false])
+	assert_int(decided[1].decision).is_not_equal(LoanApplication.DecisionType.COUNTER_OFFER)
+	var item: StaffReviewItem = StaffReviewManager.queue[-1]
+	assert_str(item.credit_report_text).is_equal("Credit report: on time 96% · late (2 yrs) 1 × 30-day · utilization 38% · 6 accounts · 1 inquiry · marks: 1 collection, latest 9 months ago")
+	assert_float(item.annual_rate).is_equal_approx(0.07, 0.000001)
+	assert_str(StaffReviewScreen.details_text(item)).contains(item.credit_report_text)
+	# Saved and loaded with the queue.
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(StaffReviewManager.save_data()))
+	StaffReviewManager.reset()
+	StaffReviewManager.load_data(saved)
+	assert_str(StaffReviewManager.queue[-1].credit_report_text).is_equal(item.credit_report_text)
 
 # --- old saves ------------------------------------------------------------------------
 

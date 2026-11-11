@@ -40,11 +40,17 @@ signal review_completed(score_delta: int, reputation_delta: int, xp_delta: int)
 const FAIR_COLOR: Color = Color(0.3, 1, 0.3, 1)
 const UNFAIR_COLOR: Color = Color(1, 0.45, 0.35, 1)
 
+## The item's details a size below body text: a loan item (worksheet,
+## credit report and documents) with a result line and Terminate buttons
+## must still fit the 648 px window.
+const DETAILS_FONT_SIZE: int = 14
+
 var _paused_by_self: bool = false
 var _index: int = 0
 
 func _ready() -> void:
 	visible = false
+	details_label.add_theme_font_size_override("font_size", DETAILS_FONT_SIZE)
 	prev_button.pressed.connect(_step.bind(-1))
 	next_button.pressed.connect(_step.bind(1))
 	report_button.pressed.connect(_decide.bind(StaffReviewManager.Action.REPORT))
@@ -157,9 +163,11 @@ static func details_text(item: StaffReviewItem) -> String:
 	# The documents as handed over, after the stated income, so the manager
 	# can compare them (what was wrong stays hidden until they decide).
 	var documents := "\n" + item.documents_text if item.documents_text != "" else ""
-	return "Applicant: %s — %s %s loan (%d months at %.2f%%)\nCredit score %d (%s) · Employed %s\nStated income %s/mo · %s · Debts %s/mo · New payment %s/mo\nFront-end DTI %s · Total DTI %s · Affordable at 36%%: %s%s\nDecision: %s" % [
+	# The credit report as pulled, after the score.
+	var report := "\n" + item.credit_report_text if item.credit_report_text != "" else ""
+	return "Applicant: %s — %s %s loan (%d months at %.2f%%)\nCredit score %d (%s) · Employed %s%s\nStated income %s/mo · %s · Debts %s/mo · New payment %s/mo\nFront-end DTI %s · Total DTI %s · Affordable at 36%%: %s%s\nDecision: %s" % [
 		item.applicant_name, LoanApplication.dollars(item.requested_amount), item.loan_purpose.to_lower(), item.term_months, item.annual_rate * 100.0,
-		item.credit_score, LoanApplication.credit_score_band(item.credit_score), LoanApplication.employment_text(item.employment_months),
+		item.credit_score, LoanApplication.credit_score_band(item.credit_score), LoanApplication.employment_text(item.employment_months), report,
 		LoanApplication.dollars(item.annual_income / 12.0), housing, LoanApplication.dollars(item.monthly_debt_payments), LoanApplication.dollars(item.new_payment),
 		LoanApplication.percent(item.front_end_dti), LoanApplication.percent(item.total_dti), LoanApplication.dollars(item.affordable_amount),
 		documents, decision,

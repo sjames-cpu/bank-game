@@ -99,6 +99,8 @@ func decide_next(application: LoanApplication = null) -> void:
 	var staff := staff_npc.staff
 	if application == null:
 		application = LoanDeskManager.next_staff_application()
+	# The same credit report and pricing as the player's desk.
+	LoanDeskManager.ensure_credit_report(application)
 	application.risk_assessment = application.calculate_risk_assessment()
 
 	# The documents first. A problem is caught (and the application rejected)

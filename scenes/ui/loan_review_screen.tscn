@@ -26,22 +26,29 @@ color = Color(0, 0, 0, 0.5)
 [node name="Panel" type="PanelContainer" parent="."]
 layout_mode = 1
 anchor_left = 0.5
-anchor_top = 0.5
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -412.0
+offset_left = -566.0
+offset_top = 10.0
 offset_right = 368.0
+offset_bottom = 10.0
 grow_horizontal = 2
-grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+[node name="TitleHBox" type="HBoxContainer" parent="Panel/VBox"]
 layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox/TitleHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"HeaderLabel"
 text = "Loan Application Review"
 horizontal_alignment = 1
+
+[node name="CloseButton" type="Button" parent="Panel/VBox/TitleHBox"]
+layout_mode = 2
+text = "Close"
 
 [node name="Columns" type="HBoxContainer" parent="Panel/VBox"]
 layout_mode = 2
@@ -50,7 +57,7 @@ theme_override_constants/separation = 10
 [node name="LeftVBox" type="VBoxContainer" parent="Panel/VBox/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
+size_flags_stretch_ratio = 1.1
 
 [node name="ApplicantSection" type="PanelContainer" parent="Panel/VBox/Columns/LeftVBox"]
 layout_mode = 2
@@ -206,7 +213,7 @@ autowrap_mode = 2
 [node name="WorksheetSection" type="PanelContainer" parent="Panel/VBox/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.15
+size_flags_stretch_ratio = 1.05
 theme_type_variation = &"SectionPanel"
 
 [node name="WorksheetVBox" type="VBoxContainer" parent="Panel/VBox/Columns/WorksheetSection"]
@@ -284,6 +291,37 @@ theme_override_font_sizes/font_size = 12
 text = "Bank policy"
 autowrap_mode = 2
 
-[node name="CloseButton" type="Button" parent="Panel/VBox"]
+[node name="CreditReportSection" type="PanelContainer" parent="Panel/VBox/Columns"]
 layout_mode = 2
-text = "Close"
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.9
+theme_type_variation = &"SectionPanel"
+
+[node name="CreditReportVBox" type="VBoxContainer" parent="Panel/VBox/Columns/CreditReportSection"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="CreditReportTitleLabel" type="Label" parent="Panel/VBox/Columns/CreditReportSection/CreditReportVBox"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+text = "Credit Report"
+horizontal_alignment = 1
+
+[node name="CreditReportPlaceholderLabel" type="Label" parent="Panel/VBox/Columns/CreditReportSection/CreditReportVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "The credit check pulls the applicant's credit report."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="CreditReportRows" type="VBoxContainer" parent="Panel/VBox/Columns/CreditReportSection/CreditReportVBox"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="CreditReportPolicyLabel" type="Label" parent="Panel/VBox/Columns/CreditReportSection/CreditReportVBox"]
+visible = false
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 12
+text = "Bank policy"
+autowrap_mode = 2
