@@ -108,9 +108,9 @@ func test_nothing_on_a_loan_officer_day() -> void:
 	room.loan_officer_screen.clock_in_button.pressed.emit()
 	room.loan_officer_screen.hide_screen()
 	var cap_before := cq.spawn_cap
-	DayFlow.continue_day() # 9 AM: nobody claims it, so it ends at once
-	assert_bool(DayFlow.is_between_slots()).is_true()
-	assert_str(DayFlow.next_slot().id).is_equal(DaySchedule.SLOT_11AM)
+	DayFlow.continue_day() # 9 AM: the Loan Officer's slot (LoanSlotAdapter)
+	assert_str(DayFlow.current_slot().id).is_equal(DaySchedule.SLOT_9AM)
+	assert_bool(DayFlow.has_claimed(room.get_node("LoanSlotAdapter"))).is_true()
 	assert_bool(DayFlow.has_claimed(room.teller_slots)).is_false()
 	assert_int(cq.spawn_cap).is_equal(cap_before)
 

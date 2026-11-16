@@ -130,20 +130,23 @@ func test_clocking_out_before_closing_is_refused() -> void:
 
 func test_with_slots_off_clock_out_is_not_refused() -> void:
 	clock_in()
-	assert_str(room.shift_slots.clock_out_refusal()).is_empty()
+	assert_str(ShiftSlotAdapter.clock_out_refusal()).is_empty()
 	GameClock.minutes = BusinessDay.CLOSE_MINUTES
 	assert_bool(clock_out()).is_true()
 
-# --- a Loan Officer's day (until session 2b) ------------------------------------------------
+# --- a Loan Officer's day ---------------------------------------------------------------
 
+## The shift around a Loan Officer's day: with every work slot skipped
+## (loan_slots_test.gd has the work), Closing waits for the loan clock-out
+## and End of Day follows.
 func test_a_loan_officer_day_runs_to_its_end_of_day() -> void:
 	start_slots_day()
 	loan_clock_in()
-	# The work slots rush through, one card each.
 	var waits := 0
 	while DayFlow.is_between_slots() and DayFlow.next_slot().id != DaySchedule.CLOSING:
 		waits += 1
 		DayFlow.continue_day()
+		DayFlow.skip_slot()
 	assert_int(waits).is_equal(4)
 	DayFlow.continue_day()
 	assert_str(current_id()).is_equal(DaySchedule.CLOSING)

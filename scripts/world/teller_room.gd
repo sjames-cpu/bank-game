@@ -320,6 +320,7 @@ func _ready() -> void:
 	add_child(onboarding_flow)
 	onboarding_flow.finished.connect(_show_arrival_hints)
 	onboarding_flow.start()
+	SlotWiring.install(self)
 	start_slots_day()
 
 ## Every desk's clock-in and clock-out, reported to PlayerShift with its role
@@ -1142,7 +1143,7 @@ func _on_teller_screen_closed() -> void:
 ## error message.
 func _describe_remaining_shift_work() -> String:
 	# Time slots: the shift runs until Closing, whatever's left.
-	var refusal := shift_slots.clock_out_refusal()
+	var refusal := ShiftSlotAdapter.clock_out_refusal()
 	if refusal != "":
 		return refusal
 	var parts: PackedStringArray = []

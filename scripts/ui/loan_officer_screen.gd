@@ -48,6 +48,15 @@ signal shift_clocked_out
 ## for themselves when a shift is "done."
 const APPLICATIONS_PER_SHIFT: int = 3
 
+## How many applications this shift may review: APPLICATIONS_PER_SHIFT, or
+## with time slots on what the slots so far have brought (LoanSlotAdapter
+## sets it: 0 at Opening, then DaySchedule's amount per work slot).
+var applications_per_shift: int = APPLICATIONS_PER_SHIFT:
+	set(value):
+		applications_per_shift = value
+		if is_node_ready():
+			_update_shift_controls()
+
 enum ShiftState { CLOCKED_OUT, CLOCKED_IN }
 
 var shift_state: ShiftState = ShiftState.CLOCKED_OUT
@@ -132,7 +141,13 @@ func _on_loan_review_screen_closed(_was_decided: bool) -> void:
 ## APPLICATIONS_PER_SHIFT have been reviewed (the old 45-second wall-clock
 ## minimum could just be waited out inside this paused screen).
 func _on_clock_out_button_pressed() -> void:
-	var remaining := APPLICATIONS_PER_SHIFT - applications_reviewed
+	# Time slots: the shift runs until Closing (shared with every desk).
+	var refusal := ShiftSlotAdapter.clock_out_refusal()
+	if refusal != "":
+		error_label.text = "Can't clock out yet — %s." % refusal
+		error_label.visible = true
+		return
+	var remaining := applications_per_shift - applications_reviewed
 	if remaining > 0:
 		error_label.text = "Can't clock out yet — %d application%s still to review." % [remaining, "" if remaining == 1 else "s"]
 		error_label.visible = true
@@ -165,13 +180,13 @@ func _update_shift_controls() -> void:
 	var clocked_in := shift_state == ShiftState.CLOCKED_IN
 	clock_in_button.visible = not clocked_in
 	clock_out_button.visible = clocked_in
-	review_next_button.disabled = not clocked_in or applications_reviewed >= APPLICATIONS_PER_SHIFT
+	review_next_button.disabled = not clocked_in or applications_reviewed >= applications_per_shift
 	progress_label.visible = clocked_in
-	progress_label.text = "Applications Reviewed: %d / %d" % [applications_reviewed, APPLICATIONS_PER_SHIFT]
+	progress_label.text = "Applications Reviewed: %d / %d" % [applications_reviewed, applications_per_shift]
 
 ## For the room's HUD and interaction prompt (teller_room.gd).
 func is_clocked_in() -> bool:
 	return shift_state == ShiftState.CLOCKED_IN
 
 func applications_left() -> int:
-	return maxi(0, APPLICATIONS_PER_SHIFT - applications_reviewed)
+	return maxi(0, applications_per_shift - applications_reviewed)

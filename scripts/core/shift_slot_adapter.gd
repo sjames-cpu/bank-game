@@ -12,11 +12,11 @@ class_name ShiftSlotAdapter
 ##   shift: it always does within MAX_OPENING_RECOUNTS, so it never sticks.
 ## - Closing: claimed while the player is on shift, finished at their
 ##   clock-out (PlayerShift.clocked_out). End of Day follows.
-## - Clocking out before Closing is refused (clock_out_refusal()); the
-##   teller's clock-out gate reads it (teller_room._describe_remaining_shift_work()).
+## - Clocking out before Closing is refused (clock_out_refusal()), at every
+##   desk.
 ##
 ## The work slots in between belong to each role's own adapter
-## (TellerSlotAdapter); a role without one rushes through them for now.
+## (TellerSlotAdapter, LoanSlotAdapter, ManagerSlotAdapter).
 
 ## The clock-out refusal, completing "Can't clock out yet — %s.".
 const CLOCK_OUT_REFUSED_TEXT: String = "your shift runs until Closing (5 PM)"
@@ -37,8 +37,11 @@ func _exit_tree() -> void:
 	PlayerShift.clocked_in.disconnect(_on_clocked_in)
 	PlayerShift.clocked_out.disconnect(_on_clocked_out)
 
-## "" when the player may clock out now; otherwise why not.
-func clock_out_refusal() -> String:
+## "" when the player may clock out now; otherwise why not. Static, so every
+## desk's clock-out reads the same check (the teller's through
+## teller_room._describe_remaining_shift_work(), the Loan Officer's and the
+## Branch Manager's in their own screens).
+static func clock_out_refusal() -> String:
 	if not DayFlow.slots_enabled or not DayFlow.is_running():
 		return ""
 	if DayFlow.current_slot().id == DaySchedule.CLOSING:
