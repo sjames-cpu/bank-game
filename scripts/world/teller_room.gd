@@ -210,6 +210,8 @@ var _vault_notice_shown: bool = false
 var armored_visit: ArmoredTruckVisit
 ## A new career's onboarding (OnboardingFlow).
 var onboarding_flow: OnboardingFlow
+## Time slots (DayFlow, only with slots on): the shift's Opening and Closing.
+var shift_slots: ShiftSlotAdapter
 
 func _ready() -> void:
 	# The camera stays inside the room, walls and sidewalk included.
@@ -278,6 +280,7 @@ func _ready() -> void:
 	loan_officer_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_LOAN_DESK_1))
 	loan_officer_screen.shift_clocked_out.connect(_on_shift_completed)
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
+	_connect_player_shift()
 	_place_staff()
 
 	# Staff serve customers from the start: _place_staff() opened each
@@ -308,6 +311,20 @@ func _ready() -> void:
 	add_child(onboarding_flow)
 	onboarding_flow.finished.connect(_show_arrival_hints)
 	onboarding_flow.start()
+
+## Every desk's clock-in and clock-out, reported to PlayerShift with its role
+## (one shared signal for the time-slot adapters), and the shift's Opening
+## and Closing slots (ShiftSlotAdapter, a no-op with slots off).
+func _connect_player_shift() -> void:
+	teller_screen.shift_clocked_in.connect(PlayerShift.report_clock_in.bind(PlayerShift.Role.TELLER))
+	teller_screen.shift_clocked_out.connect(PlayerShift.report_clock_out.bind(PlayerShift.Role.TELLER))
+	loan_officer_screen.shift_clocked_in.connect(PlayerShift.report_clock_in.bind(PlayerShift.Role.LOAN_OFFICER))
+	loan_officer_screen.shift_clocked_out.connect(PlayerShift.report_clock_out.bind(PlayerShift.Role.LOAN_OFFICER))
+	branch_manager_screen.shift_clocked_in.connect(PlayerShift.report_clock_in.bind(PlayerShift.Role.BRANCH_MANAGER))
+	branch_manager_screen.shift_clocked_out.connect(PlayerShift.report_clock_out.bind(PlayerShift.Role.BRANCH_MANAGER))
+	shift_slots = ShiftSlotAdapter.new()
+	shift_slots.name = "ShiftSlotAdapter"
+	add_child(shift_slots)
 
 func _show_arrival_hints() -> void:
 	hud.show_hint_once(HintManager.Hint.ARRIVAL)
@@ -1079,6 +1096,10 @@ func _on_teller_screen_closed() -> void:
 ## that's the case, otherwise a short description of what's left for the
 ## error message.
 func _describe_remaining_shift_work() -> String:
+	# Time slots: the shift runs until Closing, whatever's left.
+	var refusal := shift_slots.clock_out_refusal()
+	if refusal != "":
+		return refusal
 	var parts: PackedStringArray = []
 	var waiting := customer_queue.queue.size()
 	if is_instance_valid(_customer_being_served) and customer_queue.queue.has(_customer_being_served):

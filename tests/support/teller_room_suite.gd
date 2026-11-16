@@ -146,6 +146,20 @@ func use_interview_setting(enabled: bool) -> void:
 func use_slots_setting(enabled: bool) -> void:
 	DayFlow.slots_enabled = enabled
 
+## Time slots on, and a day started at Opening that waits between slots
+## (DayFlow.pause_between_slots), as the room runs it.
+func start_slots_day() -> void:
+	use_slots_setting(true)
+	DayFlow.pause_between_slots = true
+	DayFlow.start_day()
+
+## Between slots, Continue until `id` has started (or the day has ended).
+func continue_to_slot(id: StringName) -> void:
+	while DayFlow.is_running() and (DayFlow.is_between_slots() or DayFlow.current_slot().id != id):
+		if not DayFlow.is_between_slots():
+			return # stuck inside another slot: the test's assertions say so
+		DayFlow.continue_day()
+
 # --- desk -------------------------------------------------------------------
 
 func open_desk() -> void:

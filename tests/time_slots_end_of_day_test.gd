@@ -23,6 +23,14 @@ func acknowledge_letters() -> void:
 	while letters.visible and letters.action_button.text == "Acknowledge":
 		letters.action_button.pressed.emit()
 
+## A day nobody works: Opening (which waits for a clock-in,
+## ShiftSlotAdapter) is skipped, so the rest of the day runs straight through
+## to day_ended with nobody on shift.
+func run_unworked_day() -> void:
+	DayFlow.start_day()
+	if DayFlow.is_running() and DayFlow.current_slot().id == DaySchedule.OPENING:
+		DayFlow.skip_slot()
+
 func _hold_closing(slot: DaySlot) -> void:
 	if slot.id == DaySchedule.CLOSING:
 		DayFlow.hold(&"test holds Closing")
@@ -32,9 +40,8 @@ func _hold_closing(slot: DaySlot) -> void:
 func test_the_end_of_day_comes_when_the_day_ends() -> void:
 	await frames(2)
 	assert_bool(eod.visible).is_false()
-	# Nobody claims a slot yet (session 2's adapters will), so the day runs
-	# straight through to day_ended.
-	DayFlow.start_day()
+	# Nobody works today, so the day runs straight through to day_ended.
+	run_unworked_day()
 	assert_bool(DayFlow.end_of_day_due).is_true()
 	assert_str(GameClock.time_text()).is_equal("5:00 PM")
 	await frames(2)
@@ -49,7 +56,7 @@ func test_the_end_of_day_comes_when_the_day_ends() -> void:
 func test_5_pm_alone_does_not_end_the_day() -> void:
 	# Closing has started (the clock shows 5:00 PM) but something holds it.
 	DayFlow.slot_started.connect(_hold_closing)
-	DayFlow.start_day()
+	run_unworked_day()
 	DayFlow.slot_started.disconnect(_hold_closing)
 	assert_float(GameClock.minutes).is_equal(BusinessDay.CLOSE_MINUTES)
 	assert_bool(BusinessDay.doors_closed()).is_true()
@@ -77,7 +84,7 @@ func test_the_review_letter_comes_after_the_vault_and_loans_and_before_the_summa
 		at_review["summary"] = eod.visible
 	RegionalManager.review_completed.connect(on_review)
 
-	DayFlow.start_day()
+	run_unworked_day()
 	await frames(2)
 	# The review ran after the vault's and loans' day closed, before the summary.
 	assert_int(reviews[0]).is_equal(1)
@@ -100,7 +107,7 @@ func test_the_review_letter_comes_after_the_vault_and_loans_and_before_the_summa
 # --- once per day ---------------------------------------------------------------------
 
 func test_the_end_of_day_runs_once_and_the_next_day_clears_the_mark() -> void:
-	DayFlow.start_day()
+	run_unworked_day()
 	await frames(2)
 	assert_bool(eod.is_summary_shown()).is_true()
 	await frames(3)
@@ -116,7 +123,7 @@ func test_the_end_of_day_runs_once_and_the_next_day_clears_the_mark() -> void:
 	assert_int(VaultManager.last_closed_day).is_equal(1)
 
 func test_a_new_day_and_a_new_career_clear_the_mark() -> void:
-	DayFlow.start_day()
+	run_unworked_day()
 	assert_bool(DayFlow.end_of_day_due).is_true()
 	# A new day in DayFlow (held at Opening so it doesn't run through).
 	var hold_opening := func(slot: DaySlot) -> void:
@@ -130,7 +137,7 @@ func test_a_new_day_and_a_new_career_clear_the_mark() -> void:
 
 	# A new career (CareerReset, as on the start screen).
 	DayFlow.reset()
-	DayFlow.start_day()
+	run_unworked_day()
 	assert_bool(DayFlow.end_of_day_due).is_true()
 	CareerReset.reset_all()
 	assert_bool(DayFlow.end_of_day_due).is_false()
