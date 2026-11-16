@@ -102,8 +102,11 @@ func can_start_shift() -> bool:
 	return not is_day_over() and GameClock.minutes <= LAST_CLOCK_IN_MINUTES
 
 ## Past closing time on the summary's day, or (the fallback) the clock has
-## already rolled past midnight into the next day.
+## already rolled past midnight into the next day. With time slots on: once
+## DayFlow's day has ended (DayFlow.end_of_day_due), not at 5 PM.
 func is_day_over() -> bool:
+	if DayFlow.slots_enabled:
+		return DayFlow.end_of_day_due or GameClock.day > stats_day
 	return GameClock.day > stats_day or GameClock.minutes >= CLOSE_MINUTES
 
 ## Time slots: the day has reached Closing (DayFlow).
@@ -196,6 +199,10 @@ func start_next_day() -> void:
 	GameClock.minutes = GameClock.START_MINUTES
 	stats_day = GameClock.day
 	_start_totals()
+	# Time slots: the ended day's End of Day mark goes. The new day's slots
+	# aren't started here yet (Phase A, session 2).
+	if DayFlow.slots_enabled:
+		DayFlow.reset()
 
 # --- save and load -----------------------------------------------------------------
 

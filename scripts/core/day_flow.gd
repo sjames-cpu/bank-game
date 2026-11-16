@@ -42,6 +42,14 @@ signal slot_ended(slot: DaySlot)
 signal slot_skipped(slot: DaySlot)
 signal day_ended()
 
+## With slots on: the day has ended (day_ended fired) and its End of Day is
+## due. BusinessDay.is_day_over() reads it, so the room's End of Day check
+## (teller_room._check_end_of_day(), every frame the world runs) shows the
+## summary, after any review or demotion letters, exactly as at 5 PM on the
+## continuous clock. Cleared when a new day starts (start_day(),
+## BusinessDay.start_next_day()) and by reset(). Never set with slots off.
+var end_of_day_due: bool = false
+
 ## Whether a day is running: from start_day() until day_ended.
 var _running: bool = false
 ## The current slot's index in DaySchedule.slots(), -1 before the first day.
@@ -64,6 +72,7 @@ func _clear_day() -> void:
 	_claims.clear()
 	_holds.clear()
 	_skip_requested = false
+	end_of_day_due = false
 
 # --- the day ----------------------------------------------------------------------
 
@@ -188,6 +197,7 @@ func _leave_slot() -> void:
 		return # a listener reset the day
 	if _index >= DaySchedule.count() - 1:
 		_running = false
+		end_of_day_due = slots_enabled
 		day_ended.emit()
 		return
 	_index += 1
