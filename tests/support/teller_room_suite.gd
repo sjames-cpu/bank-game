@@ -31,6 +31,7 @@ func before_test() -> void:
 	LoanDeskManager.seed_source.seed = RNG_SEED
 	use_test_save_path()
 	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
+	use_slots_setting(DayFlow.SLOTS_ENABLED)
 	CareerReset.reset_all()
 	# Onboarding done unless a test asks (onboarding_test.gd).
 	OnboardingManager.skip()
@@ -109,6 +110,7 @@ func after_test() -> void:
 	CareerReset.reset_all()
 	use_test_save_path()
 	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
+	use_slots_setting(DayFlow.SLOTS_ENABLED)
 	# Let queue_free()'d nodes (rebuilt UI rows, re-placed staff) actually go
 	# before gdUnit's orphan check.
 	await get_tree().process_frame
@@ -137,6 +139,12 @@ func use_test_save_path() -> void:
 ## the switch is set.
 func use_interview_setting(enabled: bool) -> void:
 	InterviewManager.interview_enabled = enabled
+
+## Turns the time slots on or off for this test (the game reads
+## DayFlow.slots_enabled; the SLOTS_ENABLED switch is its default, restored
+## before and after every test, with any day DayFlow was running).
+func use_slots_setting(enabled: bool) -> void:
+	DayFlow.slots_enabled = enabled
 
 # --- desk -------------------------------------------------------------------
 

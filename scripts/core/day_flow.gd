@@ -29,6 +29,14 @@ extends Node
 ## (ROLE_BOUNDARIES.md). Misuse (finishing work never claimed, releasing an
 ## unknown hold, calls when no day is running) is a warning, never a crash.
 
+## The temporary switch for the time-slot redesign (Phase A): while it's
+## off, the game runs on the continuous clock as before and nothing reads
+## DayFlow. The game reads slots_enabled, whose default this is; tests turn
+## it on for one test (teller_room_suite.use_slots_setting()). Removed once
+## slots are switched on for good (Phase A, session 3).
+const SLOTS_ENABLED: bool = false
+var slots_enabled: bool = SLOTS_ENABLED
+
 signal slot_started(slot: DaySlot)
 signal slot_ended(slot: DaySlot)
 signal slot_skipped(slot: DaySlot)

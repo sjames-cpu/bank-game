@@ -12,6 +12,7 @@ var events: Array[String] = []
 var on_start: Dictionary[StringName, Callable] = {}
 
 func before_test() -> void:
+	DayFlow.slots_enabled = DayFlow.SLOTS_ENABLED
 	DayFlow.reset()
 	events.clear()
 	on_start.clear()
@@ -25,6 +26,7 @@ func after_test() -> void:
 	DayFlow.slot_ended.disconnect(_on_slot_ended)
 	DayFlow.slot_skipped.disconnect(_on_slot_skipped)
 	DayFlow.day_ended.disconnect(_on_day_ended)
+	DayFlow.slots_enabled = DayFlow.SLOTS_ENABLED
 	DayFlow.reset()
 
 func _on_slot_started(slot: DaySlot) -> void:
@@ -59,6 +61,14 @@ func claim_at(slot_id: StringName, claimant: Variant) -> void:
 
 func current_id() -> StringName:
 	return DayFlow.current_slot().id
+
+# --- the switch ------------------------------------------------------------------
+
+func test_slots_are_off_by_default() -> void:
+	# Phase A builds the slots behind this switch; the game stays on the
+	# continuous clock until it's turned on for good.
+	assert_bool(DayFlow.SLOTS_ENABLED).is_false()
+	assert_bool(DayFlow.slots_enabled).is_false()
 
 # --- the day ----------------------------------------------------------------------
 
