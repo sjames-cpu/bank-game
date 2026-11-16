@@ -149,3 +149,43 @@ func test_a_branch_manager_day_runs_to_its_end_of_day() -> void:
 	acknowledge_letters()
 	await frames(3)
 	assert_bool(eod.is_summary_shown()).is_true()
+
+# --- the debug skip key ----------------------------------------------------------------------
+
+func f3() -> InputEventKey:
+	var key := InputEventKey.new()
+	key.keycode = KEY_F3
+	key.pressed = true
+	return key
+
+func test_f3_is_the_debug_skip_slot_key() -> void:
+	assert_bool(InputMap.has_action(TellerRoom.DEBUG_SKIP_SLOT_ACTION)).is_true()
+	assert_bool(f3().is_action_pressed(TellerRoom.DEBUG_SKIP_SLOT_ACTION)).is_true()
+
+func test_f3_skips_the_current_slot() -> void:
+	room.debug_cheats_enabled = true
+	start_slots_day()
+	clock_in()
+	DayFlow.continue_day()
+	assert_str(current_id()).is_equal(DaySchedule.SLOT_9AM)
+	var skipped: Array[StringName] = []
+	var on_skip := func(slot: DaySlot) -> void: skipped.append(slot.id)
+	DayFlow.slot_skipped.connect(on_skip)
+	room._unhandled_input(f3())
+	DayFlow.slot_skipped.disconnect(on_skip)
+	assert_array(skipped).is_equal([DaySchedule.SLOT_9AM])
+	assert_bool(DayFlow.is_between_slots()).is_true()
+	# Between slots there's nothing to skip.
+	assert_bool(room.debug_skip_slot()).is_false()
+	assert_bool(DayFlow.is_between_slots()).is_true()
+
+func test_f3_does_nothing_in_a_release_build_or_with_slots_off() -> void:
+	start_slots_day()
+	room.debug_cheats_enabled = false
+	room._unhandled_input(f3())
+	assert_str(current_id()).is_equal(DaySchedule.OPENING)
+	assert_bool(room.debug_skip_slot()).is_false()
+	room.debug_cheats_enabled = true
+	use_slots_setting(false)
+	assert_bool(room.debug_skip_slot()).is_false()
+	assert_str(current_id()).is_equal(DaySchedule.OPENING)

@@ -161,7 +161,7 @@ Small `Resource` structs built in code (no `.tres` data files): `Account`, `Shif
 - **.NET/C#**: enabled (`[dotnet] project/assembly_name="BankSim"`) but unused; the first C# script would need a generated `.sln`/`.csproj`.
 - **Physics**: 3D engine is Jolt (unused; the game is 2D). Physics layers in use: 1 walls, 2 player, 4 customers, 8 staff, 16 furniture.
 - **Display**: 1152×648, stretch `canvas_items` with `expand` aspect.
-- **Input**: `move_up/down/left/right` (WASD + arrows), `interact` (E), `toggle_overview` (Z, the camera's overview) and `pause_menu` (Esc, the pause menu; nothing else uses Esc); desks also accept `ui_accept`.
+- **Input**: `move_up/down/left/right` (WASD + arrows), `interact` (E), `toggle_overview` (Z, the camera's overview) and `pause_menu` (Esc, the pause menu; nothing else uses Esc), and `debug_skip_slot` (F3, debug builds and slots on only); desks also accept `ui_accept`.
 - **GDScript warnings**: untyped declarations, unsafe property/method access, unsafe casts, unsafe call arguments and integer division are enabled (Warn level) on top of the defaults. Addons are excluded (`directory_rules`). CI fails on any warning (see Tests).
 
 The file is hand-editable, but prefer the editor for engine settings; when editing directly, keep its section/key format.
@@ -204,4 +204,5 @@ It fails on stale generated art, any warning, any failing test, a failed boot, o
 **Debug shortcuts** (debug builds only: `debug_cheats_enabled`, i.e. `OS.is_debug_build()`; nothing in a release build), both through the normal unlock checks:
 - **F1** (`DEBUG_UNLOCK_KEY`) maxes Reputation and adds 2000 XP, unlocking Loan Officer and Branch Manager.
 - Either key first skips any onboarding left (`OnboardingFlow`, which hears them while its letters and lessons pause the room).
+- **F3** (the `debug_skip_slot` action, `DEBUG_SKIP_SLOT_ACTION`; decision 4) skips the current time slot (`teller_room.debug_skip_slot()` → `DayFlow.skip_slot()`), only with slots on and inside a slot.
 - **F2** (`DEBUG_LOAN_OFFICER_KEY`) raises XP to at least 500 and Reputation to at least 50 (never lowers them), unlocking Loan Officer but not Branch Manager (which needs Reputation 60).

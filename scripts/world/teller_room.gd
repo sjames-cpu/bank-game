@@ -89,6 +89,10 @@ class_name TellerRoom
 
 const DEBUG_UNLOCK_KEY := KEY_F1
 const DEBUG_LOAN_OFFICER_KEY := KEY_F2
+## The debug skip-slot key (F3, the `debug_skip_slot` action; decision 4):
+## skips the current time slot (DayFlow.skip_slot()). Debug builds only
+## (debug_cheats_enabled), and only with time slots on.
+const DEBUG_SKIP_SLOT_ACTION: StringName = &"debug_skip_slot"
 const DEBUG_LOAN_OFFICER_REPUTATION: int = 50
 
 ## Whether DEBUG_UNLOCK_KEY and DEBUG_LOAN_OFFICER_KEY work — only in debug builds. A variable rather
@@ -1300,10 +1304,20 @@ func _on_atm_interacted() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not debug_cheats_enabled:
 		return
+	if event.is_action_pressed(DEBUG_SKIP_SLOT_ACTION) and not event.is_echo():
+		debug_skip_slot()
+		return
 	var key_event := event as InputEventKey
 	if key_event == null or not key_event.pressed or key_event.echo:
 		return
 	apply_debug_key(key_event.keycode)
+
+## F3: skips the current time slot (debug builds, slots on). Returns whether
+## it did.
+func debug_skip_slot() -> bool:
+	if not debug_cheats_enabled or not DayFlow.slots_enabled or not DayFlow.is_running() or DayFlow.is_between_slots():
+		return false
+	return DayFlow.skip_slot()
 
 ## What F1 or F2 does (OnboardingFlow also calls this after skipping
 ## onboarding with either key).
