@@ -214,6 +214,9 @@ var onboarding_flow: OnboardingFlow
 var shift_slots: ShiftSlotAdapter
 ## Time slots: the Teller's work slots (TellerSlotAdapter).
 var teller_slots: TellerSlotAdapter
+## Time slots: the card between two slots (SlotTransitionCard).
+var slot_card: SlotTransitionCard
+const SLOT_CARD_SCENE: PackedScene = preload("res://scenes/ui/slot_transition_card.tscn")
 
 func _ready() -> void:
 	# The camera stays inside the room, walls and sidewalk included.
@@ -317,7 +320,8 @@ func _ready() -> void:
 ## Every desk's clock-in and clock-out, reported to PlayerShift with its role
 ## (one shared signal for the time-slot adapters), and the shift's Opening
 ## and Closing slots (ShiftSlotAdapter) and the Teller's work slots
-## (TellerSlotAdapter), both no-ops with slots off.
+## (TellerSlotAdapter) and the card between slots (SlotTransitionCard), all
+## no-ops with slots off.
 func _connect_player_shift() -> void:
 	teller_screen.shift_clocked_in.connect(PlayerShift.report_clock_in.bind(PlayerShift.Role.TELLER))
 	teller_screen.shift_clocked_out.connect(PlayerShift.report_clock_out.bind(PlayerShift.Role.TELLER))
@@ -333,6 +337,8 @@ func _connect_player_shift() -> void:
 	teller_slots.queue = customer_queue
 	teller_slots.screen = teller_screen
 	add_child(teller_slots)
+	slot_card = SLOT_CARD_SCENE.instantiate()
+	add_child(slot_card)
 
 func _show_arrival_hints() -> void:
 	hud.show_hint_once(HintManager.Hint.ARRIVAL)
