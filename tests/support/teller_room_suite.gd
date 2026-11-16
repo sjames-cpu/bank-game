@@ -150,8 +150,7 @@ func use_slots_setting(enabled: bool) -> void:
 ## (DayFlow.pause_between_slots), as the room runs it.
 func start_slots_day() -> void:
 	use_slots_setting(true)
-	DayFlow.pause_between_slots = true
-	DayFlow.start_day()
+	room.start_slots_day()
 
 ## Between slots, Continue until `id` has started (or the day has ended).
 func continue_to_slot(id: StringName) -> void:

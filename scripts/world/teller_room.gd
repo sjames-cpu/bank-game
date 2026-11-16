@@ -316,6 +316,7 @@ func _ready() -> void:
 	add_child(onboarding_flow)
 	onboarding_flow.finished.connect(_show_arrival_hints)
 	onboarding_flow.start()
+	start_slots_day()
 
 ## Every desk's clock-in and clock-out, reported to PlayerShift with its role
 ## (one shared signal for the time-slot adapters), and the shift's Opening
@@ -339,6 +340,24 @@ func _connect_player_shift() -> void:
 	add_child(teller_slots)
 	slot_card = SLOT_CARD_SCENE.instantiate()
 	add_child(slot_card)
+
+## Time slots (slots on only): starts today at Opening, waiting between
+## slots for the card. Never while a day is running or its End of Day is
+## due, so a day never starts twice or straight from an End of Day: the
+## next one starts from "Start Day N+1" (_on_next_day_requested()).
+##
+## Stopgap until saves know about slots (Phase A, session 3): a career
+## saved at its End of Day has the clock at 5 PM, and its day has already
+## ended, so its End of Day comes back (DayFlow.resume_ended_day()) instead
+## of the day replaying from Opening.
+func start_slots_day() -> void:
+	if not DayFlow.slots_enabled or DayFlow.is_running() or DayFlow.end_of_day_due:
+		return
+	if GameClock.minutes >= BusinessDay.CLOSE_MINUTES:
+		DayFlow.resume_ended_day()
+		return
+	DayFlow.pause_between_slots = true
+	DayFlow.start_day()
 
 func _show_arrival_hints() -> void:
 	hud.show_hint_once(HintManager.Hint.ARRIVAL)
@@ -547,8 +566,14 @@ func _on_branch_manager_demoted() -> void:
 	loan_desk_worker.active = true
 	save_career()
 
+## With time slots, going home early is on the card between slots instead.
+const GO_HOME_BETWEEN_SLOTS_TEXT: String = "You can go home early between slots, from the slot card."
+
 func _on_exit_door_interacted() -> void:
 	if end_of_day_screen.visible or is_player_on_shift():
+		return
+	if DayFlow.slots_enabled:
+		_show_notice(GO_HOME_BETWEEN_SLOTS_TEXT)
 		return
 	end_of_day_screen.ask_go_home(BusinessDay.stats_day)
 
@@ -566,9 +591,11 @@ func _on_go_home_confirmed() -> void:
 	_clear_loan_seats()
 	show_end_of_day()
 
-## "Start Day N+1": 8:30 AM the next morning, saved.
+## "Start Day N+1": 8:30 AM the next morning, saved (with time slots, the
+## day starts at Opening).
 func _on_next_day_requested() -> void:
 	BusinessDay.start_next_day()
+	start_slots_day()
 	save_career()
 
 func _on_shift_completed() -> void:
