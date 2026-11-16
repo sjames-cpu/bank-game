@@ -95,7 +95,7 @@ func test_todays_role_is_chosen_again_each_day() -> void:
 	start_slots_day()
 	clock_in()
 	assert_int(PlayerShift.role_today).is_equal(PlayerShift.Role.TELLER)
-	continue_to_slot(DaySchedule.CLOSING)
+	DayFlow.go_home_early() # straight to Closing
 	assert_bool(clock_out()).is_true()
 	close_desk()
 	DayFlow.start_day()
@@ -106,7 +106,7 @@ func test_todays_role_is_chosen_again_each_day() -> void:
 func test_closing_waits_for_the_clock_out() -> void:
 	start_slots_day()
 	clock_in()
-	continue_to_slot(DaySchedule.CLOSING)
+	DayFlow.go_home_early() # straight to Closing (the work slots are TellerSlotAdapter's)
 	assert_str(current_id()).is_equal(DaySchedule.CLOSING)
 	await frames(3)
 	assert_bool(DayFlow.is_running()).is_true()

@@ -212,6 +212,8 @@ var armored_visit: ArmoredTruckVisit
 var onboarding_flow: OnboardingFlow
 ## Time slots (DayFlow, only with slots on): the shift's Opening and Closing.
 var shift_slots: ShiftSlotAdapter
+## Time slots: the Teller's work slots (TellerSlotAdapter).
+var teller_slots: TellerSlotAdapter
 
 func _ready() -> void:
 	# The camera stays inside the room, walls and sidewalk included.
@@ -314,7 +316,8 @@ func _ready() -> void:
 
 ## Every desk's clock-in and clock-out, reported to PlayerShift with its role
 ## (one shared signal for the time-slot adapters), and the shift's Opening
-## and Closing slots (ShiftSlotAdapter, a no-op with slots off).
+## and Closing slots (ShiftSlotAdapter) and the Teller's work slots
+## (TellerSlotAdapter), both no-ops with slots off.
 func _connect_player_shift() -> void:
 	teller_screen.shift_clocked_in.connect(PlayerShift.report_clock_in.bind(PlayerShift.Role.TELLER))
 	teller_screen.shift_clocked_out.connect(PlayerShift.report_clock_out.bind(PlayerShift.Role.TELLER))
@@ -325,6 +328,11 @@ func _connect_player_shift() -> void:
 	shift_slots = ShiftSlotAdapter.new()
 	shift_slots.name = "ShiftSlotAdapter"
 	add_child(shift_slots)
+	teller_slots = TellerSlotAdapter.new()
+	teller_slots.name = "TellerSlotAdapter"
+	teller_slots.queue = customer_queue
+	teller_slots.screen = teller_screen
+	add_child(teller_slots)
 
 func _show_arrival_hints() -> void:
 	hud.show_hint_once(HintManager.Hint.ARRIVAL)

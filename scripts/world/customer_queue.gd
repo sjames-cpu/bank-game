@@ -134,6 +134,9 @@ var _departing: Array[CustomerNPC] = []
 
 ## Reset in start_shift() so each shift gets its own fresh cap.
 var _customers_spawned_this_shift: int = 0
+## How many customers the shift brings: CUSTOMERS_PER_SHIFT_CAP, or with
+## time slots the current slot's amount (begin_batch(), TellerSlotAdapter).
+var spawn_cap: int = CUSTOMERS_PER_SHIFT_CAP
 
 func _ready() -> void:
 	kyc_rng.randomize()
@@ -192,7 +195,7 @@ func clear_lobby() -> void:
 ## current queue size) to decide whether every customer this shift has been
 ## handled before allowing clock-out.
 func get_customers_left_to_spawn() -> int:
-	return maxi(0, CUSTOMERS_PER_SHIFT_CAP - _customers_spawned_this_shift)
+	return maxi(0, spawn_cap - _customers_spawned_this_shift)
 
 func get_front_customer() -> CustomerNPC:
 	if queue.is_empty():
@@ -237,6 +240,15 @@ func send_customer_off(customer: CustomerNPC, farewell: String = "") -> void:
 const OPENING_ARRIVAL_MIN_SECONDS: float = 1.0
 const OPENING_ARRIVAL_MAX_SECONDS: float = 3.0
 
+## Time slots (TellerSlotAdapter): the next `count` customers, counted
+## afresh, arriving one by one from soon after the slot starts (0: none
+## more). The shift's line must be running (start_shift()).
+func begin_batch(count: int) -> void:
+	spawn_cap = count
+	_customers_spawned_this_shift = 0
+	if count > 0:
+		spawn_timer.start(randf_range(OPENING_ARRIVAL_MIN_SECONDS, OPENING_ARRIVAL_MAX_SECONDS))
+
 ## The branch has just opened (teller_room.gd calls this at 9:00). A line
 ## that's taking customers starts its spawn timer fresh, so its first
 ## customer comes within a few game minutes of opening, instead of whenever
@@ -265,7 +277,7 @@ func _try_spawn() -> void:
 ## The player's line stops at CUSTOMERS_PER_SHIFT_CAP per shift. Overridden
 ## by NpcCustomerLine, whose staff-served lines have no per-shift cap.
 func _may_spawn() -> bool:
-	return _customers_spawned_this_shift < CUSTOMERS_PER_SHIFT_CAP
+	return _customers_spawned_this_shift < spawn_cap
 
 ## Overridden by NpcCustomerLine — staff-served lines get regular customers
 ## only.
