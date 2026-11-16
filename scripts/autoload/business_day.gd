@@ -80,15 +80,25 @@ func _start_totals() -> void:
 # --- hours ----------------------------------------------------------------------
 
 ## Open for customers: from OPEN until the doors close, on the summary's day.
+## With time slots on: during a work slot (9 AM to 3 PM).
 func is_open() -> bool:
+	if DayFlow.slots_enabled:
+		var slot := DayFlow.current_slot()
+		return DayFlow.is_running() and slot != null and slot.is_work and not is_day_over()
 	return not is_day_over() and GameClock.minutes >= OPEN_MINUTES and GameClock.minutes < CLOSE_MINUTES
 
 ## The doors have closed for the day: no more customers until tomorrow.
+## With time slots on: from Closing.
 func doors_closed() -> bool:
+	if DayFlow.slots_enabled:
+		return is_day_over() or _at_closing()
 	return is_day_over() or GameClock.minutes >= CLOSE_MINUTES
 
 ## Whether a new shift may start now (any role): not after LAST_CLOCK_IN.
+## With time slots on: before Closing.
 func can_start_shift() -> bool:
+	if DayFlow.slots_enabled:
+		return not is_day_over() and not _at_closing()
 	return not is_day_over() and GameClock.minutes <= LAST_CLOCK_IN_MINUTES
 
 ## Past closing time on the summary's day, or (the fallback) the clock has
@@ -96,10 +106,18 @@ func can_start_shift() -> bool:
 func is_day_over() -> bool:
 	return GameClock.day > stats_day or GameClock.minutes >= CLOSE_MINUTES
 
+## Time slots: the day has reached Closing (DayFlow).
+func _at_closing() -> bool:
+	var slot := DayFlow.current_slot()
+	return slot != null and slot.id == DaySchedule.CLOSING
+
 # --- the cutoff -----------------------------------------------------------------
 
-## From 2:00 PM, transactions post on the next business day.
+## From 2:00 PM, transactions post on the next business day. With time
+## slots on: from the first slot after the cutoff (3 PM).
 func is_after_cutoff() -> bool:
+	if DayFlow.slots_enabled:
+		return DayFlow.is_after_cutoff()
 	return GameClock.minutes >= CUTOFF_MINUTES
 
 ## The business day a transaction made now posts on.

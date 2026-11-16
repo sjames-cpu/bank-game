@@ -79,7 +79,7 @@ func start_day() -> bool:
 	# carries on into this day.
 	var outer := _driving
 	_driving = true
-	slot_started.emit(current_slot())
+	_announce_slot()
 	_driving = outer
 	if not outer:
 		_drive()
@@ -191,7 +191,15 @@ func _leave_slot() -> void:
 		day_ended.emit()
 		return
 	_index += 1
-	slot_started.emit(current_slot())
+	_announce_slot()
+
+## With slots on, the clock shows the slot's start time (GameClock is only
+## a display then), set before anyone hears that the slot started.
+func _announce_slot() -> void:
+	var slot := current_slot()
+	if slots_enabled:
+		GameClock.minutes = slot.start_minutes()
+	slot_started.emit(slot)
 
 func _check_running(action: String) -> bool:
 	if _running:

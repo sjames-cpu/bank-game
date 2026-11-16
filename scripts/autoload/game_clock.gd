@@ -48,7 +48,11 @@ var _cached_day: int = 0
 var _cached_date: int = 0
 var _cached_start: int = 0
 
+## With time slots on (DayFlow.slots_enabled) the clock doesn't run: it
+## shows each slot's start time, which DayFlow sets as the slot starts.
 func _process(delta: float) -> void:
+	if DayFlow.slots_enabled:
+		return
 	advance(delta * GAME_MINUTES_PER_SECOND)
 
 ## Moves the clock on by `game_minutes`, rolling into the next day at
