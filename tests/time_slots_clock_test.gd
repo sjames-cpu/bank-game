@@ -120,3 +120,12 @@ func test_with_slots_off_the_minutes_still_decide() -> void:
 	assert_bool(BusinessDay.is_after_cutoff()).is_true()
 	GameClock.minutes = 17.0 * 60.0
 	assert_bool(BusinessDay.doors_closed()).is_true()
+
+func test_not_open_between_slots() -> void:
+	DayFlow.slots_enabled = true
+	DayFlow.pause_between_slots = true
+	DayFlow.start_day()
+	DayFlow.continue_day() # 9 AM, unclaimed: ends, and the day waits
+	assert_bool(DayFlow.is_between_slots()).is_true()
+	assert_bool(BusinessDay.is_open()).is_false()
+	assert_bool(BusinessDay.doors_closed()).is_false()

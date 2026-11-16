@@ -80,11 +80,11 @@ func _start_totals() -> void:
 # --- hours ----------------------------------------------------------------------
 
 ## Open for customers: from OPEN until the doors close, on the summary's day.
-## With time slots on: during a work slot (9 AM to 3 PM).
+## With time slots on: during a work slot (9 AM to 3 PM), not between slots.
 func is_open() -> bool:
 	if DayFlow.slots_enabled:
 		var slot := DayFlow.current_slot()
-		return DayFlow.is_running() and slot != null and slot.is_work and not is_day_over()
+		return DayFlow.is_running() and not DayFlow.is_between_slots() and slot != null and slot.is_work and not is_day_over()
 	return not is_day_over() and GameClock.minutes >= OPEN_MINUTES and GameClock.minutes < CLOSE_MINUTES
 
 ## The doors have closed for the day: no more customers until tomorrow.
@@ -187,8 +187,13 @@ func summary() -> Dictionary:
 # --- moving between days --------------------------------------------------------------
 
 ## Going home early: the clock skips straight to closing time. Nothing that
-## would have happened in the skipped time is simulated.
+## would have happened in the skipped time is simulated. With time slots on,
+## DayFlow.go_home_early() instead: only between slots, skipping the work
+## slots left.
 func go_home_early() -> void:
+	if DayFlow.slots_enabled:
+		DayFlow.go_home_early()
+		return
 	if not is_day_over():
 		GameClock.minutes = CLOSE_MINUTES
 

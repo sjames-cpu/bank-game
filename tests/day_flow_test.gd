@@ -20,12 +20,14 @@ func before_test() -> void:
 	DayFlow.slot_ended.connect(_on_slot_ended)
 	DayFlow.slot_skipped.connect(_on_slot_skipped)
 	DayFlow.day_ended.connect(_on_day_ended)
+	DayFlow.between_slots.connect(_on_between_slots)
 
 func after_test() -> void:
 	DayFlow.slot_started.disconnect(_on_slot_started)
 	DayFlow.slot_ended.disconnect(_on_slot_ended)
 	DayFlow.slot_skipped.disconnect(_on_slot_skipped)
 	DayFlow.day_ended.disconnect(_on_day_ended)
+	DayFlow.between_slots.disconnect(_on_between_slots)
 	DayFlow.slots_enabled = DayFlow.SLOTS_ENABLED
 	DayFlow.reset()
 
@@ -42,6 +44,9 @@ func _on_slot_skipped(slot: DaySlot) -> void:
 
 func _on_day_ended() -> void:
 	events.append("day ended")
+
+func _on_between_slots(ended: DaySlot, next: DaySlot) -> void:
+	events.append("between %s>%s" % [ended.id, next.id])
 
 # --- helpers -------------------------------------------------------------------
 
@@ -298,3 +303,137 @@ func test_misuse_warns_and_changes_nothing() -> void:
 	assert_bool(DayFlow.release(&"truck")).is_false()
 	assert_bool(DayFlow.skip_slot()).is_false()
 	assert_array(events).is_empty()
+
+# --- between slots -----------------------------------------------------------------------
+
+## A day that waits between slots, with "teller" claiming every work slot.
+func start_paused_teller_day() -> void:
+	for id: StringName in [DaySchedule.SLOT_9AM, DaySchedule.SLOT_11AM, DaySchedule.SLOT_1PM, DaySchedule.SLOT_3PM]:
+		claim_at(id, "teller")
+	DayFlow.pause_between_slots = true
+	DayFlow.start_day()
+
+func test_pausing_is_off_by_default_and_after_reset() -> void:
+	assert_bool(DayFlow.pause_between_slots).is_false()
+	DayFlow.pause_between_slots = true
+	DayFlow.reset()
+	assert_bool(DayFlow.pause_between_slots).is_false()
+
+func test_the_day_waits_between_slots_until_continue() -> void:
+	DayFlow.pause_between_slots = true
+	DayFlow.start_day()
+	assert_array(events).is_equal(["start opening", "end opening", "between opening>slot_9am"])
+	assert_bool(DayFlow.is_between_slots()).is_true()
+	assert_str(current_id()).is_equal(DaySchedule.OPENING)
+	assert_str(DayFlow.next_slot().id).is_equal(DaySchedule.SLOT_9AM)
+	assert_bool(DayFlow.is_running()).is_true()
+
+	events.clear()
+	assert_bool(DayFlow.continue_day()).is_true()
+	# Nobody claims 9 AM: it ends, and the day waits again.
+	assert_array(events).is_equal(["start slot_9am", "end slot_9am", "between slot_9am>slot_11am"])
+	for i in 3:
+		DayFlow.continue_day()
+	assert_str(DayFlow.next_slot().id).is_equal(DaySchedule.CLOSING)
+	events.clear()
+	DayFlow.continue_day()
+	# No wait after Closing: the day ends.
+	assert_array(events).is_equal(["start closing", "end closing", "day ended"])
+	assert_bool(DayFlow.is_between_slots()).is_false()
+
+func test_claimed_work_still_ends_its_slot_before_the_wait() -> void:
+	start_paused_teller_day()
+	DayFlow.continue_day()
+	assert_str(current_id()).is_equal(DaySchedule.SLOT_9AM)
+	assert_bool(DayFlow.is_between_slots()).is_false()
+	DayFlow.finish_work("teller")
+	assert_bool(DayFlow.is_between_slots()).is_true()
+	assert_str(events[-1]).is_equal("between slot_9am>slot_11am")
+
+func test_between_slots_work_cannot_be_claimed_or_skipped() -> void:
+	DayFlow.pause_between_slots = true
+	DayFlow.start_day()
+	events.clear()
+	assert_bool(DayFlow.claim_work("teller")).is_false()
+	assert_bool(DayFlow.finish_work("teller")).is_false()
+	assert_bool(DayFlow.skip_slot()).is_false()
+	assert_array(events).is_empty()
+	assert_bool(DayFlow.is_between_slots()).is_true()
+
+func test_continue_is_refused_inside_a_slot() -> void:
+	assert_bool(DayFlow.continue_day()).is_false()
+	start_paused_teller_day()
+	DayFlow.continue_day()
+	assert_str(current_id()).is_equal(DaySchedule.SLOT_9AM)
+	assert_bool(DayFlow.continue_day()).is_false()
+	assert_str(current_id()).is_equal(DaySchedule.SLOT_9AM)
+
+func test_going_home_after_11_am_skips_1_pm_and_3_pm() -> void:
+	start_paused_teller_day()
+	DayFlow.continue_day()
+	DayFlow.finish_work("teller") # 9 AM
+	DayFlow.continue_day()
+	DayFlow.finish_work("teller") # 11 AM
+	assert_bool(DayFlow.can_go_home_early()).is_true()
+	events.clear()
+	assert_bool(DayFlow.go_home_early()).is_true()
+	# Skipped without ever starting, then Closing as usual.
+	assert_array(events).is_equal(["skip slot_1pm", "skip slot_3pm", "start closing", "end closing", "day ended"])
+	assert_bool(DayFlow.has_claimed("teller")).is_false()
+
+func test_going_home_before_9_am_skips_every_work_slot() -> void:
+	start_paused_teller_day()
+	events.clear()
+	DayFlow.go_home_early()
+	assert_array(events).is_equal(["skip slot_9am", "skip slot_11am", "skip slot_1pm", "skip slot_3pm", "start closing", "end closing", "day ended"])
+
+func test_going_home_is_refused_inside_a_slot_or_with_no_work_left() -> void:
+	assert_bool(DayFlow.go_home_early()).is_false()
+	start_paused_teller_day()
+	DayFlow.continue_day()
+	# Inside 9 AM.
+	assert_bool(DayFlow.can_go_home_early()).is_false()
+	assert_bool(DayFlow.go_home_early()).is_false()
+	assert_str(current_id()).is_equal(DaySchedule.SLOT_9AM)
+	for i in 3:
+		DayFlow.finish_work("teller")
+		DayFlow.continue_day()
+	DayFlow.finish_work("teller") # 3 PM
+	# Between 3 PM and Closing: no work slot left to skip.
+	assert_bool(DayFlow.is_between_slots()).is_true()
+	assert_bool(DayFlow.can_go_home_early()).is_false()
+	assert_bool(DayFlow.go_home_early()).is_false()
+	assert_bool(DayFlow.is_between_slots()).is_true()
+	# After the day ended.
+	DayFlow.continue_day()
+	assert_bool(DayFlow.go_home_early()).is_false()
+
+func test_the_day_ends_once_after_going_home_early() -> void:
+	start_paused_teller_day()
+	DayFlow.go_home_early()
+	assert_int(events.count("day ended")).is_equal(1)
+	assert_bool(DayFlow.is_running()).is_false()
+	assert_bool(DayFlow.go_home_early()).is_false()
+	assert_bool(DayFlow.continue_day()).is_false()
+	assert_int(events.count("day ended")).is_equal(1)
+
+func test_continuing_from_a_between_slots_handler_keeps_the_order() -> void:
+	var go_on := func(_ended: DaySlot, _next: DaySlot) -> void: DayFlow.continue_day()
+	DayFlow.between_slots.connect(go_on)
+	DayFlow.pause_between_slots = true
+	DayFlow.start_day()
+	DayFlow.between_slots.disconnect(go_on)
+	assert_array(events.slice(0, 5)).is_equal(["start opening", "end opening", "between opening>slot_9am", "start slot_9am", "end slot_9am"])
+	assert_int(events.count("day ended")).is_equal(1)
+
+func test_resuming_an_ended_day() -> void:
+	DayFlow.slots_enabled = true
+	DayFlow.resume_ended_day()
+	assert_bool(DayFlow.end_of_day_due).is_true()
+	assert_bool(DayFlow.is_running()).is_false()
+	assert_str(current_id()).is_equal(DaySchedule.CLOSING)
+	assert_array(events).is_empty()
+	# Off, it never marks the End of Day.
+	DayFlow.slots_enabled = false
+	DayFlow.resume_ended_day()
+	assert_bool(DayFlow.end_of_day_due).is_false()
