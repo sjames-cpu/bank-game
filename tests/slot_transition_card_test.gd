@@ -14,7 +14,7 @@ func after_test() -> void:
 
 func before_test() -> void:
 	await super()
-	card = room.slot_card
+	card = slot_card()
 	window_before = get_tree().root.size
 
 func frames(count: int) -> void:

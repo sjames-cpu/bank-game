@@ -137,9 +137,9 @@ func test_a_branch_manager_day_runs_to_its_end_of_day() -> void:
 	var cards := 0
 	while DayFlow.is_between_slots():
 		await frames(1)
-		assert_bool(room.slot_card.visible).is_true()
+		assert_bool(slot_card().visible).is_true()
 		cards += 1
-		room.slot_card.continue_button.pressed.emit()
+		slot_card().continue_button.pressed.emit()
 		if DayFlow.current_slot().is_work:
 			await frames(1)
 			manager.bar.end_button.pressed.emit()

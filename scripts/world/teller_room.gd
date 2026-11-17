@@ -214,13 +214,6 @@ var _vault_notice_shown: bool = false
 var armored_visit: ArmoredTruckVisit
 ## A new career's onboarding (OnboardingFlow).
 var onboarding_flow: OnboardingFlow
-## Time slots (DayFlow, only with slots on): the shift's Opening and Closing.
-var shift_slots: ShiftSlotAdapter
-## Time slots: the Teller's work slots (TellerSlotAdapter).
-var teller_slots: TellerSlotAdapter
-## Time slots: the card between two slots (SlotTransitionCard).
-var slot_card: SlotTransitionCard
-const SLOT_CARD_SCENE: PackedScene = preload("res://scenes/ui/slot_transition_card.tscn")
 
 func _ready() -> void:
 	# The camera stays inside the room, walls and sidewalk included.
@@ -289,7 +282,6 @@ func _ready() -> void:
 	loan_officer_screen.shift_clocked_out.connect(_on_player_clocked_out.bind(ScheduleManager.SLOT_LOAN_DESK_1))
 	loan_officer_screen.shift_clocked_out.connect(_on_shift_completed)
 	ScheduleManager.schedule_confirmed.connect(_on_schedule_confirmed)
-	_connect_player_shift()
 	_place_staff()
 
 	# Staff serve customers from the start: _place_staff() opened each
@@ -322,29 +314,6 @@ func _ready() -> void:
 	onboarding_flow.start()
 	SlotWiring.install(self)
 	start_slots_day()
-
-## Every desk's clock-in and clock-out, reported to PlayerShift with its role
-## (one shared signal for the time-slot adapters), and the shift's Opening
-## and Closing slots (ShiftSlotAdapter) and the Teller's work slots
-## (TellerSlotAdapter) and the card between slots (SlotTransitionCard), all
-## no-ops with slots off.
-func _connect_player_shift() -> void:
-	teller_screen.shift_clocked_in.connect(PlayerShift.report_clock_in.bind(PlayerShift.Role.TELLER))
-	teller_screen.shift_clocked_out.connect(PlayerShift.report_clock_out.bind(PlayerShift.Role.TELLER))
-	loan_officer_screen.shift_clocked_in.connect(PlayerShift.report_clock_in.bind(PlayerShift.Role.LOAN_OFFICER))
-	loan_officer_screen.shift_clocked_out.connect(PlayerShift.report_clock_out.bind(PlayerShift.Role.LOAN_OFFICER))
-	branch_manager_screen.shift_clocked_in.connect(PlayerShift.report_clock_in.bind(PlayerShift.Role.BRANCH_MANAGER))
-	branch_manager_screen.shift_clocked_out.connect(PlayerShift.report_clock_out.bind(PlayerShift.Role.BRANCH_MANAGER))
-	shift_slots = ShiftSlotAdapter.new()
-	shift_slots.name = "ShiftSlotAdapter"
-	add_child(shift_slots)
-	teller_slots = TellerSlotAdapter.new()
-	teller_slots.name = "TellerSlotAdapter"
-	teller_slots.queue = customer_queue
-	teller_slots.screen = teller_screen
-	add_child(teller_slots)
-	slot_card = SLOT_CARD_SCENE.instantiate()
-	add_child(slot_card)
 
 ## Time slots (slots on only): starts today at Opening, waiting between
 ## slots for the card. Never while a day is running or its End of Day is

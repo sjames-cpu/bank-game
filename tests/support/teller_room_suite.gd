@@ -152,6 +152,13 @@ func start_slots_day() -> void:
 	use_slots_setting(true)
 	room.start_slots_day()
 
+## The room's time-slot pieces (placed by SlotWiring).
+func slot_card() -> SlotTransitionCard:
+	return room.get_node("SlotTransitionCard")
+
+func teller_slots() -> TellerSlotAdapter:
+	return room.get_node("TellerSlotAdapter")
+
 ## Between slots, Continue until `id` has started (or the day has ended).
 func continue_to_slot(id: StringName) -> void:
 	while DayFlow.is_running() and (DayFlow.is_between_slots() or DayFlow.current_slot().id != id):

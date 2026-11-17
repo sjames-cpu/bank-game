@@ -21,7 +21,7 @@ var clean_slots: Array[StringName] = []
 func before_test() -> void:
 	await super()
 	eod = room.end_of_day_screen
-	card = room.slot_card
+	card = slot_card()
 	manager = room.get_node("ManagerSlotAdapter")
 	bm = room.branch_manager_screen
 	lo = room.loan_officer_screen

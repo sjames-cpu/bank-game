@@ -13,7 +13,7 @@ var skipped: Array[StringName] = []
 func before_test() -> void:
 	await super()
 	eod = room.end_of_day_screen
-	card = room.slot_card
+	card = slot_card()
 	skipped.clear()
 	DayFlow.slot_skipped.connect(_on_slot_skipped)
 

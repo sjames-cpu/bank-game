@@ -32,7 +32,7 @@ func arrival() -> void:
 func test_a_work_slot_waits_for_exactly_its_customers() -> void:
 	teller_day_at_9am()
 	assert_str(current_id()).is_equal(DaySchedule.SLOT_9AM)
-	assert_bool(DayFlow.has_claimed(room.teller_slots)).is_true()
+	assert_bool(DayFlow.has_claimed(teller_slots())).is_true()
 	assert_int(per_slot()).is_equal(2)
 	assert_int(cq.get_customers_left_to_spawn()).is_equal(per_slot())
 	await frames(3)
@@ -50,7 +50,7 @@ func test_a_work_slot_waits_for_exactly_its_customers() -> void:
 
 	# The next slot brings its own customers, counted afresh.
 	DayFlow.continue_day()
-	assert_bool(DayFlow.has_claimed(room.teller_slots)).is_true()
+	assert_bool(DayFlow.has_claimed(teller_slots())).is_true()
 	assert_int(cq.get_customers_left_to_spawn()).is_equal(per_slot())
 
 func test_a_customer_who_gives_up_counts_as_handled() -> void:
@@ -91,7 +91,7 @@ func test_a_skipped_slot_drops_its_work() -> void:
 	assert_int(cq.queue.size()).is_equal(1)
 	DayFlow.skip_slot()
 	assert_bool(DayFlow.is_between_slots()).is_true()
-	assert_bool(DayFlow.has_claimed(room.teller_slots)).is_false()
+	assert_bool(DayFlow.has_claimed(teller_slots())).is_false()
 	# Whoever was waiting leaves, and no more come.
 	assert_int(cq.queue.size()).is_equal(0)
 	assert_int(cq.get_customers_left_to_spawn()).is_equal(0)
@@ -111,7 +111,7 @@ func test_nothing_on_a_loan_officer_day() -> void:
 	DayFlow.continue_day() # 9 AM: the Loan Officer's slot (LoanSlotAdapter)
 	assert_str(DayFlow.current_slot().id).is_equal(DaySchedule.SLOT_9AM)
 	assert_bool(DayFlow.has_claimed(room.get_node("LoanSlotAdapter"))).is_true()
-	assert_bool(DayFlow.has_claimed(room.teller_slots)).is_false()
+	assert_bool(DayFlow.has_claimed(teller_slots())).is_false()
 	assert_int(cq.spawn_cap).is_equal(cap_before)
 
 func test_nothing_with_slots_off() -> void:
