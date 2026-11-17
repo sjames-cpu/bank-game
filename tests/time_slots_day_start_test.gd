@@ -118,7 +118,7 @@ func test_business_day_going_home_goes_through_dayflow() -> void:
 	assert_str(current_id()).is_equal(DaySchedule.CLOSING)
 	assert_float(GameClock.minutes).is_equal(BusinessDay.CLOSE_MINUTES)
 
-# --- other roles until session 2b -------------------------------------------------------
+# --- a Branch Manager's day ----------------------------------------------------------------
 
 func test_a_branch_manager_day_runs_to_its_end_of_day() -> void:
 	XPManager._grant_branch_manager()
@@ -131,13 +131,18 @@ func test_a_branch_manager_day_runs_to_its_end_of_day() -> void:
 	bm.hide_screen()
 	acknowledge_letters() # the orientation letter
 	assert_int(PlayerShift.role_today).is_equal(PlayerShift.Role.BRANCH_MANAGER)
-	# Each work slot rushes through, a card each, to Closing.
+	# Each work slot ends with "End this slot" (ManagerSlotAdapter), a card
+	# between each, to Closing.
+	var manager: ManagerSlotAdapter = room.get_node("ManagerSlotAdapter")
 	var cards := 0
 	while DayFlow.is_between_slots():
 		await frames(1)
 		assert_bool(room.slot_card.visible).is_true()
 		cards += 1
 		room.slot_card.continue_button.pressed.emit()
+		if DayFlow.current_slot().is_work:
+			await frames(1)
+			manager.bar.end_button.pressed.emit()
 	assert_int(cards).is_equal(5)
 	assert_str(current_id()).is_equal(DaySchedule.CLOSING)
 	await frames(2)

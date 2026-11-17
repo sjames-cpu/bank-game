@@ -403,6 +403,12 @@ func _on_sub_screen_closed() -> void:
 ## reconciled (the old 45-second wall-clock minimum could just be waited out
 ## inside this paused screen). Scheduling and approvals stay optional.
 func _on_clock_out_button_pressed() -> void:
+	# Time slots: the shift runs until Closing (shared with every desk).
+	var refusal := ShiftSlotAdapter.clock_out_refusal()
+	if refusal != "":
+		error_label.text = "Can't clock out yet — %s." % refusal
+		error_label.visible = true
+		return
 	if not _vault_reconciled_this_shift:
 		error_label.text = "Can't clock out yet — the vault hasn't been reconciled this shift."
 		error_label.visible = true

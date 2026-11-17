@@ -31,6 +31,12 @@ const LOAN_OFFICER_APPLICATIONS_PER_SLOT: int = 1
 const STAFF_TELLER_WINDOW_CUSTOMERS_PER_SLOT: int = 4
 const STAFF_LOAN_DESK_DECISIONS_PER_SLOT: int = 2
 
+## Reputation a Branch Manager earns for a clean work slot (decision 14:
+## ended with "End this slot", not skipped, and no Reputation lost while it
+## ran; ManagerSlotAdapter). Known balance issue, to re-tune after a
+## playtest: pressing "End this slot" at once, four times, earns +4 a day.
+const CLEAN_SLOT_REPUTATION: int = 1
+
 static var _slots: Array[DaySlot] = []
 
 ## Every slot of the day, in order. Built once; don't change the slots.

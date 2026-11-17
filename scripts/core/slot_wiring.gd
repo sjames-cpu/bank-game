@@ -6,6 +6,8 @@ class_name SlotWiring
 ## possible. Every piece is a no-op with slots off.
 ##
 ## - LoanSlotAdapter: the Loan Officer's work slots.
+## - ManagerSlotAdapter: the Branch Manager's work slots and their
+##   "End this slot" bar.
 
 static func install(room: TellerRoom) -> void:
 	var loan := LoanSlotAdapter.new()
@@ -13,3 +15,6 @@ static func install(room: TellerRoom) -> void:
 	loan.screen = room.loan_officer_screen
 	loan.seat = room.player_loan_seat()
 	room.add_child(loan)
+	var manager := ManagerSlotAdapter.new()
+	manager.name = "ManagerSlotAdapter"
+	room.add_child(manager)
