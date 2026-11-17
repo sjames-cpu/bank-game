@@ -517,22 +517,35 @@ var _visitor_leaving: bool = false
 var _visit_day: int = 0
 
 func _update_regional_visit() -> void:
+	# Time slots: RegionalVisitSlot brings them for the 11 AM slot instead.
+	if DayFlow.slots_enabled:
+		return
 	var during_visit := GameClock.minutes >= VISIT_START_MINUTES and GameClock.minutes < VISIT_END_MINUTES and not BusinessDay.is_day_over()
 	if not is_instance_valid(regional_visitor):
 		regional_visitor = null
 		if during_visit and RegionalManager.is_review_day() and _visit_day != BusinessDay.stats_day:
-			_start_regional_visit()
+			start_regional_visit()
 		return
-	if not during_visit and not _visitor_leaving:
-		_visitor_leaving = true
-		var route: Array[Vector2] = VISIT_ROUTE.duplicate()
-		route.reverse()
-		route.remove_at(0) # standing there
-		route.append(VISIT_ENTRANCE)
-		regional_visitor.follow_route(route, StaffNPC.State.ON_BREAK)
-		regional_visitor.route_finished.connect(end_regional_visit, CONNECT_ONE_SHOT)
+	if not during_visit:
+		send_regional_visitor_out()
 
-func _start_regional_visit() -> void:
+## The visitor walks out the way they came, and is gone at the entrance.
+func send_regional_visitor_out() -> void:
+	if not is_instance_valid(regional_visitor) or _visitor_leaving:
+		return
+	_visitor_leaving = true
+	var route: Array[Vector2] = VISIT_ROUTE.duplicate()
+	route.reverse()
+	route.remove_at(0) # standing there
+	route.append(VISIT_ENTRANCE)
+	regional_visitor.follow_route(route, StaffNPC.State.ON_BREAK)
+	regional_visitor.route_finished.connect(end_regional_visit, CONNECT_ONE_SHOT)
+
+## Whether the Regional Manager has come today already.
+func regional_visit_done_today() -> bool:
+	return _visit_day == BusinessDay.stats_day
+
+func start_regional_visit() -> void:
 	_visit_day = BusinessDay.stats_day
 	_visitor_leaving = false
 	var member := StaffMember.new()
@@ -542,7 +555,7 @@ func _start_regional_visit() -> void:
 	regional_visitor.setup(member)
 	regional_visitor.name = "RegionalManagerVisitor"
 	staff_layer.add_child(regional_visitor)
-	if GameClock.minutes - VISIT_START_MINUTES > VISIT_LATE_ARRIVAL_MINUTES:
+	if not DayFlow.slots_enabled and GameClock.minutes - VISIT_START_MINUTES > VISIT_LATE_ARRIVAL_MINUTES:
 		regional_visitor.place_at(VISIT_ROUTE[-1], StaffNPC.State.ON_BREAK)
 		return
 	regional_visitor.place_at(VISIT_ENTRANCE, StaffNPC.State.ON_BREAK)

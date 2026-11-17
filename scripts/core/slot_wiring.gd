@@ -10,6 +10,7 @@ class_name SlotWiring
 ##   "End this slot" bar.
 ## - StaffSlotPacer: staff work per slot.
 ## - ArmoredTruckSlot: the armored truck at 9 AM.
+## - RegionalVisitSlot: the Regional Manager's visit at 11 AM.
 
 static func install(room: TellerRoom) -> void:
 	var loan := LoanSlotAdapter.new()
@@ -30,3 +31,7 @@ static func install(room: TellerRoom) -> void:
 	truck.visit = room.armored_visit
 	truck.room = room
 	room.add_child(truck)
+	var regional := RegionalVisitSlot.new()
+	regional.name = "RegionalVisitSlot"
+	regional.room = room
+	room.add_child(regional)

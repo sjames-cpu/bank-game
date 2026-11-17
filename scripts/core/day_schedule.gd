@@ -35,6 +35,10 @@ const STAFF_LOAN_DESK_DECISIONS_PER_SLOT: int = 2
 ## until received (decision 12; ArmoredTruckSlot).
 const ARMORED_TRUCK_SLOT: StringName = SLOT_9AM
 
+## The slot the Regional Manager visits in on a review day, without
+## holding it (decision 13; RegionalVisitSlot).
+const REGIONAL_VISIT_SLOT: StringName = SLOT_11AM
+
 ## Reputation a Branch Manager earns for a clean work slot (decision 14:
 ## ended with "End this slot", not skipped, and no Reputation lost while it
 ## ran; ManagerSlotAdapter). Known balance issue, to re-tune after a
