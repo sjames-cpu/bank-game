@@ -19,6 +19,11 @@ const ACTION: StringName = &"pause_menu"
 const START_SCREEN: String = "res://scenes/ui/start_screen.tscn"
 
 const ON_SHIFT_TEXT: String = "You're clocked in, and a career can't be saved in the middle of a shift.\n\nGoing back now loses everything since your last save (your last clock-out): this shift's customers and drawer, and the Score, Reputation and XP they earned.\n\nGo back to the main menu anyway?"
+const ON_SHIFT_CONFIRM_TEXT: String = "Lose This Shift and Go to Main Menu"
+## With time slots (decision 10): a career is saved only at the end of a
+## day and at its start, so leaving mid-day restarts that day.
+const MID_DAY_TEXT: String = "Today isn't over, and a career is only saved at the end of a day.\n\nIf you go back now, this day restarts from Opening when you load this career: everything since the start of today (its customers, applications, Score, Reputation and XP) is lost.\n\nGo back to the main menu anyway?"
+const MID_DAY_CONFIRM_TEXT: String = "Lose Today and Go to Main Menu"
 
 @onready var menu_panel: PanelContainer = $Root/MenuPanel
 @onready var resume_button: Button = $Root/MenuPanel/VBox/ResumeButton
@@ -38,7 +43,6 @@ func _ready() -> void:
 	main_menu_button.pressed.connect(_on_main_menu_pressed)
 	confirm_button.pressed.connect(go_to_main_menu.bind(false))
 	cancel_button.pressed.connect(_show_menu)
-	confirm_label.text = ON_SHIFT_TEXT
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed(ACTION) or event.is_echo():
@@ -68,14 +72,32 @@ func _show_menu() -> void:
 	confirm_panel.visible = false
 	resume_button.grab_focus()
 
-## Off shift: save and go. On shift: ask first (it can't be saved).
+## Off shift: save and go. On shift: ask first (it can't be saved). With
+## time slots: mid-day, ask first (the day will restart from Opening); at
+## Opening before the clock-in nothing would be lost.
 func _on_main_menu_pressed() -> void:
-	if room != null and room.is_player_on_shift():
+	var warning := leave_warning()
+	if warning != "":
+		confirm_label.text = warning
+		confirm_button.text = MID_DAY_CONFIRM_TEXT if warning == MID_DAY_TEXT else ON_SHIFT_CONFIRM_TEXT
 		menu_panel.visible = false
 		confirm_panel.visible = true
 		cancel_button.grab_focus()
 		return
 	go_to_main_menu(true)
+
+## What leaving now would lose ("" if nothing).
+func leave_warning() -> String:
+	if DayFlow.slots_enabled:
+		if not DayFlow.is_running():
+			return ""
+		var at_opening := DayFlow.current_slot().id == DaySchedule.OPENING
+		if at_opening and not PlayerShift.is_on_shift():
+			return ""
+		return MID_DAY_TEXT
+	if room != null and room.is_player_on_shift():
+		return ON_SHIFT_TEXT
+	return ""
 
 ## Back to the main menu, saving first if `save`. The slot is left and the
 ## career reset, so the next slot played starts clean.

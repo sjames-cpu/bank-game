@@ -31,11 +31,34 @@ const KEYFRAMES: Array = [
 	[24.0 * 60.0, NIGHT],
 ]
 
+## With time slots on, the clock jumps from one slot's start time to the
+## next (3 PM to 5 PM, 5 PM to 8:30 the next morning), so the tint fades to
+## its new colour over this many seconds of unpaused time instead of
+## snapping. With slots off it follows the clock directly, as before.
+const SLOT_FADE_SECONDS: float = 1.5
+
+var _fade_from: Color = DAY
+var _fade_to: Color = DAY
+var _fade_elapsed: float = SLOT_FADE_SECONDS
+
 func _ready() -> void:
 	color = colour_at(GameClock.minutes)
+	_fade_from = color
+	_fade_to = color
 
-func _process(_delta: float) -> void:
-	color = colour_at(GameClock.minutes)
+func _process(delta: float) -> void:
+	var target := colour_at(GameClock.minutes)
+	if not DayFlow.slots_enabled:
+		color = target
+		_fade_to = target
+		_fade_elapsed = SLOT_FADE_SECONDS
+		return
+	if target != _fade_to:
+		_fade_from = color
+		_fade_to = target
+		_fade_elapsed = 0.0
+	_fade_elapsed = minf(_fade_elapsed + delta, SLOT_FADE_SECONDS)
+	color = _fade_from.lerp(_fade_to, _fade_elapsed / SLOT_FADE_SECONDS)
 
 ## The tint at `game_minutes` since midnight.
 static func colour_at(game_minutes: float) -> Color:

@@ -553,8 +553,10 @@ func _on_branch_manager_demoted() -> void:
 	loan_desk_worker.active = true
 	save_career()
 
-## With time slots, going home early is on the card between slots instead.
+## With time slots, going home early is on the card between slots instead:
+## the doormat's notice, and its prompt.
 const GO_HOME_BETWEEN_SLOTS_TEXT: String = "You can go home early between slots, from the slot card."
+const GO_HOME_SLOTS_PROMPT: String = "Going home early is on the card between slots"
 
 func _on_exit_door_interacted() -> void:
 	if end_of_day_screen.visible or is_player_on_shift():
@@ -768,6 +770,8 @@ func interaction_prompt_text(desk: Interactable) -> String:
 	if desk == exit_door:
 		if is_player_on_shift():
 			return "Clock out before you go home"
+		if DayFlow.slots_enabled:
+			return GO_HOME_SLOTS_PROMPT
 		return "%s — Go home (end Day %d)" % [key, BusinessDay.stats_day]
 	if desk == atm:
 		return "%s — Use ATM" % key
