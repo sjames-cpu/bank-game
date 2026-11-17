@@ -269,7 +269,6 @@ func _ready() -> void:
 	armored_visit.room = self
 	add_child(armored_visit)
 	armored_truck_screen.closed.connect(_on_armored_truck_screen_closed)
-	end_of_day_screen.go_home_confirmed.connect(_on_go_home_confirmed)
 	end_of_day_screen.next_day_requested.connect(_on_next_day_requested)
 	# Customers the staff serve count toward today's branch total; those who
 	# give up at a staffed window count against the manager's review.
@@ -374,10 +373,6 @@ func _on_loan_decision_recorded(application: LoanApplication) -> void:
 	var seat := player_loan_seat()
 	if seat != null and seat.application == application:
 		seat.send_off_after_decision(application)
-
-func _clear_loan_seats() -> void:
-	for seat: LoanDeskSeat in loan_seats.values():
-		seat.clear()
 
 # --- the business day (BusinessDay) -----------------------------------------------
 
@@ -549,32 +544,15 @@ func _on_branch_manager_demoted() -> void:
 	loan_desk_worker.active = true
 	save_career()
 
-## With time slots, going home early is on the card between slots instead:
-## the doormat's notice, and its prompt.
+## Going home early is on the card between slots: the doormat's notice,
+## and its prompt.
 const GO_HOME_BETWEEN_SLOTS_TEXT: String = "You can go home early between slots, from the slot card."
 const GO_HOME_SLOTS_PROMPT: String = "Going home early is on the card between slots"
 
 func _on_exit_door_interacted() -> void:
 	if end_of_day_screen.visible or is_player_on_shift():
 		return
-	if DayFlow.slots_enabled:
-		_show_notice(GO_HOME_BETWEEN_SLOTS_TEXT)
-		return
-	end_of_day_screen.ask_go_home(BusinessDay.stats_day)
-
-## Going home early: the rest of the day is skipped, with nobody left in the
-## lobby to serve (no customers or staff work are simulated).
-func _on_go_home_confirmed() -> void:
-	end_of_day_screen.close()
-	BusinessDay.go_home_early()
-	for line: CustomerQueue in [customer_queue, window1_npc_line, window2_line, window3_line]:
-		line.clear_lobby()
-	_customers_awaiting_farewell.clear()
-	_customer_being_served = null
-	end_regional_visit()
-	armored_visit.clear()
-	_clear_loan_seats()
-	show_end_of_day()
+	_show_notice(GO_HOME_BETWEEN_SLOTS_TEXT)
 
 ## "Start Day N+1": 8:30 AM the next morning, saved (with time slots, the
 ## day starts at Opening).
@@ -766,9 +744,7 @@ func interaction_prompt_text(desk: Interactable) -> String:
 	if desk == exit_door:
 		if is_player_on_shift():
 			return "Clock out before you go home"
-		if DayFlow.slots_enabled:
-			return GO_HOME_SLOTS_PROMPT
-		return "%s — Go home (end Day %d)" % [key, BusinessDay.stats_day]
+		return GO_HOME_SLOTS_PROMPT
 	if desk == atm:
 		return "%s — Use ATM" % key
 	if desk == vault_door:

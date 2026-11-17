@@ -392,8 +392,9 @@ func test_the_review_letter_breaks_down_each_area() -> void:
 	promote()
 	set_clock(6, 8, 30)
 	RegionalManager.warnings = 1
-	room._on_exit_door_interacted()
-	eod.go_home_button.pressed.emit()
+	DayFlow.skip_slot()
+	DayFlow.go_home_early()
+	await frames(2)
 	var body := letters.body_label.text
 	assert_str(body).contains("This is your review for your last 5 days as Branch Manager (Days 2-6).")
 	# Vault 0 (15%) and vacancies 100 (5%): 500 / 20 = 25.
