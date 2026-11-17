@@ -114,6 +114,38 @@ func test_the_9_am_slot_waits_for_the_truck_on_a_manager_day() -> void:
 	assert_str(DayFlow.next_slot().id).is_equal(DaySchedule.SLOT_11AM)
 	assert_bool(truck_slot.is_holding()).is_false()
 
+## "End this slot" pressed while the truck is being received (the witness on
+## the way to the vault door): the slot still waits until receiving is done.
+func test_end_this_slot_while_receiving_waits_for_the_receiving() -> void:
+	manager_day_at_9am()
+	crew_at_the_door()
+	room.vault_door.player_in_range = true
+	room._on_vault_door_interacted()
+	var control := room.vault_control
+	assert_int(control.purpose).is_equal(VaultDualControl.Purpose.ARMORED)
+	assert_int(truck.phase).is_equal(ArmoredTruckVisit.Phase.BEING_RECEIVED)
+	control._process(0.0)
+	# The witness is still walking: the room runs, and the bar is up.
+	await frames(1)
+	assert_bool(manager.bar.visible).is_true()
+	manager.bar.end_button.pressed.emit()
+	await frames(3)
+	assert_str(current_id()).is_equal(DaySchedule.SLOT_9AM)
+	assert_bool(DayFlow.is_between_slots()).is_false()
+	assert_bool(truck_slot.is_holding()).is_true()
+	assert_int(truck.phase).is_equal(ArmoredTruckVisit.Phase.BEING_RECEIVED)
+	# The witness arrives; the crew is checked and the bags signed for.
+	control.witness.finish_route()
+	control._process(0.0)
+	assert_bool(screen.visible).is_true()
+	screen.accept_crew_button.pressed.emit()
+	screen.sign_button.pressed.emit()
+	screen.close_button.pressed.emit()
+	await frames(2)
+	# Only now does the slot end.
+	assert_bool(DayFlow.is_between_slots()).is_true()
+	assert_str(DayFlow.next_slot().id).is_equal(DaySchedule.SLOT_11AM)
+
 func test_received_before_end_this_slot_the_slot_waits_for_the_button() -> void:
 	manager_day_at_9am()
 	crew_at_the_door()

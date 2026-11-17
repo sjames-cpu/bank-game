@@ -174,6 +174,7 @@ func open_work_slot() -> void:
 	if not DayFlow.slots_enabled:
 		return
 	if not DayFlow.is_running():
+		_holding_branch = false
 		room.start_slots_day()
 	if DayFlow.current_slot().id == DaySchedule.OPENING and not DayFlow.is_between_slots():
 		DayFlow.skip_slot()

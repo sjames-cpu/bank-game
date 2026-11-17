@@ -14,6 +14,8 @@ var eod: EndOfDayScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	letters = room.letter_screen
 	eod = room.end_of_day_screen
 
@@ -33,7 +35,9 @@ func promote() -> void:
 	acknowledge_letters()
 
 ## A Perfect vault count, then clock-out and the summary closed.
+## At Closing: the vault reconciled and the clock-out.
 func bm_clock_out(bm: BranchManagerScreen) -> void:
+	to_closing()
 	reconcile_vault()
 	bm.clock_out_button.pressed.emit()
 	bm.shift_summary_done_button.pressed.emit()
