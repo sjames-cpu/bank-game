@@ -199,6 +199,8 @@ It fails on stale generated art, any warning, any failing test, a failed boot, o
 
 **Rule: when you verify a fix or feature, add or update permanent tests in `tests/`.** Don't write temporary verification scripts and delete them afterwards. If something can't be reached from a test, make it injectable (e.g. `teller_room.gd`'s `debug_cheats_enabled`) rather than skipping the test.
 
+**Old saves**: `tests/data/old_saves/` holds real careers saved in older formats (README there), one per kind of old save: a version 1 save made mid-day, at End of Day, during onboarding and at a mid-day promotion, and a version 2 save made mid-day with the switch off. `old_saves_test.gd` loads each into a time-slot day (and with the switch off, as before).
+
 **Rule: scripts and tests must never write to the real saves** (`user://career_slot_<n>.json` and the old `user://career.json`, named from `SaveGame.real_prefix`). Point `SaveGame` at files of their own first: room-driving suites get `SaveGame.prefix` = `user://test_career` from `teller_room_suite.gd`, and the `scratch/` screenshot scripts call `SaveGame.use_saves_named("user://scratch_shots_career")` (every slot theirs, so a slot screen or Back to Main Menu in a script can't reach a real one). `SaveGame` also refuses to write, move or delete a real save, with a warning, unless the real game flow has started (the start screen calls `SaveGame.allow_real_save()`). That covers a scene run on its own from the editor too.
 
 **Debug shortcuts** (debug builds only: `debug_cheats_enabled`, i.e. `OS.is_debug_build()`; nothing in a release build), both through the normal unlock checks:
