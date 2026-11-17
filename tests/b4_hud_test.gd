@@ -463,9 +463,9 @@ func test_arrival_hint_shows_once_per_career() -> void:
 	hud.hint_dismiss_button.pressed.emit()
 	# The opening-hours hint comes straight after it, once too.
 	assert_int(hud.current_hint).is_equal(Hint.OPENING_HOURS)
-	assert_str(hud.hint_label.text).contains("9:00 AM to 5:00 PM")
-	assert_str(hud.hint_label.text).contains("not after 4:30 PM")
-	assert_str(hud.hint_label.text).contains("entrance doormat and press E to go home")
+	assert_str(hud.hint_label.text).contains("time slots")
+	assert_str(hud.hint_label.text).contains("your shift runs until Closing")
+	assert_str(hud.hint_label.text).contains("The card between slots lets you go home")
 	hud.hint_dismiss_button.pressed.emit()
 	assert_bool(hud.hint_panel.visible).is_false()
 

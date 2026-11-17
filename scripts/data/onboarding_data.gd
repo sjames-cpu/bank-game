@@ -27,7 +27,7 @@ static func contract_body() -> String:
 	var limit := ReportManager.report_limit()
 	var lines: PackedStringArray = [
 		"Position: Teller, at the Player Teller Window.",
-		"Hours: the branch is open 9:00 AM to 5:00 PM on business days. You may clock in from 8:30 AM for the opening drawer count, and not after 4:30 PM.",
+		"Hours: on business days, from Opening (8:30 AM) to Closing (5:00 PM), in time slots. You clock in at Opening, for the opening drawer count, and your shift runs until Closing.",
 	]
 	if InterviewManager.is_on_probation:
 		lines.append("Probation: you are hired on probation. While it lasts, %d reports end your employment instead of the usual %d. %d teller shifts in a row without a report complete it." % [

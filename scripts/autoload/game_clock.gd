@@ -5,23 +5,16 @@ extends Node
 ## number and the time of day in game minutes, saved with the career
 ## (save_data()/load_data(), see SaveGame) and reset with it (CareerReset).
 ##
-## Time runs only while the world does: this node pauses with the tree, so
-## the clock stops whenever a desk screen or letter is open, the same as NPC
-## work and customer patience. It also follows Engine.time_scale, like them.
+## The day runs as time slots (DayFlow), so the clock doesn't run on its
+## own: it's a display, showing each slot's start time, which DayFlow sets as
+## the slot starts (8:30 AM Opening, 9 AM, 11 AM, 1 PM, 3 PM, 5 PM Closing).
+## Every day ends at its End of Day summary, whose "Start Day N+1" sets the
+## clock to 8:30 AM the next business day.
 ##
-## Speed (GAME_MINUTES_PER_SECOND): a teller shift brings a customer every
-## 20 s of running time (CustomerQueue.spawn_interval) and the tree is
-## paused while each one is served at the desk, so a 4-customer shift is
-## about 80 s of arrivals plus walking: roughly 90 s of running time. At 1.5
-## game minutes per second that's about 2 hours 15 minutes, a quarter of
-## the 9 AM-5 PM business day, so four shifts fill a day. A whole 24-hour
-## day takes 16 real minutes of unpaused play.
-##
-## Opening hours and the end of the day belong to BusinessDay: every day
-## ends at its End of Day summary, whose "Start Day N+1" sets the clock to
-## 8:30 AM the next morning. Rolling past midnight on its own (advance())
-## is only a fallback for a day left running; BusinessDay still ends that
-## day at its summary.
+## GAME_MINUTES_PER_SECOND is the old running clock's pace (about 2 hours 15
+## minutes of game time for a 90-second teller shift), kept for what still
+## turns unpaused seconds into game minutes: a vault witness's time away
+## (VaultDualControl).
 ##
 ## Calendar (BankCalendar): "Day N" is the career's Nth business day. Day 1
 ## is the career's start_date (BankCalendar.start_date(), a Monday), and each
@@ -47,21 +40,6 @@ var start_date: int = BankCalendar.start_date()
 var _cached_day: int = 0
 var _cached_date: int = 0
 var _cached_start: int = 0
-
-## With time slots on (DayFlow.slots_enabled) the clock doesn't run: it
-## shows each slot's start time, which DayFlow sets as the slot starts.
-func _process(delta: float) -> void:
-	if DayFlow.slots_enabled:
-		return
-	advance(delta * GAME_MINUTES_PER_SECOND)
-
-## Moves the clock on by `game_minutes`, rolling into the next day at
-## midnight.
-func advance(game_minutes: float) -> void:
-	minutes += maxf(0.0, game_minutes)
-	while minutes >= MINUTES_PER_DAY:
-		minutes -= MINUTES_PER_DAY
-		day += 1
 
 func reset() -> void:
 	day = START_DAY

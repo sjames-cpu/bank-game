@@ -146,9 +146,13 @@ func build_full_career() -> void:
 	StaffReviewManager.staff_reports["Derek Voss"] = PackedStringArray(["late", "short"])
 	StaffReviewManager.staff_feedbacks["Nina Ortiz"] = 2
 
-	# Day 3, 10:42 AM and a bit (the clock keeps fractions of a minute).
+	# Day 3, 10:42 AM and a bit (the clock keeps fractions of a minute),
+	# saved at its End of Day (a career is saved at the end or start of a
+	# day: an ended day loads as it was saved).
 	GameClock.day = 3
+	BusinessDay.stats_day = 3
 	GameClock.minutes = 642.75
+	DayFlow.end_of_day_due = true
 	HintManager.mark_shown(HintManager.Hint.FIRST_CLOCK_OUT)
 	HintManager.mark_shown(HintManager.Hint.LOAN_OFFICER_UNLOCKED)
 	# Part-way through onboarding.
@@ -800,9 +804,10 @@ func test_loading_slot_2_after_slot_1_leaves_no_leftover_state() -> void:
 	var fresh := fresh_career_without_clock()
 	save_in_slot(2) # a fresh career
 	build_full_career()
-	# The business day on the career's day (build_full_career() moves the
-	# clock only), so the loaded room doesn't end the day straight away.
+	# A day that hadn't ended (build_full_career() saves at its End of Day),
+	# so the loaded room starts it at Opening instead of ending it.
 	BusinessDay.stats_day = GameClock.day
+	DayFlow.end_of_day_due = false
 	save_in_slot(1)
 	CareerReset.reset_all()
 

@@ -5,37 +5,39 @@ extends Node
 ## End of Day summary, and moving from one day to the next. Saved with the
 ## career (save_data()/load_data(), see SaveGame), reset with it.
 ##
-## Hours: the branch opens at OPEN (9:00 AM) and its doors close at CLOSE
-## (5:00 PM). Customers arrive only while it's open (CustomerQueue and the
-## staff lines check is_open() before each arrival, and the Loan Desk's staff
-## decide only then). The player may clock in early, from the 8:30 AM start
-## of the day, for the opening count, but not after LAST_CLOCK_IN (4:30 PM).
-## Several shifts fit in a day: a shift is about a quarter of it.
+## Hours follow the day's time slots (DayFlow): the branch is open for
+## customers during a work slot (9 AM to 3 PM; CustomerQueue and the staff
+## lines check is_open() before each arrival, and the loan desks' staff take
+## applicants only then), not at Opening, between slots or from Closing.
+## The player clocks in at Opening for the whole day (a shift is the day);
+## no shift starts from Closing (can_start_shift()).
 ##
-## The day ends at the End of Day summary (end_of_day_screen.gd), which
-## teller_room.gd shows once it's past CLOSE, the player is off shift and
-## the lobby is empty, or at once when the player goes home early
-## (go_home_early()). "Start Day N+1" calls start_next_day(). GameClock's
-## midnight rollover is only a fallback: a day still open at midnight ends
-## as soon as the room can show the summary (is_day_over()).
+## The day ends when DayFlow's does (DayFlow.end_of_day_due, after the
+## clock-out at Closing), and teller_room.gd shows the End of Day summary
+## once the player is off shift and the lobby is empty. Going home early is
+## from the card between slots (DayFlow.go_home_early()). "Start Day N+1"
+## calls start_next_day().
 ##
 ## Calendar: days are business days (GameClock, BankCalendar). When the next
 ## one is after a weekend or a bank holiday, the End of Day screen names the
 ## closed days (closures_before_next_day(), BankCalendar.closure_title())
 ## before "Start Day N+1" moves to its morning.
 ##
-## Cutoff: a teller transaction from CUTOFF (2:00 PM) on posts on the next
-## business day (posting_day()); the teller screen says so, each
+## Cutoff: a teller transaction from CUTOFF (2:00 PM, so from the 3 PM slot,
+## DaySchedule.FIRST_SLOT_AFTER_CUTOFF) on posts on the next business day
+## (posting_day()); the teller screen says so, each
 ## ShiftTransaction records it, and the End of Day summary lists them
 ## (note_after_cutoff(), from the teller's clock-out). Balances still change
 ## at once: posting is a record, not a delay.
 
+## The 9 AM slot's start (the Regional review's vacant desk-minutes count
+## from it), Closing's (5 PM; also how a version 1 save tells an ended day,
+## SaveGame.day_ended_in()), and the 2 PM cutoff.
 const OPEN_MINUTES: float = 9.0 * 60.0
 const CLOSE_MINUTES: float = 17.0 * 60.0
-const LAST_CLOCK_IN_MINUTES: float = 16.0 * 60.0 + 30.0
 const CUTOFF_MINUTES: float = 14.0 * 60.0
 
-const CLOCK_IN_REFUSED_TEXT: String = "The branch closes at 5:00 PM — too late to start a new shift."
+const CLOCK_IN_REFUSED_TEXT: String = "The branch has closed for the day — too late to start a new shift."
 const DOORS_CLOSED_TEXT: String = "Branch closed — no more customers today"
 
 ## The day today's totals belong to (the day the summary is for).
@@ -79,49 +81,35 @@ func _start_totals() -> void:
 
 # --- hours ----------------------------------------------------------------------
 
-## Open for customers: from OPEN until the doors close, on the summary's day.
-## With time slots on: during a work slot (9 AM to 3 PM), not between slots.
+## Open for customers: during a work slot (9 AM to 3 PM), not between slots.
 func is_open() -> bool:
-	if DayFlow.slots_enabled:
-		var slot := DayFlow.current_slot()
-		return DayFlow.is_running() and not DayFlow.is_between_slots() and slot != null and slot.is_work and not is_day_over()
-	return not is_day_over() and GameClock.minutes >= OPEN_MINUTES and GameClock.minutes < CLOSE_MINUTES
+	var slot := DayFlow.current_slot()
+	return DayFlow.is_running() and not DayFlow.is_between_slots() and slot != null and slot.is_work and not is_day_over()
 
-## The doors have closed for the day: no more customers until tomorrow.
-## With time slots on: from Closing.
+## The doors have closed for the day: from Closing, no more customers until
+## tomorrow.
 func doors_closed() -> bool:
-	if DayFlow.slots_enabled:
-		return is_day_over() or _at_closing()
-	return is_day_over() or GameClock.minutes >= CLOSE_MINUTES
+	return is_day_over() or _at_closing()
 
-## Whether a new shift may start now (any role): not after LAST_CLOCK_IN.
-## With time slots on: before Closing.
+## Whether a new shift may start now (any role): before Closing.
 func can_start_shift() -> bool:
-	if DayFlow.slots_enabled:
-		return not is_day_over() and not _at_closing()
-	return not is_day_over() and GameClock.minutes <= LAST_CLOCK_IN_MINUTES
+	return not is_day_over() and not _at_closing()
 
-## Past closing time on the summary's day, or (the fallback) the clock has
-## already rolled past midnight into the next day. With time slots on: once
-## DayFlow's day has ended (DayFlow.end_of_day_due), not at 5 PM.
+## Once DayFlow's day has ended (DayFlow.end_of_day_due, after Closing).
 func is_day_over() -> bool:
-	if DayFlow.slots_enabled:
-		return DayFlow.end_of_day_due or GameClock.day > stats_day
-	return GameClock.day > stats_day or GameClock.minutes >= CLOSE_MINUTES
+	return DayFlow.end_of_day_due
 
-## Time slots: the day has reached Closing (DayFlow).
+## The day has reached Closing (DayFlow).
 func _at_closing() -> bool:
 	var slot := DayFlow.current_slot()
 	return slot != null and slot.id == DaySchedule.CLOSING
 
 # --- the cutoff -----------------------------------------------------------------
 
-## From 2:00 PM, transactions post on the next business day. With time
-## slots on: from the first slot after the cutoff (3 PM).
+## From the 2:00 PM cutoff, so from the first slot after it (3 PM),
+## transactions post on the next business day.
 func is_after_cutoff() -> bool:
-	if DayFlow.slots_enabled:
-		return DayFlow.is_after_cutoff()
-	return GameClock.minutes >= CUTOFF_MINUTES
+	return DayFlow.is_after_cutoff()
 
 ## The business day a transaction made now posts on.
 func posting_day() -> int:
@@ -186,16 +174,10 @@ func summary() -> Dictionary:
 
 # --- moving between days --------------------------------------------------------------
 
-## Going home early: the clock skips straight to closing time. Nothing that
-## would have happened in the skipped time is simulated. With time slots on,
-## DayFlow.go_home_early() instead: only between slots, skipping the work
-## slots left.
+## Going home early: DayFlow.go_home_early(), only between slots, skipping
+## the work slots left (the card between slots offers it).
 func go_home_early() -> void:
-	if DayFlow.slots_enabled:
-		DayFlow.go_home_early()
-		return
-	if not is_day_over():
-		GameClock.minutes = CLOSE_MINUTES
+	DayFlow.go_home_early()
 
 ## "Start Day N+1": the morning after the summary's day, at the start of the
 ## day (8:30 AM), with fresh totals.
@@ -204,10 +186,9 @@ func start_next_day() -> void:
 	GameClock.minutes = GameClock.START_MINUTES
 	stats_day = GameClock.day
 	_start_totals()
-	# Time slots: the ended day's End of Day mark goes. The new day's slots
-	# aren't started here yet (Phase A, session 2).
-	if DayFlow.slots_enabled:
-		DayFlow.reset()
+	# The ended day's End of Day mark goes; the room starts the new day's
+	# slots (teller_room.start_slots_day()).
+	DayFlow.reset()
 
 # --- save and load -----------------------------------------------------------------
 
