@@ -69,16 +69,24 @@ func test_5_pm_alone_does_not_end_the_day() -> void:
 	await frames(2)
 	assert_bool(eod.is_summary_shown()).is_true()
 
-func test_the_review_letter_comes_after_the_vault_and_loans_and_before_the_summary() -> void:
+## The usual order: the truck, the vault, the loan book, the review and its
+## letter, the summary, the save.
+func test_the_review_letter_comes_after_the_truck_the_vault_and_loans_and_before_the_summary() -> void:
 	XPManager._grant_branch_manager()
 	acknowledge_letters()
 	var day := RegionalManager.next_review_day()
 	GameClock.day = day
 	BusinessDay.stats_day = day
+	# The armored truck is due today, and nobody works the day to receive it.
+	assert_str(VaultManager.place_order(VaultManager.STRAP_CENTS, day - 1)).is_empty()
 	var at_review: Dictionary = {}
 	var reviews := [0]
 	var on_review := func(_result: Dictionary) -> void:
 		reviews[0] += 1
+		# The truck came first: graded as missed by the End of Day's truck
+		# step, which only happens before the vault's close (that would
+		# settle the visit ungraded).
+		at_review["truck"] = HistoryManager.records.any(func(record: DecisionRecord) -> bool: return record.description.begins_with("Armored truck missed"))
 		at_review["vault"] = VaultManager.last_closed_day
 		at_review["loans"] = LoanBookManager.last_closed_day
 		at_review["summary"] = eod.visible
@@ -88,7 +96,7 @@ func test_the_review_letter_comes_after_the_vault_and_loans_and_before_the_summa
 	await frames(2)
 	# The review ran after the vault's and loans' day closed, before the summary.
 	assert_int(reviews[0]).is_equal(1)
-	assert_dict(at_review).is_equal({"vault": day, "loans": day, "summary": false})
+	assert_dict(at_review).is_equal({"truck": true, "vault": day, "loans": day, "summary": false})
 	assert_bool(letters.visible).is_true()
 	assert_str(letters.from_label.text).is_equal("From: Regional Manager")
 	assert_bool(eod.visible).is_false()

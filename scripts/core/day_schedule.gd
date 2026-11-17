@@ -31,6 +31,10 @@ const LOAN_OFFICER_APPLICATIONS_PER_SLOT: int = 1
 const STAFF_TELLER_WINDOW_CUSTOMERS_PER_SLOT: int = 4
 const STAFF_LOAN_DESK_DECISIONS_PER_SLOT: int = 2
 
+## The slot the armored truck comes in, holding it on a Branch Manager day
+## until received (decision 12; ArmoredTruckSlot).
+const ARMORED_TRUCK_SLOT: StringName = SLOT_9AM
+
 ## Reputation a Branch Manager earns for a clean work slot (decision 14:
 ## ended with "End this slot", not skipped, and no Reputation lost while it
 ## ran; ManagerSlotAdapter). Known balance issue, to re-tune after a

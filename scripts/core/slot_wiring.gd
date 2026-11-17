@@ -9,6 +9,7 @@ class_name SlotWiring
 ## - ManagerSlotAdapter: the Branch Manager's work slots and their
 ##   "End this slot" bar.
 ## - StaffSlotPacer: staff work per slot.
+## - ArmoredTruckSlot: the armored truck at 9 AM.
 
 static func install(room: TellerRoom) -> void:
 	var loan := LoanSlotAdapter.new()
@@ -24,3 +25,8 @@ static func install(room: TellerRoom) -> void:
 	staff.lines = [room.window1_npc_line, room.window2_line, room.window3_line]
 	staff.workers = room.loan_desk_workers.duplicate()
 	room.add_child(staff)
+	var truck := ArmoredTruckSlot.new()
+	truck.name = "ArmoredTruckSlot"
+	truck.visit = room.armored_visit
+	truck.room = room
+	room.add_child(truck)

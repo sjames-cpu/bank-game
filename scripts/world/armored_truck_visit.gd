@@ -32,6 +32,8 @@ const ROUTE_IN: Array[Vector2] = [Vector2(384, 288), Vector2(112, 288), Vector2(
 const GUARD_SPOTS: Array[Vector2] = [Vector2(88, 206), Vector2(136, 206)]
 
 const ARRIVED_TEXT: String = "The armored truck crew is at the vault door. As Branch Manager, receive them there with a witness before %s."
+## With time slots on (ArmoredTruckSlot): they wait, holding the 9 AM slot.
+const ARRIVED_SLOTS_TEXT: String = "The armored truck crew is at the vault door. As Branch Manager, receive them there with a witness: the 9 AM slot waits for them."
 
 ## Missing the truck costs as much as refusing a good bag (ArmoredTruckScreen).
 const MISSED_SCORE: int = -3
@@ -47,6 +49,10 @@ var _arrived: int = 0
 
 func _process(_delta: float) -> void:
 	_drop_freed()
+	# Time slots: ArmoredTruckSlot brings the crew at 9 AM (arrive_now()),
+	# and they wait, without a clock.
+	if DayFlow.slots_enabled:
+		return
 	match phase:
 		Phase.IDLE:
 			if _should_arrive():
@@ -60,6 +66,14 @@ func _should_arrive() -> bool:
 	if BusinessDay.is_day_over() or not VaultManager.has_visit_due(day):
 		return false
 	return GameClock.minutes >= ARRIVAL_MINUTES and GameClock.minutes < ARRIVAL_MINUTES + WAIT_MINUTES
+
+## The crew comes in now (time slots: ArmoredTruckSlot, at 9 AM), if there's
+## cash to move today and they haven't come yet. Returns whether they came.
+func arrive_now() -> bool:
+	if phase != Phase.IDLE or BusinessDay.is_day_over() or not VaultManager.has_visit_due(GameClock.day):
+		return false
+	_arrive()
+	return true
 
 ## The crew is waiting at the vault door for the Branch Manager.
 func is_waiting() -> bool:
@@ -102,7 +116,8 @@ func _on_guard_arrived() -> void:
 		guards[0].say("All signed. Thanks!", 2.5)
 		leave()
 	else:
-		room.show_timed_notice(ARRIVED_TEXT % GameClock.format_time(ARRIVAL_MINUTES + WAIT_MINUTES), 6.0)
+		var text := ARRIVED_SLOTS_TEXT if DayFlow.slots_enabled else ARRIVED_TEXT % GameClock.format_time(ARRIVAL_MINUTES + WAIT_MINUTES)
+		room.show_timed_notice(text, 6.0)
 
 ## The Branch Manager has started receiving them at the vault door.
 func begin_receiving() -> void:

@@ -232,6 +232,11 @@ func can_go_home_early() -> bool:
 			return true
 	return false
 
+## A skip of the current slot is waiting for its holds to be released
+## (skip_slot()): an event holding the slot can let go now.
+func is_skip_requested() -> bool:
+	return _running and _skip_requested
+
 func is_held() -> bool:
 	return not _holds.is_empty()
 
