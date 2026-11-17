@@ -178,7 +178,9 @@ func open_work_slot() -> void:
 	if DayFlow.current_slot().id == DaySchedule.OPENING and not DayFlow.is_between_slots():
 		DayFlow.skip_slot()
 	if DayFlow.is_between_slots():
-		if not _holding_branch:
+		# A player on shift claims the slot with their own work; with nobody
+		# on shift, the test holds it open.
+		if not _holding_branch and not PlayerShift.is_on_shift():
 			_holding_branch = DayFlow.hold(TEST_HOLD)
 		DayFlow.continue_day()
 	cq.spawn_timer.stop()

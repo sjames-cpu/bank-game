@@ -4,6 +4,12 @@ extends "res://tests/support/teller_room_suite.gd"
 ## account namespace, the desk never stays on a departed customer's account,
 ## and a Branch Manager promotion earned mid-shift waits for clock-out.
 
+func before_test() -> void:
+	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
+
+
 func test_staff_line_accounts_are_a_separate_namespace() -> void:
 	var staff_line: NpcCustomerLine = room.get_node("Window1NpcLine")
 	var player_account := cq._get_or_create_customer_account("Alex Rivera")
@@ -23,6 +29,8 @@ func test_staff_line_accounts_are_a_separate_namespace() -> void:
 ## serve customers who share their names. Only staff-line balances move.
 func test_staff_never_change_player_line_balances() -> void:
 	clock_in()
+	# A work slot: the branch is open, so the staff lines take customers.
+	open_work_slot()
 	var window_1: NpcCustomerLine = room.get_node("Window1NpcLine")
 	var window_2: NpcCustomerLine = room.get_node("Window2Line")
 	var players: Array[CustomerNPC] = []

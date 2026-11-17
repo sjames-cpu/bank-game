@@ -11,6 +11,8 @@ var hiring: HiringScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	letters = room.get_node("UI/DisciplineLetterScreen")
 	bm = room.branch_manager_screen
 	hiring = bm.hiring_screen
@@ -276,8 +278,9 @@ func test_hiring_fills_the_desk_and_the_line_serves_customers() -> void:
 	assert_str(room._staff_by_slot[ScheduleManager.SLOT_TELLER_WINDOW_2].staff.staff_name).is_equal(hired.staff_name)
 	assert_bool(room.window2_line.active).is_true()
 
-	# They serve customers like anyone else.
+	# They serve customers like anyone else, once a work slot opens the branch.
 	bm.hide_screen()
+	open_work_slot()
 	var served := [0]
 	room.window2_line.customer_served.connect(func(_c: CustomerNPC, staff: StaffMember, _m: bool) -> void:
 		if staff.staff_name == hired.staff_name:

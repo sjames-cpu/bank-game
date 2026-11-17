@@ -12,6 +12,8 @@ var review: LoanReviewScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	lo = room.loan_officer_screen
 	review = lo.loan_review_screen
 
@@ -56,10 +58,19 @@ func decide_next_correctly() -> LoanApplication:
 	review.close_button.pressed.emit()
 	return application
 
+## Clocks out at Closing (where a shift ends).
 func clock_out_at_loan_desk() -> void:
+	to_closing()
 	lo.clock_out_button.pressed.emit()
 	assert_bool(lo.is_clocked_in()).is_false()
 	lo.shift_summary_done_button.pressed.emit()
+	lo.hide_screen()
+
+## The next day's shift at Loan Desk 1 (a shift is the whole day).
+func next_shift_at_loan_desk() -> void:
+	await go_to_next_day()
+	room._on_loan_officer_desk_interacted()
+	lo.clock_in_button.pressed.emit()
 
 # --- the first shift ------------------------------------------------------------
 
@@ -79,11 +90,11 @@ func test_the_first_shift_works_the_teaching_cases_then_applicants_are_generated
 	assert_int((totals() - start).x).is_greater(0)
 	clock_out_at_loan_desk()
 
-	# Every shift after that: generated applicants, built for the tier the
-	# worksheet gives them.
+	# Every shift after that (the next days'): generated applicants, built
+	# for the tier the worksheet gives them.
 	var names := sample_names()
 	for shift in 3:
-		lo.clock_in_button.pressed.emit()
+		await next_shift_at_loan_desk()
 		for i in LoanOfficerScreen.APPLICATIONS_PER_SHIFT:
 			var application := decide_next_correctly()
 			assert_bool(names.has(application.applicant_name)).override_failure_message(application.applicant_name).is_false()

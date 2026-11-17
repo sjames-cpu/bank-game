@@ -14,6 +14,8 @@ var lo: LoanOfficerScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	lo = room.loan_officer_screen
 
 # --- helpers -------------------------------------------------------------------
@@ -49,9 +51,9 @@ func one_decision_each() -> void:
 		worker._elapsed = 1000.0
 	await frames(2)
 
+## A work slot running: the branch is open.
 func open_branch() -> void:
-	GameClock.minutes = 10 * 60.0
-	BusinessDay.stats_day = GameClock.day
+	open_work_slot()
 
 # --- staffed and deciding ------------------------------------------------------------
 
@@ -80,8 +82,8 @@ func test_three_loan_desks_are_staffed_and_decide() -> void:
 	var record: DecisionRecord = HistoryManager.records[-1]
 	assert_str(record.description).contains("(Loan Desk 3)")
 	assert_str(record.staff_name).is_equal("Sana Malik")
-	# Closed: no decisions.
-	GameClock.minutes = 18 * 60.0
+	# Closed (Closing): no decisions.
+	to_closing()
 	await one_decision_each()
 	for slot_name in SLOTS:
 		assert_int(staff_records(slot_name)).is_equal(1)
@@ -89,12 +91,12 @@ func test_three_loan_desks_are_staffed_and_decide() -> void:
 # --- the player's desk -----------------------------------------------------------------
 
 func test_clocking_in_at_loan_desk_1_swaps_its_officer_out_and_back() -> void:
-	open_branch()
 	XPManager.is_loan_officer_unlocked = true
 	room._on_loan_officer_desk_interacted()
 	lo.clock_in_button.pressed.emit()
 	assert_bool(lo.is_clocked_in()).is_true()
 	lo.close_button.pressed.emit()
+	open_branch()
 	# Loan Desk 1's officer stops and heads for the break room...
 	var npc_1: StaffNPC = room._staff_by_slot[ScheduleManager.SLOT_LOAN_DESK_1]
 	assert_bool(room.loan_desk_worker.active).is_false()
@@ -108,11 +110,12 @@ func test_clocking_in_at_loan_desk_1_swaps_its_officer_out_and_back() -> void:
 	assert_int(staff_records(ScheduleManager.SLOT_LOAN_DESK_1)).is_equal(0)
 	assert_int(staff_records(ScheduleManager.SLOT_LOAN_DESK_2)).is_equal(1)
 	assert_int(staff_records(ScheduleManager.SLOT_LOAN_DESK_3)).is_equal(1)
-	assert_str(room.describe_shift_status()).is_equal("On shift — Loan Desk 1 · 3 applications left")
+	assert_str(room.describe_shift_status()).is_equal("On shift — Loan Desk 1 · 1 application left")
 
-	# Clock-out: back to the desk, and deciding again once there.
+	# Clock-out at Closing: back to the desk, and deciding again once there
+	# (the next day, when the branch is open again).
+	to_closing()
 	room._on_loan_officer_desk_interacted()
-	lo.applications_reviewed = LoanOfficerScreen.APPLICATIONS_PER_SHIFT
 	lo.clock_out_button.pressed.emit()
 	assert_bool(lo.is_clocked_in()).is_false()
 	assert_bool(room.loan_desk_worker.active).is_true()
@@ -121,6 +124,8 @@ func test_clocking_in_at_loan_desk_1_swaps_its_officer_out_and_back() -> void:
 	if lo.visible:
 		lo.close_button.pressed.emit()
 	npc_1.place_at(room._desk_spot(ScheduleManager.SLOT_LOAN_DESK_1), StaffNPC.State.AT_DESK) # skip the walk
+	await go_to_next_day()
+	open_branch()
 	await one_decision_each()
 	assert_int(staff_records(ScheduleManager.SLOT_LOAN_DESK_1)).is_equal(1)
 

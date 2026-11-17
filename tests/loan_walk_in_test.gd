@@ -14,6 +14,8 @@ var window_before: Vector2i
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	window_before = get_tree().root.size
 	get_tree().root.size = Vector2i(1152, 648)
 	lo = room.loan_officer_screen
@@ -29,11 +31,13 @@ func frames(count: int) -> void:
 	for i in count:
 		await get_tree().process_frame
 
+## Clocked in at Loan Desk 1 (at Opening, or in a slot already running),
+## then into a work slot: the slot brings the player's application.
 func clock_in_at_loan_desk() -> void:
-	GameClock.minutes = 10 * 60.0
 	XPManager.is_loan_officer_unlocked = true
 	room._on_loan_officer_desk_interacted()
 	lo.clock_in_button.pressed.emit()
+	open_work_slot()
 
 func sample(applicant_name: String) -> LoanApplication:
 	for application in LoanApplicationsData.get_applications():
@@ -109,6 +113,12 @@ func test_an_applicant_walks_in_sits_down_and_leaves_after_the_decision() -> voi
 	assert_bool(LoanApplicantNPC.APPROVED_LINES.has(speech(applicant))).is_true()
 	review.close_button.pressed.emit()
 	lo.close_button.pressed.emit()
+	# The slot's one application is decided: the card comes up between slots
+	# (pausing the room), and Continue starts the next slot.
+	await frames(1)
+	assert_bool(slot_card().visible).is_true()
+	slot_card().continue_button.pressed.emit()
+	assert_str(DayFlow.current_slot().id).is_equal(DaySchedule.SLOT_11AM)
 	# Out the way out, through the entrance, and gone.
 	await frames(10)
 	assert_float(applicant.global_position.y).is_greater(LoanDeskSeat.SEATS[ScheduleManager.SLOT_LOAN_DESK_1].y)
@@ -117,7 +127,7 @@ func test_an_applicant_walks_in_sits_down_and_leaves_after_the_decision() -> voi
 	assert_bool(seat.is_empty()).is_true()
 	await frames(1)
 	assert_bool(is_instance_valid(applicant)).is_false()
-	# The next one comes in.
+	# The next slot's applicant comes in.
 	room._process(0.0)
 	assert_int(seat.phase).is_equal(LoanDeskSeat.Phase.WALKING_IN)
 	assert_object(seat.application).is_same(LoanDeskManager.player_queue[0])
@@ -156,7 +166,7 @@ func _decided(application: LoanApplication, decision: LoanApplication.DecisionTy
 	return application
 
 func test_clocking_in_sends_the_staff_desks_applicant_away() -> void:
-	GameClock.minutes = 10 * 60.0
+	open_work_slot()
 	var seat := room.player_loan_seat()
 	room.loan_desk_worker._process(100.0)
 	assert_int(seat.phase).is_equal(LoanDeskSeat.Phase.WALKING_IN)
@@ -176,7 +186,7 @@ func test_clocking_in_sends_the_staff_desks_applicant_away() -> void:
 ## Loan Desk 2's staff take walk-ins while the branch is open: in, seated,
 ## decided after their decision time, out with a reaction, then the next.
 func test_staff_desks_serve_walk_ins() -> void:
-	GameClock.minutes = 10 * 60.0
+	open_work_slot()
 	var worker := room.get_node("LoanDeskWorker2") as NpcLoanDeskWorker
 	var seat := worker.seat
 	assert_object(seat).is_same(room.loan_seats[ScheduleManager.SLOT_LOAN_DESK_2])
@@ -199,9 +209,9 @@ func test_staff_desks_serve_walk_ins() -> void:
 	worker._process(NpcLoanDeskWorker.ARRIVAL_GAP_RANGE[1] + 0.1)
 	assert_int(seat.phase).is_equal(LoanDeskSeat.Phase.WALKING_IN)
 	assert_object(seat.application).is_not_same(application)
-	# After 5 PM nobody new comes in, but whoever is seated is still decided.
+	# From Closing nobody new comes in, but whoever is seated is still decided.
 	seat.applicant.finish_route()
-	GameClock.minutes = 17 * 60.0 + 5.0
+	to_closing()
 	worker._process(100.0)
 	assert_int(decided.size()).is_equal(2)
 	seat.finish_leaving()
@@ -236,7 +246,7 @@ func test_seats_and_paths_never_overlap() -> void:
 					var closest := Geometry2D.get_closest_point_to_segment(other.seat_position(), route[i], route[i + 1])
 					assert_float(closest.distance_to(other.seat_position())).override_failure_message("%s's route passes %s's seat" % [seat.slot_name, other.slot_name]).is_greater(20.0)
 	# A second arrival waits for the seat.
-	GameClock.minutes = 10 * 60.0
+	open_work_slot()
 	var worker := room.get_node("LoanDeskWorker3") as NpcLoanDeskWorker
 	worker._process(0.1)
 	var first := worker.seat.application
@@ -254,13 +264,21 @@ func test_seats_and_paths_never_overlap() -> void:
 	other._process(10.0)
 	assert_int(other.seat.phase).is_equal(LoanDeskSeat.Phase.WALKING_IN)
 
-func test_going_home_clears_every_seat() -> void:
-	GameClock.minutes = 10 * 60.0
+## Going home early from the card: the rest of the day is skipped, nobody
+## new walks in, and the staff still decide whoever is seated, so every
+## seat empties.
+func test_going_home_lets_every_seat_empty() -> void:
+	open_work_slot()
 	for worker in room.loan_desk_workers:
 		worker._process(0.1)
 		assert_bool(worker.seat.is_empty()).is_false()
 		worker.seat.seat_now()
-	room._on_go_home_confirmed()
+	to_closing()
+	assert_bool(BusinessDay.is_open()).is_false()
+	for worker in room.loan_desk_workers:
+		worker._process(1000.0)
+		worker.seat.finish_leaving()
+		worker._process(1000.0)
 	for seat: LoanDeskSeat in room.loan_seats.values():
 		assert_bool(seat.is_empty()).is_true()
 

@@ -419,7 +419,9 @@ func is_lobby_empty() -> bool:
 func _check_end_of_day() -> void:
 	if end_of_day_screen.visible or get_tree().paused:
 		return
-	if BusinessDay.is_day_over() and not is_player_on_shift() and is_lobby_empty():
+	# The cover teller (Loan Desk days) finishes and leaves the window first,
+	# so the summary never freezes her there.
+	if BusinessDay.is_day_over() and not is_player_on_shift() and is_lobby_empty() and not is_window_covered():
 		show_end_of_day()
 
 ## The End of Day summary, saved as it appears. On a review day the Regional
