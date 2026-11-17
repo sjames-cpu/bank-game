@@ -1,4 +1,4 @@
-extends Node
+extends SlotStatusProvider
 class_name LoanSlotAdapter
 
 ## The Loan Officer role's part of the time-slot day: the only place the
@@ -24,6 +24,12 @@ class_name LoanSlotAdapter
 ## application stays first in the pile, for the next slot).
 ## Opening, Closing and the clock-out refusal belong to the shift
 ## (ShiftSlotAdapter).
+##
+## Its status (SlotStatusProvider): "Application: 0 / 1" on the HUD while the
+## slot runs, and "Applications decided: 1" on the card after it.
+
+const STATUS_TEXT: String = "Application: %d / %d"
+const REPORT_TEXT: String = "Applications decided: %d"
 
 ## The Loan Desk's screen and Loan Desk 1's applicant seat (set by SlotWiring).
 var screen: LoanOfficerScreen
@@ -31,6 +37,10 @@ var seat: LoanDeskSeat
 
 ## Claimed the current work slot, and its work isn't done yet.
 var _claimed: bool = false
+## The last work slot this adapter claimed (for the card's report), and
+## the applications reviewed when it started.
+var _worked_slot: DaySlot = null
+var _reviewed_at_start: int = 0
 
 func _ready() -> void:
 	DayFlow.slot_started.connect(_on_slot_started)
@@ -63,6 +73,8 @@ func _on_slot_started(slot: DaySlot) -> void:
 		return
 	_claimed = DayFlow.claim_work(self)
 	if _claimed:
+		_worked_slot = slot
+		_reviewed_at_start = screen.applications_reviewed
 		screen.applications_per_shift = screen.applications_reviewed + applications_per_slot()
 
 ## Only a slot that was claimed and is now skipped has work to drop (going
@@ -82,3 +94,13 @@ func _process(_delta: float) -> void:
 		return
 	_claimed = false
 	DayFlow.finish_work(self)
+
+func status_text() -> String:
+	if not _claimed:
+		return ""
+	return STATUS_TEXT % [screen.applications_reviewed - _reviewed_at_start, applications_per_slot()]
+
+func slot_report(slot: DaySlot) -> PackedStringArray:
+	if slot != _worked_slot:
+		return PackedStringArray()
+	return PackedStringArray([REPORT_TEXT % (screen.applications_reviewed - _reviewed_at_start)])

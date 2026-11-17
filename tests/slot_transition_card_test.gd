@@ -64,7 +64,7 @@ func test_it_says_how_many_customers_were_served() -> void:
 	await frames(2)
 	assert_bool(card.visible).is_true()
 	assert_str(card.slot_label.text).is_equal("11 AM")
-	assert_str(card.done_label.text).is_equal("9 AM slot done — customers you served: 2")
+	assert_str(card.done_label.text).is_equal("9 AM slot done\nCustomers you served: 2")
 
 func test_it_waits_for_the_teller_screen_to_close() -> void:
 	await teller_day()

@@ -1,4 +1,4 @@
-extends Node
+extends SlotStatusProvider
 class_name ShiftSlotAdapter
 
 ## The shift's part of the time-slot day, for every role (decisions 5 and
@@ -17,6 +17,11 @@ class_name ShiftSlotAdapter
 ##
 ## The work slots in between belong to each role's own adapter
 ## (TellerSlotAdapter, LoanSlotAdapter, ManagerSlotAdapter).
+
+## Its status (SlotStatusProvider): the HUD's line at Opening and Closing.
+const OPENING_STATUS_TEXT: String = "Clock in at your desk to start the day"
+const CLOSING_STATUS_TEXT: String = "Clock out to end the day"
+const CLOSED_STATUS_TEXT: String = "End of Day once the branch is empty"
 
 ## The clock-out refusal, completing "Can't clock out yet — %s.".
 const CLOCK_OUT_REFUSED_TEXT: String = "your shift runs until Closing (5 PM)"
@@ -75,3 +80,13 @@ func _on_clocked_out(_role: PlayerShift.Role) -> void:
 	if _claimed_closing:
 		_claimed_closing = false
 		DayFlow.finish_work(self)
+
+func status_text() -> String:
+	var slot := DayFlow.current_slot()
+	if slot == null:
+		return ""
+	if slot.id == DaySchedule.OPENING and not PlayerShift.is_on_shift():
+		return OPENING_STATUS_TEXT
+	if slot.id == DaySchedule.CLOSING:
+		return CLOSING_STATUS_TEXT if PlayerShift.is_on_shift() else CLOSED_STATUS_TEXT
+	return ""

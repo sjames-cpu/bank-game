@@ -1,4 +1,4 @@
-extends Node
+extends SlotStatusProvider
 class_name ManagerSlotAdapter
 
 ## The Branch Manager role's part of the time-slot day: the only place the
@@ -18,6 +18,14 @@ class_name ManagerSlotAdapter
 ## lost it (an unfair staff report, a truck mistake, ...).
 ## Opening, Closing and the clock-out refusal belong to the shift
 ## (ShiftSlotAdapter).
+##
+## Its status (SlotStatusProvider): what "End this slot" is waiting for on the
+## HUD, and the clean-slot reward (or why there wasn't one) on the card.
+
+const STATUS_TEXT: String = "Press End this slot when you're ready"
+const HELD_STATUS_TEXT: String = "Waiting for the armored truck"
+const CLEAN_REPORT_TEXT: String = "+%d Reputation: a clean slot"
+const NOT_CLEAN_REPORT_TEXT: String = "No clean-slot bonus: Reputation dropped this slot"
 
 ## A clean slot was rewarded.
 signal clean_slot_rewarded(slot: DaySlot)
@@ -31,6 +39,9 @@ var _claimed: bool = false
 var _tracking: DaySlot = null
 var _lost_reputation: bool = false
 var _last_reputation: int = 0
+## The last work slot that ended for this manager, and whether it was clean.
+var _ended_slot: DaySlot = null
+var _ended_clean: bool = false
 
 func _ready() -> void:
 	DayFlow.slot_started.connect(_on_slot_started)
@@ -89,6 +100,8 @@ func _on_slot_ended(slot: DaySlot) -> void:
 		return
 	_tracking = null
 	_claimed = false
+	_ended_slot = slot
+	_ended_clean = not _lost_reputation
 	if not _lost_reputation:
 		ReputationManager.add_reputation(DaySchedule.CLEAN_SLOT_REPUTATION)
 		clean_slot_rewarded.emit(slot)
@@ -102,3 +115,15 @@ func _on_reputation_changed(new_reputation: int) -> void:
 	if _tracking != null and new_reputation < _last_reputation:
 		_lost_reputation = true
 	_last_reputation = new_reputation
+
+func status_text() -> String:
+	if not in_work_slot():
+		return ""
+	return STATUS_TEXT if can_end_slot() else HELD_STATUS_TEXT
+
+func slot_report(slot: DaySlot) -> PackedStringArray:
+	if slot != _ended_slot:
+		return PackedStringArray()
+	if _ended_clean:
+		return PackedStringArray([CLEAN_REPORT_TEXT % DaySchedule.CLEAN_SLOT_REPUTATION])
+	return PackedStringArray([NOT_CLEAN_REPORT_TEXT])

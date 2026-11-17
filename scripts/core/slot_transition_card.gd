@@ -2,8 +2,10 @@ extends CanvasLayer
 class_name SlotTransitionCard
 
 ## The card between two time slots (DayFlow.between_slots, slots on only):
-## the next slot, big ("11 AM"), how many customers the player served in
-## the slot just finished, a note once the 2 PM cutoff has passed, and
+## the next slot, big ("11 AM"), what happened in the slot just finished
+## ("9 AM slot done", then each slot piece's own lines through SlotStatus:
+## "Customers you served: 2", "+1 Reputation: a clean slot"), a note once
+## the 2 PM cutoff has passed, and
 ## "Continue" (DayFlow.continue_day()) or "Go home early"
 ## (DayFlow.go_home_early(), after a confirmation, and only while DayFlow
 ## allows it: between slots with a work slot ahead, so never before
@@ -15,10 +17,9 @@ class_name SlotTransitionCard
 ## screen closes first. If the day moves on without it (a slot starts, or
 ## the day ends), it closes itself.
 ##
-## Shared by every role; it knows only DayFlow and BusinessDay's count of
-## customers the player served.
+## Shared by every role; it knows only DayFlow and SlotStatus, never a role.
 
-const DONE_TEXT: String = "%s slot done — customers you served: %d"
+const DONE_TEXT: String = "%s slot done"
 const SHIFT_STARTED_TEXT: String = "Your shift has started."
 const CUTOFF_TEXT: String = "The 2 PM cutoff has passed: transactions from now on post on the next business day."
 const CLOSING_TEXT: String = "The branch closes. Do your closing count, then head home."
@@ -39,8 +40,6 @@ const CONFIRM_TEXT: String = "Go home early?\n\nThe rest of today's slots are sk
 var _pending: bool = false
 var _ended: DaySlot
 var _next: DaySlot
-## BusinessDay.customers_served_by_player when the current slot started.
-var _served_at_slot_start: int = 0
 
 func _ready() -> void:
 	visible = false
@@ -69,7 +68,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _on_slot_started(_slot: DaySlot) -> void:
-	_served_at_slot_start = BusinessDay.customers_served_by_player
 	_on_day_moved_on()
 
 func _on_between_slots(ended: DaySlot, next: DaySlot) -> void:
@@ -93,12 +91,15 @@ func _show() -> void:
 	get_tree().paused = true
 	_show_card_panel()
 
-## About the slot just finished: "9 AM slot done — customers you served: 2".
+## About the slot just finished: "9 AM slot done", then each slot piece's
+## lines ("Customers you served: 2").
 func done_text() -> String:
 	if _ended == null:
 		return ""
 	if _ended.is_work:
-		return DONE_TEXT % [_ended.label, BusinessDay.customers_served_by_player - _served_at_slot_start]
+		var lines := PackedStringArray([DONE_TEXT % _ended.label])
+		lines.append_array(SlotStatus.slot_report(get_tree(), _ended))
+		return "\n".join(lines)
 	if _ended.id == DaySchedule.OPENING:
 		return SHIFT_STARTED_TEXT
 	return ""

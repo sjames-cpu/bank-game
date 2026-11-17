@@ -74,7 +74,7 @@ func test_a_full_teller_day() -> void:
 	for id: StringName in [DaySchedule.SLOT_9AM, DaySchedule.SLOT_11AM, DaySchedule.SLOT_1PM, DaySchedule.SLOT_3PM]:
 		await work_the_slot(id)
 		assert_bool(card.visible).override_failure_message("no card after %s" % id).is_true()
-		assert_str(card.done_label.text).is_equal("%s slot done — customers you served: 2" % DayFlow.current_slot().label)
+		assert_str(card.done_label.text).is_equal("%s slot done\nCustomers you served: 2" % DayFlow.current_slot().label)
 		press_continue()
 	await close_the_day()
 
