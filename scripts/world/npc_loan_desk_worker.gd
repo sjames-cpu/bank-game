@@ -50,6 +50,11 @@ var seat: LoanDeskSeat = null
 ## every check right).
 var staff_doc_slips: bool = true
 
+## Time slots (StaffSlotPacer, decision 2): at most slot_cap applicants per
+## work slot, counted from begin_slot(). -1, with slots off: no cap.
+var slot_cap: int = -1
+var _arrivals_this_slot: int = 0
+
 var _elapsed: float = 0.0
 var _gap: float = 0.0
 ## Paces arrivals (presentation only); never the global generator.
@@ -62,22 +67,24 @@ func _process(delta: float) -> void:
 	if not active or not is_instance_valid(staff_npc) or staff_npc.state != StaffNPC.State.AT_DESK:
 		return
 	if seat == null:
-		if not BusinessDay.is_open():
+		if not BusinessDay.is_open() or arrivals_left_this_slot() == 0:
 			return
 		_elapsed += delta
 		if _elapsed >= staff_npc.staff.loan_decision_seconds():
 			_elapsed = 0.0
+			_arrivals_this_slot += 1
 			decide_next()
 		return
 	match seat.phase:
 		LoanDeskSeat.Phase.EMPTY:
 			# New applicants only while the branch is open.
-			if not BusinessDay.is_open():
+			if not BusinessDay.is_open() or arrivals_left_this_slot() == 0:
 				return
 			_gap -= delta
 			if _gap <= 0.0 and LoanDeskSeat.entrance_clear():
 				_elapsed = 0.0
-				seat.arrive(LoanDeskManager.next_staff_application())
+				if seat.arrive(LoanDeskManager.next_staff_application()):
+					_arrivals_this_slot += 1
 		LoanDeskSeat.Phase.SEATED:
 			_elapsed += delta
 			if _elapsed >= staff_npc.staff.loan_decision_seconds():
@@ -85,6 +92,16 @@ func _process(delta: float) -> void:
 				decide_next(application)
 				seat.send_off_after_decision(application)
 				_gap = pace_rng.randf_range(ARRIVAL_GAP_RANGE[0], ARRIVAL_GAP_RANGE[1])
+
+func begin_slot(cap: int) -> void:
+	slot_cap = cap
+	_arrivals_this_slot = 0
+
+## Applicants this work slot may still bring (-1: no cap).
+func arrivals_left_this_slot() -> int:
+	if slot_cap < 0:
+		return -1
+	return maxi(0, slot_cap - _arrivals_this_slot)
 
 ## The desk is changing hands (the player clocking in at Loan Desk 1): anyone
 ## at it or on their way leaves.

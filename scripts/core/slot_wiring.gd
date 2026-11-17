@@ -8,6 +8,7 @@ class_name SlotWiring
 ## - LoanSlotAdapter: the Loan Officer's work slots.
 ## - ManagerSlotAdapter: the Branch Manager's work slots and their
 ##   "End this slot" bar.
+## - StaffSlotPacer: staff work per slot.
 
 static func install(room: TellerRoom) -> void:
 	var loan := LoanSlotAdapter.new()
@@ -18,3 +19,8 @@ static func install(room: TellerRoom) -> void:
 	var manager := ManagerSlotAdapter.new()
 	manager.name = "ManagerSlotAdapter"
 	room.add_child(manager)
+	var staff := StaffSlotPacer.new()
+	staff.name = "StaffSlotPacer"
+	staff.lines = [room.window1_npc_line, room.window2_line, room.window3_line]
+	staff.workers = room.loan_desk_workers.duplicate()
+	room.add_child(staff)
