@@ -16,6 +16,8 @@ var letters: DisciplineLetterScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	letters = room.get_node("UI/DisciplineLetterScreen")
 
 # --- helpers -------------------------------------------------------------------
@@ -513,6 +515,8 @@ func test_scripts_keep_every_slot_to_their_own_files() -> void:
 
 # --- when the room saves -------------------------------------------------------------
 
+## A teller's day is saved at its End of Day, which follows the clock-out
+## at Closing (the clock-out itself saves nothing: SlotSavePolicy).
 func test_teller_clock_out_saves() -> void:
 	clock_in()
 	assert_bool(SaveGame.exists()).is_false()
@@ -520,6 +524,9 @@ func test_teller_clock_out_saves() -> void:
 	for i in CustomerQueue.CUSTOMERS_PER_SHIFT_CAP - 1:
 		abandon(spawn())
 	assert_bool(clock_out()).is_true()
+	assert_bool(SaveGame.exists()).is_false()
+	close_desk()
+	await run_end_of_day()
 	assert_bool(SaveGame.exists()).is_true()
 	var saved := SaveGame.read()
 	assert_int(SaveGame.int_of(SaveGame.dict_of(saved.career, "score"), "total_score", -999)).is_equal(ScoreManager.total_score)
@@ -529,10 +536,15 @@ func test_loan_desk_clock_out_saves() -> void:
 	var lo := room.loan_officer_screen
 	room._on_loan_officer_desk_interacted()
 	lo.clock_in_button.pressed.emit()
+	lo.hide_screen()
 	assert_bool(SaveGame.exists()).is_false()
-	lo.applications_reviewed = LoanOfficerScreen.APPLICATIONS_PER_SHIFT
+	to_closing()
+	room._on_loan_officer_desk_interacted()
 	lo.clock_out_button.pressed.emit()
 	assert_bool(lo.is_clocked_in()).is_false()
+	assert_bool(SaveGame.exists()).is_false()
+	lo.hide_screen()
+	await run_end_of_day()
 	assert_bool(SaveGame.exists()).is_true()
 
 func test_promotion_orientation_and_branch_manager_clock_out_save() -> void:
@@ -550,10 +562,13 @@ func test_promotion_orientation_and_branch_manager_clock_out_save() -> void:
 	acknowledge_letters()
 
 	SaveGame.delete()
+	to_closing()
 	reconcile_vault()
-	assert_bool(SaveGame.exists()).is_false() # nothing saved mid-shift
+	assert_bool(SaveGame.exists()).is_false() # nothing saved mid-day
 	bm.clock_out_button.pressed.emit()
 	assert_bool(bm.is_clocked_in()).is_false()
+	bm.hide_screen()
+	await run_end_of_day()
 	assert_bool(SaveGame.exists()).is_true()
 
 ## Replaces the room with the interview and ends it with `score` points.
@@ -691,12 +706,14 @@ func test_empty_slots_show_new_game() -> void:
 func test_a_filled_slot_shows_its_role_date_and_last_played() -> void:
 	XPManager.is_loan_officer_unlocked = true
 	GameClock.day = 3
+	BusinessDay.stats_day = 3
 	GameClock.minutes = 642.0 # 10:42 AM
 	save_in_slot(2)
 	var screen: StartScreen = await open_slots()
 	var text := screen.slot_buttons[1].text
 	assert_str(text).starts_with("Slot 2 — Loan Officer\n")
-	assert_str(text).contains("Day 3 · Wednesday 7 January 2026 · 10:42 AM")
+	# A day saved before it ended picks up at its start.
+	assert_str(text).contains("Day 3 · Wednesday 7 January 2026 · Start of day")
 	assert_str(text).contains("\nLast played ")
 	assert_str(StartScreen.last_played_text("2026-10-21T14:05:33")).is_equal("2026-10-21 14:05")
 	# The other slots are still empty.

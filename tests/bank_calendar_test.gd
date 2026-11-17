@@ -12,6 +12,8 @@ var eod: EndOfDayScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	eod = room.end_of_day_screen
 
 # --- helpers -------------------------------------------------------------------
@@ -28,11 +30,14 @@ func frames(count: int) -> void:
 func date(year: int, month: int, day: int) -> int:
 	return BankCalendar.epoch_day(year, month, day)
 
-## Off shift on `day`: go home, and the End of Day summary is up.
+## Nobody working `day`: Opening skipped, home from the card, and the End
+## of Day summary is up.
 func end_day(day: int) -> void:
-	set_clock(day, 12, 0)
-	room._on_exit_door_interacted()
-	eod.go_home_button.pressed.emit()
+	GameClock.day = day
+	BusinessDay.stats_day = day
+	if DayFlow.current_slot().id == DaySchedule.OPENING and not DayFlow.is_between_slots():
+		DayFlow.skip_slot()
+	DayFlow.go_home_early()
 	await frames(2)
 	assert_bool(eod.is_summary_shown()).is_true()
 
@@ -43,7 +48,7 @@ func test_day_1_is_monday_5_january_2026() -> void:
 	assert_int(GameClock.today_date()).is_equal(date(2026, 1, 5))
 	assert_str(GameClock.hud_text()).is_equal("Mon, Day 1 · 8:30 AM")
 	room.hud.refresh()
-	assert_str(room.hud.clock_label.text).is_equal("Mon, Day 1 · 8:30 AM")
+	assert_str(room.hud.clock_label.text).is_equal("Mon, Day 1 · Opening")
 	assert_str(GameClock.timestamp()).is_equal("Day 1, Mon 5 Jan, 8:30 AM")
 	# Records carry the date.
 	var record := HistoryManager.add_record(DecisionRecord.Role.TELLER, "test")
@@ -175,8 +180,10 @@ func test_observed_holiday_dates() -> void:
 # --- the cutoff ---------------------------------------------------------------------
 
 func test_transactions_after_2_pm_post_on_the_next_business_day() -> void:
-	set_clock(5, 13, 50) # Friday
+	set_clock(5, 8, 30) # Friday
 	clock_in()
+	# The 1 PM slot is before the cutoff.
+	skip_to_slot(DaySchedule.SLOT_1PM)
 	var before_cutoff := spawn(ShiftTransaction.Type.DEPOSIT, 200.0)
 	open_desk()
 	assert_bool(ts.cutoff_label.visible).is_false()
@@ -184,7 +191,8 @@ func test_transactions_after_2_pm_post_on_the_next_business_day() -> void:
 	serve_correctly(before_cutoff)
 	assert_int(ts.shift_transactions[-1].posting_day).is_equal(5)
 
-	GameClock.minutes = 14.0 * 60.0 + 10.0
+	# The 3 PM slot is the first after it.
+	skip_to_slot(DaySchedule.FIRST_SLOT_AFTER_CUTOFF)
 	var after_cutoff := spawn(ShiftTransaction.Type.WITHDRAWAL, 50.0)
 	var balance_before := after_cutoff.account.balance_cents
 	var customer_name := after_cutoff.display_name
@@ -195,22 +203,21 @@ func test_transactions_after_2_pm_post_on_the_next_business_day() -> void:
 	serve_correctly(after_cutoff)
 	var transaction: ShiftTransaction = ts.shift_transactions[-1]
 	assert_int(transaction.posting_day).is_equal(6)
-	assert_str(transaction.timestamp).is_equal("Day 5, Fri 9 Jan, 2:10 PM")
+	assert_str(transaction.timestamp).is_equal("Day 5, Fri 9 Jan, 3:00 PM")
 	# The balance and the drawer move at once, as before.
 	assert_int(after_cutoff.account.balance_cents).is_equal(balance_before - 5000)
 	assert_int(ts._calculate_expected_ending_cents()).is_equal(TellerScreen.STARTING_FLOAT_CENTS + 20000 - 5000)
 
-	# Clock out after the doors close (the shift's other two customers never
-	# come), listing the shift's after-cutoff transaction for today.
-	GameClock.minutes = 17.0 * 60.0 + 5.0
+	# Clock out at Closing, listing the shift's after-cutoff transaction for
+	# today.
 	assert_bool(clock_out()).is_true()
 	assert_int(BusinessDay.after_cutoff.size()).is_equal(1)
-	assert_dict(BusinessDay.after_cutoff[0]).is_equal({"time": "2:10 PM", "type": "Withdrawal", "amount_cents": 5000, "account": customer_name, "posting_day": 6})
+	assert_dict(BusinessDay.after_cutoff[0]).is_equal({"time": "3:00 PM", "type": "Withdrawal", "amount_cents": 5000, "account": customer_name, "posting_day": 6})
 	ts.shift_summary_done_button.pressed.emit()
 	close_desk()
 	await everyone_leaves()
 	assert_bool(eod.is_summary_shown()).is_true()
-	assert_str(eod.summary_label.text).contains("After the 2:00 PM cutoff, posting Mon 12 Jan: 1\n2:10 PM Withdrawal $50.00 — %s" % customer_name)
+	assert_str(eod.summary_label.text).contains("After the 2:00 PM cutoff, posting Mon 12 Jan: 1\n3:00 PM Withdrawal $50.00 — %s" % customer_name)
 	# The next day starts with none.
 	eod.next_day_button.pressed.emit()
 	eod.next_day_button.pressed.emit()

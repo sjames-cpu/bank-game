@@ -58,7 +58,8 @@ func _process(delta: float) -> void:
 		_fade_to = target
 		_fade_elapsed = 0.0
 	_fade_elapsed = minf(_fade_elapsed + delta, SLOT_FADE_SECONDS)
-	color = _fade_from.lerp(_fade_to, _fade_elapsed / SLOT_FADE_SECONDS)
+	# Exactly the new colour once the fade is over.
+	color = _fade_to if _fade_elapsed >= SLOT_FADE_SECONDS else _fade_from.lerp(_fade_to, _fade_elapsed / SLOT_FADE_SECONDS)
 
 ## The tint at `game_minutes` since midnight.
 static func colour_at(game_minutes: float) -> Color:

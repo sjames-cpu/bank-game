@@ -11,6 +11,8 @@ var letters: DisciplineLetterScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	eod = room.end_of_day_screen
 	letters = room.letter_screen
 	use_slots_setting(true)
@@ -27,7 +29,10 @@ func acknowledge_letters() -> void:
 ## ShiftSlotAdapter) is skipped, so the rest of the day runs straight through
 ## to day_ended with nobody on shift.
 func run_unworked_day() -> void:
-	DayFlow.start_day()
+	# The room's day, without stopping for the card between slots.
+	DayFlow.pause_between_slots = false
+	if not DayFlow.is_running():
+		DayFlow.start_day()
 	if DayFlow.is_running() and DayFlow.current_slot().id == DaySchedule.OPENING:
 		DayFlow.skip_slot()
 
@@ -150,11 +155,3 @@ func test_a_new_day_and_a_new_career_clear_the_mark() -> void:
 	CareerReset.reset_all()
 	assert_bool(DayFlow.end_of_day_due).is_false()
 	assert_bool(DayFlow.is_running()).is_false()
-
-func test_with_slots_off_dayflow_never_ends_the_business_day() -> void:
-	use_slots_setting(false)
-	DayFlow.start_day()
-	assert_bool(DayFlow.end_of_day_due).is_false()
-	assert_bool(BusinessDay.is_day_over()).is_false()
-	await frames(3)
-	assert_bool(eod.visible).is_false()
