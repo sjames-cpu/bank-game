@@ -12,6 +12,8 @@ var bm: BranchManagerScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	letters = room.get_node("UI/DisciplineLetterScreen")
 	bm = room.branch_manager_screen
 
@@ -221,6 +223,7 @@ func _bm_clock_in() -> void:
 	acknowledge_letters() # first-shift orientation
 
 func _bm_clock_out() -> void:
+	to_closing()
 	reconcile_vault()
 	bm.clock_out_button.pressed.emit()
 

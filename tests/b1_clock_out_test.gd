@@ -4,6 +4,12 @@ extends "res://tests/support/teller_room_suite.gd"
 ## customer, no "Serving: X" label, and the teller's selected account back
 ## on a non-customer account.
 
+func before_test() -> void:
+	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
+
+
 func test_clock_out_clears_served_customer_and_resets_account() -> void:
 	clock_in()
 	var last: CustomerNPC

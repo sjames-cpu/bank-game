@@ -26,6 +26,7 @@ var ts: TellerScreen
 var cq: CustomerQueue
 
 func before_test() -> void:
+	_holding_branch = false
 	seed(RNG_SEED)
 	# Each career's loan applicants come from a seed of its own (LoanDeskManager).
 	LoanDeskManager.seed_source.seed = RNG_SEED
@@ -159,6 +160,88 @@ func slot_card() -> SlotTransitionCard:
 func teller_slots() -> TellerSlotAdapter:
 	return room.get_node("TellerSlotAdapter")
 
+## A test's own hold on the current work slot (open_work_slot()), so it stays
+## open with nobody's work in it; released by to_closing().
+const TEST_HOLD: StringName = &"test keeps the branch open"
+
+## Time slots: a work slot running, so the branch is open (customers arrive
+## at the staff windows, staff loan desks take applicants), as at 9 AM. With
+## nobody clocked in, Opening is skipped and the test holds the slot open
+## (TEST_HOLD); a teller clocked in has the slot's batch (their line's
+## timer stopped: tests bring their own customers). Does nothing with slots
+## off.
+func open_work_slot() -> void:
+	if not DayFlow.slots_enabled:
+		return
+	if not DayFlow.is_running():
+		room.start_slots_day()
+	if DayFlow.current_slot().id == DaySchedule.OPENING and not DayFlow.is_between_slots():
+		DayFlow.skip_slot()
+	if DayFlow.is_between_slots():
+		if not _holding_branch:
+			_holding_branch = DayFlow.hold(TEST_HOLD)
+		DayFlow.continue_day()
+	cq.spawn_timer.stop()
+
+var _holding_branch: bool = false
+
+## Time slots: the day moved on to Closing, as a player done with their work
+## would: a work slot running is skipped (customers still waiting in the
+## player's line leave), the rest gone home from on the card. Customers
+## brought in before 9 AM stay in the line. Does nothing with slots off, or
+## at Opening (it waits for the clock-in).
+func to_closing() -> void:
+	if not DayFlow.slots_enabled:
+		return
+	if _holding_branch:
+		_holding_branch = false
+		DayFlow.release(TEST_HOLD)
+	for step in DaySchedule.count() * 2:
+		if not DayFlow.is_running():
+			return
+		var slot := DayFlow.current_slot()
+		if DayFlow.is_between_slots():
+			if not DayFlow.go_home_early():
+				DayFlow.continue_day()
+		elif slot.id == DaySchedule.CLOSING or slot.id == DaySchedule.OPENING:
+			return
+		else:
+			DayFlow.skip_slot()
+			if not DayFlow.is_between_slots():
+				return # held by an event: the test's assertions say so
+
+## Time slots: after the clock-out, the lobby emptied (everyone still walking
+## out leaves), any letters acknowledged, and the End of Day summary up.
+func run_end_of_day() -> void:
+	for line: CustomerQueue in [cq, room.window1_npc_line, room.window2_line, room.window3_line]:
+		line.clear_lobby()
+	for i in 4:
+		await get_tree().process_frame
+		while room.letter_screen.visible and room.letter_screen.action_button.text == "Acknowledge":
+			room.letter_screen.action_button.pressed.emit()
+	assert_bool(room.end_of_day_screen.is_summary_shown()).override_failure_message("no End of Day summary").is_true()
+
+## Time slots: End of Day (run_end_of_day()), then "Start Day N+1" (through any
+## weekend or holiday notice): the next day at Opening.
+func go_to_next_day() -> void:
+	await run_end_of_day()
+	var eod := room.end_of_day_screen
+	eod.next_day_button.pressed.emit()
+	if eod.is_closure_shown():
+		eod.next_day_button.pressed.emit()
+
+## Time slots: the day moved on to slot `id`, skipping any work slot on the
+## way (as the debug key does), the player's line timer stopped once there.
+func skip_to_slot(id: StringName) -> void:
+	for step in DaySchedule.count() * 2:
+		if not DayFlow.is_running() or (DayFlow.current_slot().id == id and not DayFlow.is_between_slots()):
+			break
+		if DayFlow.is_between_slots():
+			DayFlow.continue_day()
+		else:
+			DayFlow.skip_slot()
+	cq.spawn_timer.stop()
+
 ## Between slots, Continue until `id` has started (or the day has ended).
 func continue_to_slot(id: StringName) -> void:
 	while DayFlow.is_running() and (DayFlow.is_between_slots() or DayFlow.current_slot().id != id):
@@ -257,7 +340,10 @@ func reconcile_vault() -> void:
 
 ## Presses Clock Out and, if the gate lets it through, counts the drawer.
 ## Returns false (and leaves the shift running) when clock-out was blocked.
+## With time slots, the day goes to Closing first (to_closing()), where the
+## shift ends.
 func clock_out(minor: bool = false) -> bool:
+	to_closing()
 	open_desk()
 	ts.clock_out_button.pressed.emit()
 	if not ts.drawer_count_screen.visible:

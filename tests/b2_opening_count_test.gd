@@ -6,6 +6,12 @@ extends "res://tests/support/teller_room_suite.gd"
 ## and logs the variance. The drawer always starts at the assigned float and
 ## the opening count never earns Score or XP.
 
+func before_test() -> void:
+	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
+
+
 const FLOAT := TellerScreen.STARTING_FLOAT_CENTS
 ## $1,000 short — well past DrawerCountScreen.MINOR_DISCREPANCY_THRESHOLD_CENTS.
 const MAJOR_TOTAL := FLOAT - 100000
@@ -168,6 +174,8 @@ func test_next_shift_opens_fresh_and_summary_fits() -> void:
 	assert_int(ts.shift_opening_count_label.get_line_count()).is_equal(1)
 	assert_float(ts.shift_opening_count_label.size.y).is_less_equal(one_line + 1.0)
 	close_desk()
+	# A shift is the whole day: the next one is tomorrow's.
+	await go_to_next_day()
 
 	opening_count(MAJOR_TOTAL)
 	opening_count(MAJOR_TOTAL)
@@ -177,8 +185,32 @@ func test_next_shift_opens_fresh_and_summary_fits() -> void:
 	assert_float(await settled_height(ts.shift_summary_panel)).is_less_equal(648.0)
 	assert_float(ts.shift_opening_count_label.size.y).is_less_equal(one_line + 1.0)
 	close_desk()
+	await go_to_next_day()
 
 	opening_count(FLOAT)
 	assert_bool(is_clocked_in()).is_true()
 	cq.spawn_timer.stop()
 	assert_str(finish_shift_summary()).is_equal("Opening count: Perfect")
+
+## The old "a failed opening count lets a shift start after closing": a
+## recount isn't refused for the hour (teller_screen.gd), but with time slots
+## a pending recount keeps the day at Opening, which only the start of the
+## shift ends, so the day can never reach Closing with a recount pending.
+func test_a_pending_recount_holds_the_day_at_opening() -> void:
+	opening_count(MAJOR_TOTAL)
+	assert_bool(ts.awaiting_opening_recount).is_true()
+	assert_bool(is_clocked_in()).is_false()
+	for i in 5:
+		await get_tree().process_frame
+	assert_str(DayFlow.current_slot().id).is_equal(DaySchedule.OPENING)
+	assert_bool(DayFlow.is_between_slots()).is_false()
+	# Nothing moves the day on: no card, no going home, no next slot.
+	assert_bool(DayFlow.can_go_home_early()).is_false()
+	assert_bool(DayFlow.go_home_early()).is_false()
+	assert_bool(DayFlow.continue_day()).is_false()
+	assert_bool(BusinessDay.doors_closed()).is_false()
+	# The recount starts the shift, and only then does Opening end.
+	opening_count(FLOAT)
+	assert_bool(is_clocked_in()).is_true()
+	assert_bool(DayFlow.is_between_slots()).is_true()
+	assert_str(DayFlow.next_slot().id).is_equal(DaySchedule.SLOT_9AM)

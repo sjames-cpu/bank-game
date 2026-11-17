@@ -9,6 +9,8 @@ var menu: PauseMenu
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	menu = room.pause_menu
 
 ## The same event Esc sends (headless runs don't deliver real key presses).
@@ -81,8 +83,8 @@ func test_back_to_main_menu_on_shift_asks_and_saves_nothing() -> void:
 	menu.main_menu_button.pressed.emit()
 	assert_bool(menu.confirm_panel.visible).is_true()
 	assert_bool(menu.menu_panel.visible).is_false()
-	assert_str(menu.confirm_label.text).is_equal(PauseMenu.ON_SHIFT_TEXT)
-	assert_str(menu.confirm_label.text).contains("loses everything since your last save")
+	assert_str(menu.confirm_label.text).is_equal(PauseMenu.MID_DAY_TEXT)
+	assert_str(menu.confirm_label.text).contains("restarts from Opening")
 	# Keep Playing goes back to the menu, still paused.
 	menu.cancel_button.pressed.emit()
 	assert_bool(menu.menu_panel.visible).is_true()

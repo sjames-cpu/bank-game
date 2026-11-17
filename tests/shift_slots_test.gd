@@ -123,7 +123,10 @@ func test_clocking_out_before_closing_is_refused() -> void:
 	start_slots_day()
 	clock_in()
 	DayFlow.continue_day() # 9 AM
-	assert_bool(clock_out()).is_false()
+	# Pressed now (clock_out() would go to Closing first).
+	open_desk()
+	ts.clock_out_button.pressed.emit()
+	assert_bool(ts.drawer_count_screen.visible).is_false()
 	assert_str(ts.error_label.text).is_equal("Can't clock out yet — your shift runs until Closing (5 PM).")
 	assert_int(ts.shift_state).is_equal(TellerScreen.ShiftState.CLOCKED_IN)
 	close_desk()

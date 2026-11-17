@@ -13,6 +13,12 @@ func _botch(customer: CustomerNPC) -> void:
 	complete()
 	close_desk()
 
+func before_test() -> void:
+	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
+
+
 func test_report_at_two_mistaken_customers() -> void:
 	clock_in()
 	_botch(spawn(ShiftTransaction.Type.DEPOSIT, 100.0))
@@ -45,8 +51,9 @@ func _get_fired(letters: DisciplineLetterScreen) -> void:
 	assert_bool(ReportManager.is_terminated).is_false()
 	assert_bool(clock_out()).is_true()
 	close_desk()
+	await go_to_next_day()
 
-	# Shift 2: the fifth and sixth mistakes -> third report -> fired.
+	# Shift 2 (the next day): the fifth and sixth mistakes -> third report -> fired.
 	clock_in()
 	_botch(spawn(ShiftTransaction.Type.DEPOSIT, 100.0))
 	assert_bool(ReportManager.is_terminated).is_false()
@@ -79,7 +86,7 @@ func _assert_career_wiped() -> void:
 func test_termination_with_the_interview_off_is_game_over() -> void:
 	use_interview_setting(false)
 	var letters: DisciplineLetterScreen = room.get_node("UI/DisciplineLetterScreen")
-	_get_fired(letters)
+	await _get_fired(letters)
 	assert_str(letters.action_button.text).is_equal(DisciplineLetterScreen.GAME_OVER_BUTTON_TEXT)
 	assert_str(letters.body_label.text).contains(DisciplineLetterScreen.GAME_OVER_TEXT)
 
@@ -100,7 +107,7 @@ func test_termination_with_the_interview_off_is_game_over() -> void:
 func test_termination_with_the_interview_on_applies_for_a_new_job() -> void:
 	use_interview_setting(true)
 	var letters: DisciplineLetterScreen = room.get_node("UI/DisciplineLetterScreen")
-	_get_fired(letters)
+	await _get_fired(letters)
 	assert_str(letters.action_button.text).is_equal(DisciplineLetterScreen.NEW_JOB_BUTTON_TEXT)
 	assert_str(letters.body_label.text).not_contains(DisciplineLetterScreen.GAME_OVER_TEXT)
 

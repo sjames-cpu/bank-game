@@ -11,6 +11,8 @@ var letters: DisciplineLetterScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	_bind_room()
 
 func _bind_room() -> void:
@@ -137,9 +139,11 @@ func test_hud_shift_status_for_loan_desk_and_branch_manager_office() -> void:
 	var loan: LoanOfficerScreen = room.loan_officer_screen
 	loan.show_screen()
 	loan.clock_in_button.pressed.emit()
-	await settle()
-	assert_str(hud.shift_label.text).is_equal("On shift — Loan Desk 1 · 3 applications left")
 	loan.hide_screen()
+	# The 9 AM slot brings its application.
+	open_work_slot()
+	await settle()
+	assert_str(hud.shift_label.text).is_equal("On shift — Loan Desk 1 · 1 application left")
 
 	promote()
 	var bm: BranchManagerScreen = room.branch_manager_screen
@@ -390,6 +394,7 @@ func test_prompt_at_the_player_teller_window_follows_the_shift() -> void:
 	assert_str(prompt()).is_equal("E — Clock in (Player Teller Window)")
 
 	clock_in()
+	open_work_slot()
 	await settle()
 	assert_str(prompt()).is_equal("E — Serve customers (Player Teller Window)")
 
@@ -399,6 +404,8 @@ func test_prompt_at_the_player_teller_window_follows_the_shift() -> void:
 	close_desk()
 
 	serve_whole_shift()
+	# The shift ends at Closing.
+	to_closing()
 	await settle()
 	assert_str(prompt()).is_equal("E — Clock out (Player Teller Window)")
 
@@ -415,6 +422,7 @@ func test_prompt_explains_the_locked_loan_desk() -> void:
 	assert_bool(room.loan_officer_screen.visible).is_true()
 	room.loan_officer_screen.clock_in_button.pressed.emit()
 	room.loan_officer_screen.hide_screen()
+	open_work_slot()
 	await settle()
 	assert_str(prompt()).is_equal("E — Review applications (Loan Desk 1)")
 
@@ -524,6 +532,8 @@ func test_first_clock_out_hint_shows_once() -> void:
 	assert_str(hud.hint_label.text).is_equal("Count the drawer to finish your shift.")
 	close_desk()
 	hud.hint_dismiss_button.pressed.emit()
+	# The next shift is the next day's.
+	await go_to_next_day()
 
 	clock_in()
 	serve_whole_shift()

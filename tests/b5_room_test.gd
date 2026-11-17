@@ -12,6 +12,8 @@ var player: CharacterBody2D
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	player = room.get_node("Player")
 	for i in 2:
 		await get_tree().physics_frame
@@ -260,6 +262,7 @@ func test_staff_draw_behind_their_counter_and_customers_in_front() -> void:
 ## through them to the counter spot (NPCs and the player never collide).
 func test_customer_walks_through_a_player_standing_in_the_lane() -> void:
 	clock_in()
+	open_work_slot()
 	player.global_position = cq.queue_positions[1].global_position
 	var customer := spawn()
 	Engine.time_scale = 4.0
@@ -289,6 +292,7 @@ func test_staff_break_walk_still_completes() -> void:
 	loan.show_screen()
 	loan.clock_in_button.pressed.emit()
 	loan.hide_screen()
+	open_work_slot()
 	Engine.time_scale = 4.0
 	for i in 900:
 		await get_tree().physics_frame
