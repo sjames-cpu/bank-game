@@ -910,7 +910,8 @@ func test_unreadable_saves_are_reported() -> void:
 		"{\"career\": {}}": SaveGame.Status.CORRUPT,
 		"{\"format_version\": \"1\", \"career\": {}}": SaveGame.Status.CORRUPT,
 		"{\"format_version\": 1, \"career\": []}": SaveGame.Status.CORRUPT,
-		"{\"format_version\": 2, \"career\": {}}": SaveGame.Status.WRONG_VERSION,
+		"{\"format_version\": 3, \"career\": {}}": SaveGame.Status.WRONG_VERSION,
+		"{\"format_version\": 2, \"career\": {}}": SaveGame.Status.OK,
 		"{\"format_version\": 0}": SaveGame.Status.WRONG_VERSION,
 		"{\"format_version\": 1, \"career\": {}}": SaveGame.Status.OK,
 	}

@@ -32,7 +32,11 @@ class_name SaveGame
 ## reads every value through the typed getters below, so a value of the
 ## wrong type falls back to its fresh-career default instead of erroring.
 
-const FORMAT_VERSION: int = 1
+## 2 added whether the save's day had ended ("day_flow", DayFlow). Saves back
+## to MIN_FORMAT_VERSION are still read: a version 1 save's day had ended if
+## its clock had reached closing time (day_ended_in()).
+const FORMAT_VERSION: int = 2
+const MIN_FORMAT_VERSION: int = 1
 
 ## How many save slots the slot screen offers.
 const SLOT_COUNT: int = 3
@@ -204,6 +208,7 @@ static func capture() -> Dictionary:
 		"clock": GameClock.save_data(),
 		"business_day": BusinessDay.save_data(),
 		"regional": RegionalManager.save_data(),
+		"day_flow": DayFlow.save_data(),
 	}
 
 ## Replaces the current career with `career` (from capture() or read()).
@@ -237,6 +242,10 @@ static func restore(career: Dictionary) -> void:
 	LoanBookManager.load_data(dict_of(career, "loan_book"))
 	# After XPManager and the business day: the review window is the manager's.
 	RegionalManager.load_data(dict_of(career, "regional"))
+	# Last: whether the day had ended, read against the loaded clock and day.
+	var day_flow := dict_of(career, "day_flow").duplicate()
+	day_flow["clock_minutes"] = GameClock.minutes
+	DayFlow.load_data(day_flow)
 
 ## Writes the current career to `path`. Refused once the player has been
 ## terminated (that career is over), and for the real save outside the real
@@ -290,7 +299,8 @@ static func read_file(file_path: String) -> ReadResult:
 	var version: Variant = root_dict.get("format_version")
 	if not (version is int or version is float):
 		return result
-	if int_value(version, -1) != FORMAT_VERSION:
+	var number := int_value(version, -1)
+	if number < MIN_FORMAT_VERSION or number > FORMAT_VERSION:
 		result.status = Status.WRONG_VERSION
 		return result
 	var career: Variant = root_dict.get("career")
@@ -349,6 +359,20 @@ static func float_of(data: Dictionary, key: String, default: float) -> float:
 		var number: float = value
 		return number
 	return default
+
+## Whether a saved career's day had ended, from its "day_flow" section
+## (with "clock_minutes", its clock, added by restore() and read_day_ended()).
+## A version 1 save has no flag: its day had ended if its clock had reached
+## closing time (5 PM: the End of Day summary, or going home, saved there).
+static func day_ended_in(day_flow: Dictionary) -> bool:
+	var clock_minutes := float_of(day_flow, "clock_minutes", 0.0)
+	return bool_of(day_flow, "day_ended", clock_minutes >= BusinessDay.CLOSE_MINUTES)
+
+## Whether `career` (as read from a save) had ended its day.
+static func read_day_ended(career: Dictionary) -> bool:
+	var day_flow := dict_of(career, "day_flow").duplicate()
+	day_flow["clock_minutes"] = float_of(dict_of(career, "clock"), "minutes", 0.0)
+	return day_ended_in(day_flow)
 
 static func bool_of(data: Dictionary, key: String, default: bool) -> bool:
 	var value: Variant = data.get(key)

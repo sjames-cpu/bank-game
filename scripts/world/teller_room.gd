@@ -318,17 +318,11 @@ func _ready() -> void:
 ## Time slots (slots on only): starts today at Opening, waiting between
 ## slots for the card. Never while a day is running or its End of Day is
 ## due, so a day never starts twice or straight from an End of Day: the
-## next one starts from "Start Day N+1" (_on_next_day_requested()).
-##
-## Stopgap until saves know about slots (Phase A, session 3): a career
-## saved at its End of Day has the clock at 5 PM, and its day has already
-## ended, so its End of Day comes back (DayFlow.resume_ended_day()) instead
-## of the day replaying from Opening.
+## next one starts from "Start Day N+1" (_on_next_day_requested()). A career
+## loaded from a save whose day had ended has its End of Day due already
+## (DayFlow.load_data()), so it comes back to that End of Day.
 func start_slots_day() -> void:
 	if not DayFlow.slots_enabled or DayFlow.is_running() or DayFlow.end_of_day_due:
-		return
-	if GameClock.minutes >= BusinessDay.CLOSE_MINUTES:
-		DayFlow.resume_ended_day()
 		return
 	DayFlow.pause_between_slots = true
 	DayFlow.start_day()
@@ -1243,7 +1237,9 @@ func _on_branch_manager_clocked_in() -> void:
 ## orientation letter. Never mid-shift state: the save holds only the
 ## autoloads' career data, and a loaded career starts off shift.
 func save_career() -> void:
-	SaveGame.save()
+	# Time slots: only at the end of a day or its start (SlotSavePolicy).
+	if SlotSavePolicy.may_save():
+		SaveGame.save()
 
 ## After promotion (never mid-shift — XPManager holds it until clock-out):
 ## the Player Teller Window becomes Teller Window 3, staffed (ScheduleManager

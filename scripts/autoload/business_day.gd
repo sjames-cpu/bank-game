@@ -211,6 +211,21 @@ func start_next_day() -> void:
 
 # --- save and load -----------------------------------------------------------------
 
+## Today starts over (time slots: a save made part-way through a day, before
+## the slot system, replays that day from Opening): the day-only counters
+## the End of Day summary shows start again, measured from the career as it
+## is now, so the replayed day isn't counted twice. Real money and
+## transactions stay: the staff windows' net cash (already in their
+## accounts, still due at the vault's close) and the teller's after-cutoff
+## transactions (still to post).
+func restart_day() -> void:
+	customers_served_by_player = 0
+	customers_served_by_staff = 0
+	shifts_completed = 0
+	score_at_start = ScoreManager.total_score
+	reputation_at_start = ReputationManager.reputation
+	xp_at_start = XPManager.total_xp
+
 func save_data() -> Dictionary:
 	return {
 		"stats_day": stats_day,

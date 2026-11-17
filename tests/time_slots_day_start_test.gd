@@ -3,7 +3,7 @@ extends "res://tests/support/teller_room_suite.gd"
 ## Starting the real day with time slots on (teller_room.start_slots_day()):
 ## when the room loads and at "Start Day N+1", never twice and never
 ## straight from an End of Day; a save made at End of Day shows that End of
-## Day again (a stopgap); the doormat sends going home to the card; and a
+## Day again (its day_ended flag); the doormat sends going home to the card; and a
 ## Branch Manager's day runs to its End of Day without sticking.
 
 var eod: EndOfDayScreen
@@ -88,9 +88,13 @@ func test_start_day_n_plus_1_starts_the_next_day_and_nothing_else_does() -> void
 	assert_str(current_id()).is_equal(DaySchedule.OPENING)
 
 func test_a_save_made_at_end_of_day_shows_that_end_of_day_again() -> void:
-	# The summary saves with the clock at 5 PM (business_day_test.gd).
-	GameClock.minutes = BusinessDay.CLOSE_MINUTES
-	use_slots_setting(true)
+	# The summary saves the day as ended (DayFlow's day_ended flag).
+	await teller_day_to_end_of_day()
+	assert_bool(eod.is_summary_shown()).is_true()
+	var saved := SaveGame.read()
+	assert_bool(SaveGame.read_day_ended(saved.career)).is_true()
+	get_tree().paused = false
+	SaveGame.restore(saved.career)
 	await reload_room()
 	assert_bool(DayFlow.is_running()).is_false()
 	assert_bool(DayFlow.end_of_day_due).is_true()

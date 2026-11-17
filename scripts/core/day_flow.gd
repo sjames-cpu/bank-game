@@ -80,6 +80,25 @@ var _between: bool = false
 ## call from a listener waits instead of moving the flow on inside a signal.
 var _driving: bool = false
 
+## Saved with the career: whether its day had ended (BusinessDay.is_day_over():
+## with slots on DayFlow's own end_of_day_due, with slots off the clock).
+## Loaded last (SaveGame.restore()), after the clock and the business day.
+## With slots on, an ended day comes back as its End of Day
+## (resume_ended_day()); any other starts over from Opening when the room
+## starts the day, so a day restarted from a save that had passed Opening
+## (an old save made mid-day) starts its day-only counters again
+## (BusinessDay.restart_day()). With slots off nothing changes.
+func save_data() -> Dictionary:
+	return {"day_ended": BusinessDay.is_day_over()}
+
+func load_data(data: Dictionary) -> void:
+	if not slots_enabled:
+		return
+	if SaveGame.day_ended_in(data):
+		resume_ended_day()
+	elif GameClock.minutes > DaySchedule.slot_at(0).start_minutes():
+		BusinessDay.restart_day()
+
 func reset() -> void:
 	_clear_day()
 	pause_between_slots = false
