@@ -43,7 +43,7 @@ extends Node
 ## DayFlow. The game reads slots_enabled, whose default this is; tests turn
 ## it on for one test (teller_room_suite.use_slots_setting()). Removed once
 ## slots are switched on for good (Phase A, session 3).
-const SLOTS_ENABLED: bool = false
+const SLOTS_ENABLED: bool = true
 var slots_enabled: bool = SLOTS_ENABLED
 
 signal slot_started(slot: DaySlot)

@@ -139,14 +139,6 @@ func test_it_closes_if_the_day_moves_on_without_it() -> void:
 	assert_bool(card.visible).is_false()
 	assert_bool(get_tree().paused).is_false()
 
-func test_never_with_slots_off() -> void:
-	DayFlow.pause_between_slots = true
-	DayFlow.start_day() # slots off: nobody claims, DayFlow waits after Opening
-	assert_bool(DayFlow.is_between_slots()).is_true()
-	await frames(2)
-	assert_bool(card.visible).is_false()
-	assert_bool(get_tree().paused).is_false()
-
 func test_the_card_fits_the_screen() -> void:
 	# Laid out in the game's 1152x648 window, as screen_fit_test.gd does.
 	get_tree().root.size = Vector2i(1152, 648)

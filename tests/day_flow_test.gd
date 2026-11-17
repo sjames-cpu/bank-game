@@ -69,12 +69,6 @@ func current_id() -> StringName:
 
 # --- the switch ------------------------------------------------------------------
 
-func test_slots_are_off_by_default() -> void:
-	# Phase A builds the slots behind this switch; the game stays on the
-	# continuous clock until it's turned on for good.
-	assert_bool(DayFlow.SLOTS_ENABLED).is_false()
-	assert_bool(DayFlow.slots_enabled).is_false()
-
 # --- the day ----------------------------------------------------------------------
 
 func test_nobody_claiming_runs_the_whole_day_in_order() -> void:
@@ -437,7 +431,3 @@ func test_resuming_an_ended_day() -> void:
 	assert_bool(DayFlow.is_running()).is_false()
 	assert_str(current_id()).is_equal(DaySchedule.CLOSING)
 	assert_array(events).is_empty()
-	# Off, it never marks the End of Day.
-	DayFlow.slots_enabled = false
-	DayFlow.resume_ended_day()
-	assert_bool(DayFlow.end_of_day_due).is_false()

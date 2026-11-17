@@ -24,10 +24,11 @@ func loan_clock_in() -> void:
 	room.loan_officer_screen.clock_in_button.pressed.emit()
 	room.loan_officer_screen.hide_screen()
 
+## At Closing, where the shift ends.
 func loan_clock_out() -> void:
 	var screen := room.loan_officer_screen
+	to_closing()
 	room._on_loan_officer_desk_interacted()
-	screen.applications_reviewed = LoanOfficerScreen.APPLICATIONS_PER_SHIFT
 	screen.clock_out_button.pressed.emit()
 	screen.hide_screen()
 
@@ -41,12 +42,11 @@ func test_every_desk_reports_its_clock_in_and_out() -> void:
 	PlayerShift.clocked_out.connect(on_out)
 	clock_in()
 	assert_int(PlayerShift.on_shift).is_equal(PlayerShift.Role.TELLER)
-	# Slots off: past 5 PM, the shift's customers who never came don't block.
-	GameClock.minutes = BusinessDay.CLOSE_MINUTES
 	assert_bool(clock_out()).is_true()
 	close_desk()
 	assert_int(PlayerShift.on_shift).is_equal(PlayerShift.Role.NONE)
-	GameClock.minutes = 10.0 * 60.0
+	# The next day, at the Loan Desk.
+	await go_to_next_day()
 	loan_clock_in()
 	loan_clock_out()
 	PlayerShift.clocked_in.disconnect(on_in)
@@ -130,12 +130,6 @@ func test_clocking_out_before_closing_is_refused() -> void:
 	assert_str(ts.error_label.text).is_equal("Can't clock out yet — your shift runs until Closing (5 PM).")
 	assert_int(ts.shift_state).is_equal(TellerScreen.ShiftState.CLOCKED_IN)
 	close_desk()
-
-func test_with_slots_off_clock_out_is_not_refused() -> void:
-	clock_in()
-	assert_str(ShiftSlotAdapter.clock_out_refusal()).is_empty()
-	GameClock.minutes = BusinessDay.CLOSE_MINUTES
-	assert_bool(clock_out()).is_true()
 
 # --- a Loan Officer's day ---------------------------------------------------------------
 

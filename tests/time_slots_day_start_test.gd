@@ -53,12 +53,6 @@ func test_the_day_starts_when_the_room_loads() -> void:
 	assert_bool(DayFlow.pause_between_slots).is_true()
 	assert_str(GameClock.time_text()).is_equal("8:30 AM")
 
-func test_with_slots_off_no_day_starts() -> void:
-	await reload_room()
-	assert_bool(DayFlow.is_running()).is_false()
-	room.start_slots_day()
-	assert_bool(DayFlow.is_running()).is_false()
-
 func test_a_day_never_starts_twice() -> void:
 	start_slots_day()
 	clock_in()
@@ -188,13 +182,9 @@ func test_f3_skips_the_current_slot() -> void:
 	assert_bool(room.debug_skip_slot()).is_false()
 	assert_bool(DayFlow.is_between_slots()).is_true()
 
-func test_f3_does_nothing_in_a_release_build_or_with_slots_off() -> void:
+func test_f3_does_nothing_in_a_release_build() -> void:
 	start_slots_day()
 	room.debug_cheats_enabled = false
 	room._unhandled_input(f3())
 	assert_str(current_id()).is_equal(DaySchedule.OPENING)
 	assert_bool(room.debug_skip_slot()).is_false()
-	room.debug_cheats_enabled = true
-	use_slots_setting(false)
-	assert_bool(room.debug_skip_slot()).is_false()
-	assert_str(current_id()).is_equal(DaySchedule.OPENING)

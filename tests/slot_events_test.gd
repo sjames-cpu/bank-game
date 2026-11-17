@@ -101,16 +101,6 @@ func test_no_visit_on_other_days() -> void:
 	continue_to_slot(DaySchedule.SLOT_11AM)
 	assert_object(room.regional_visitor).is_null()
 
-func test_with_slots_off_the_visit_keeps_its_clock_times() -> void:
-	promote()
-	make_review_day()
-	GameClock.minutes = 9 * 60.0 + 59.0
-	await frames(2)
-	assert_object(room.regional_visitor).is_null()
-	GameClock.minutes = TellerRoom.VISIT_START_MINUTES
-	await frames(2)
-	assert_object(room.regional_visitor).is_not_null()
-
 # --- vacant desks ------------------------------------------------------------------------
 
 func test_a_vacant_desk_counts_two_desk_hours_per_work_slot() -> void:

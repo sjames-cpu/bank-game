@@ -41,10 +41,6 @@ func test_the_clock_stops_running_with_slots_on() -> void:
 	DayFlow.slots_enabled = true
 	await frames(5)
 	assert_float(GameClock.minutes).is_equal(600.0)
-	# Off, it runs again (the continuous clock as before).
-	DayFlow.slots_enabled = false
-	await frames(5)
-	assert_float(GameClock.minutes).is_greater(600.0)
 
 func test_the_clock_shows_each_slot_start_time_before_it_is_announced() -> void:
 	DayFlow.slots_enabled = true
@@ -55,11 +51,6 @@ func test_the_clock_shows_each_slot_start_time_before_it_is_announced() -> void:
 	DayFlow.slot_started.disconnect(record)
 	assert_array(seen).is_equal(["8:30 AM", "9:00 AM", "11:00 AM", "1:00 PM", "3:00 PM", "5:00 PM"])
 	assert_int(GameClock.day).is_equal(1)
-
-func test_with_slots_off_dayflow_leaves_the_clock_alone() -> void:
-	GameClock.minutes = 600.0
-	DayFlow.start_day()
-	assert_float(GameClock.minutes).is_equal(600.0)
 
 # --- BusinessDay ----------------------------------------------------------------------
 
@@ -107,19 +98,6 @@ func test_with_slots_on_the_minutes_do_not_decide() -> void:
 	go_to_slot(DaySchedule.SLOT_1PM)
 	GameClock.minutes = 14.0 * 60.0 + 30.0
 	assert_bool(BusinessDay.is_after_cutoff()).is_false()
-
-func test_with_slots_off_the_minutes_still_decide() -> void:
-	# A day running in DayFlow changes nothing while the switch is off.
-	DayFlow.slot_started.connect(_hold_slot)
-	DayFlow.start_day()
-	DayFlow.release(LOOK) # 9 AM
-	GameClock.minutes = 8.0 * 60.0 + 40.0
-	assert_bool(BusinessDay.is_open()).is_false()
-	GameClock.minutes = 14.0 * 60.0
-	assert_bool(BusinessDay.is_open()).is_true()
-	assert_bool(BusinessDay.is_after_cutoff()).is_true()
-	GameClock.minutes = 17.0 * 60.0
-	assert_bool(BusinessDay.doors_closed()).is_true()
 
 func test_not_open_between_slots() -> void:
 	DayFlow.slots_enabled = true

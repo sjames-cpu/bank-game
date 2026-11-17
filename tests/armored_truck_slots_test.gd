@@ -197,14 +197,6 @@ func test_no_cash_to_move_no_truck() -> void:
 	assert_int(truck.phase).is_equal(ArmoredTruckVisit.Phase.IDLE)
 	assert_bool(DayFlow.is_held()).is_false()
 
-func test_with_slots_off_they_still_come_at_10_30() -> void:
-	GameClock.minutes = 9 * 60.0
-	await frames(2)
-	assert_int(truck.phase).is_equal(ArmoredTruckVisit.Phase.IDLE)
-	GameClock.minutes = ArmoredTruckVisit.ARRIVAL_MINUTES
-	await frames(2)
-	assert_int(truck.phase).is_equal(ArmoredTruckVisit.Phase.WALKING_IN)
-
 func test_the_waiting_bar_fits() -> void:
 	get_tree().root.size = Vector2i(1152, 648)
 	manager_day_at_9am()

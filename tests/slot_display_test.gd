@@ -55,20 +55,11 @@ func test_the_tint_fades_into_closing() -> void:
 	tint._process(DayNightCycle.SLOT_FADE_SECONDS)
 	assert_object(tint.color).is_equal(DayNightCycle.LATE_AFTERNOON)
 
-func test_with_slots_off_the_tint_follows_the_clock_at_once() -> void:
-	GameClock.minutes = 9 * 60.0
-	tint._process(0.016)
-	GameClock.minutes = BusinessDay.CLOSE_MINUTES
-	tint._process(0.016)
-	assert_object(tint.color).is_equal(DayNightCycle.LATE_AFTERNOON)
-
 # --- the doormat -----------------------------------------------------------------------------
 
 func test_the_doormat_prompt_points_to_the_card() -> void:
 	start_slots_day()
 	assert_str(room.interaction_prompt_text(room.exit_door)).is_equal(TellerRoom.GO_HOME_SLOTS_PROMPT)
-	use_slots_setting(false)
-	assert_str(room.interaction_prompt_text(room.exit_door)).is_equal("E — Go home (end Day 1)")
 
 # --- the pause menu ------------------------------------------------------------------------
 
@@ -108,11 +99,6 @@ func test_after_the_closing_clock_out_nothing_is_lost() -> void:
 func test_at_opening_before_the_clock_in_nothing_is_lost() -> void:
 	start_slots_day()
 	assert_str(menu.leave_warning()).is_empty()
-
-func test_with_slots_off_the_warning_is_as_before() -> void:
-	assert_str(menu.leave_warning()).is_empty()
-	clock_in()
-	assert_str(menu.leave_warning()).is_equal(PauseMenu.ON_SHIFT_TEXT)
 
 func test_the_warning_fits_the_screen() -> void:
 	get_tree().root.size = Vector2i(1152, 648)

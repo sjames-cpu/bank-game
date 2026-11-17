@@ -133,24 +133,6 @@ func test_clocking_out_before_closing_is_refused() -> void:
 	assert_bool(lo.is_clocked_in()).is_true()
 	assert_str(lo.error_label.text).is_equal("Can't clock out yet — %s." % ShiftSlotAdapter.CLOCK_OUT_REFUSED_TEXT)
 
-func test_with_slots_off_three_applications_per_shift() -> void:
-	GameClock.minutes = 10 * 60.0
-	loan_clock_in()
-	assert_int(lo.applications_per_shift).is_equal(LoanOfficerScreen.APPLICATIONS_PER_SHIFT)
-	assert_int(lo.applications_left()).is_equal(3)
-	for i in 2:
-		review_next()
-	room._on_loan_officer_desk_interacted()
-	lo.clock_out_button.pressed.emit()
-	assert_bool(lo.is_clocked_in()).is_true()
-	assert_str(lo.error_label.text).is_equal("Can't clock out yet — 1 application still to review.")
-	lo.hide_screen()
-	review_next()
-	assert_bool(lo.review_next_button.disabled).is_true()
-	room._on_loan_officer_desk_interacted()
-	lo.clock_out_button.pressed.emit()
-	assert_bool(lo.is_clocked_in()).is_false()
-
 func test_it_does_nothing_on_a_teller_day() -> void:
 	start_slots_day()
 	clock_in()

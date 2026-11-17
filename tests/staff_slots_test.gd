@@ -139,15 +139,3 @@ func test_customers_left_in_staff_lines_never_stick_the_day() -> void:
 	Engine.time_scale = 1.0
 	assert_bool(shown).override_failure_message("End of Day never came").is_true()
 	assert_bool(room.is_lobby_empty()).is_true()
-
-func test_with_slots_off_staff_have_no_cap() -> void:
-	clock_in()
-	for line in pacer.lines:
-		assert_int(line.arrivals_left_this_slot()).is_equal(-1)
-	for worker in pacer.workers:
-		assert_int(worker.arrivals_left_this_slot()).is_equal(-1)
-	GameClock.minutes = 10 * 60.0
-	var line := room.window1_npc_line
-	for i in 3:
-		line._try_spawn()
-	assert_int(line.queue.size()).is_equal(3)

@@ -54,11 +54,6 @@ func weekday() -> String:
 
 # --- the HUD ----------------------------------------------------------------------------
 
-func test_with_slots_off_the_hud_is_as_before() -> void:
-	await frames(1)
-	assert_str(hud.clock_label.text).is_equal(GameClock.hud_text())
-	assert_bool(hud.slot_label.visible).is_false()
-
 func test_the_clock_line_names_the_slot() -> void:
 	start_slots_day()
 	await frames(1)

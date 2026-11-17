@@ -87,10 +87,6 @@ func test_nothing_is_saved_mid_day() -> void:
 	SaveGame.delete()
 	room.save_career()
 	assert_bool(SaveGame.exists()).is_false()
-	# With slots off, as before.
-	use_slots_setting(false)
-	room.save_career()
-	assert_bool(SaveGame.exists()).is_true()
 
 func test_the_closing_clock_out_does_not_save_but_end_of_day_does() -> void:
 	start_slots_day()

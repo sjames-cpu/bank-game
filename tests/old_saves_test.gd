@@ -167,24 +167,8 @@ func test_the_slot_screen_says_where_each_save_picks_up() -> void:
 	use_slots_setting(true)
 	assert_str(StartScreen.game_date_of(sample_career("v1_mid_day.json"))).ends_with("· " + StartScreen.DAY_START_TEXT)
 	assert_str(StartScreen.game_date_of(sample_career("v1_end_of_day.json"))).ends_with("· " + StartScreen.DAY_ENDED_TEXT)
-	use_slots_setting(false)
-	assert_str(StartScreen.game_date_of(sample_career("v1_mid_day.json"))).ends_with("· 2:15 PM")
 
-# --- with slots off ----------------------------------------------------------------------------
-
-func test_with_slots_off_old_saves_load_as_before() -> void:
-	await load_sample("v1_mid_day.json")
-	assert_bool(DayFlow.is_running()).is_false()
-	assert_str(GameClock.time_text()).is_equal("2:15 PM")
-	assert_int(BusinessDay.customers_served_by_player).is_equal(6)
-	assert_int(BusinessDay.score_at_start).is_equal(60)
-
-	await load_sample("v1_end_of_day.json")
-	assert_bool(DayFlow.end_of_day_due).is_false()
-	assert_str(GameClock.time_text()).is_equal("5:00 PM")
-	await frames(2)
-	assert_bool(eod.is_summary_shown()).is_true()
-	assert_int(VaultManager.last_closed_day).is_equal(4)
+# --- every sample ------------------------------------------------------------------------------
 
 func test_every_sample_reads_ok() -> void:
 	for file_name: String in DirAccess.get_files_at(SAMPLES):

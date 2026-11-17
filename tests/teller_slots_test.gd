@@ -113,9 +113,3 @@ func test_nothing_on_a_loan_officer_day() -> void:
 	assert_bool(DayFlow.has_claimed(room.get_node("LoanSlotAdapter"))).is_true()
 	assert_bool(DayFlow.has_claimed(teller_slots())).is_false()
 	assert_int(cq.spawn_cap).is_equal(cap_before)
-
-func test_nothing_with_slots_off() -> void:
-	clock_in()
-	assert_int(cq.spawn_cap).is_equal(CustomerQueue.CUSTOMERS_PER_SHIFT_CAP)
-	assert_int(cq.get_customers_left_to_spawn()).is_equal(CustomerQueue.CUSTOMERS_PER_SHIFT_CAP)
-	assert_bool(DayFlow.is_running()).is_false()
