@@ -740,19 +740,22 @@ func interaction_prompt_text(desk: Interactable) -> String:
 	return ""
 
 ## The HUD's shift line: "Off shift", or "On shift — " and where, with
-## what's left of that shift's work.
+## only what the HUD's slot line doesn't show: customers still waiting at the
+## teller window from Closing, and whether the Branch Manager has reconciled
+## the vault.
 func describe_shift_status() -> String:
 	var parts: PackedStringArray = []
 	if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
-		var customers_left := customer_queue.queue.size() + customers_still_to_arrive()
-		var teller_part := "%s · %d customer%s left" % [PLAYER_TELLER_WINDOW, customers_left, "" if customers_left == 1 else "s"]
-		# Closing time cut this shift short: say so, since fewer than 4 came.
-		if BusinessDay.doors_closed() and customer_queue.get_customers_left_to_spawn() > 0:
-			teller_part += " · %s" % BusinessDay.DOORS_CLOSED_TEXT
+		var teller_part := PLAYER_TELLER_WINDOW
+		# In a work slot the HUD's slot line counts the customers; from
+		# Closing, say who is still waiting to be served.
+		var waiting := customer_queue.queue.size()
+		if BusinessDay.doors_closed() and waiting > 0:
+			teller_part += " · %d customer%s still waiting" % [waiting, "" if waiting == 1 else "s"]
 		parts.append(teller_part)
 	if loan_officer_screen.is_clocked_in():
-		var applications_left: int = loan_officer_screen.applications_left()
-		parts.append("%s · %d application%s left" % [ScheduleManager.SLOT_LOAN_DESK_1, applications_left, "" if applications_left == 1 else "s"])
+		# The HUD's slot line counts the slot's application.
+		parts.append(ScheduleManager.SLOT_LOAN_DESK_1)
 	if branch_manager_screen.is_clocked_in():
 		parts.append("Branch Manager office · vault %s" % ("reconciled" if branch_manager_screen.is_vault_reconciled() else "not reconciled yet"))
 	if parts.is_empty():

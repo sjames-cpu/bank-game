@@ -120,7 +120,9 @@ func test_hud_stays_visible_and_live_while_the_teller_screen_is_open() -> void:
 	assert_bool(get_tree().paused).is_true()
 	assert_bool(hud.visible).is_true()
 	assert_bool(hud.stats_panel.is_visible_in_tree()).is_true()
-	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window · 2 customers left")
+	# The slot line counts the slot's customers; the shift line just says where.
+	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window")
+	assert_str(hud.slot_label.text).is_equal("Customers: 0 / 2")
 	close_desk()
 
 	var customer := spawn()
@@ -132,7 +134,8 @@ func test_hud_stays_visible_and_live_while_the_teller_screen_is_open() -> void:
 	assert_bool(ts.visible).is_true()
 	assert_str(hud.score_label.text).is_equal("Score: %d" % TellerScreen.CUSTOMER_REQUEST_CORRECT_SCORE)
 	assert_str(hud.xp_label.text).is_equal("XP: %d" % (TellerScreen.CUSTOMER_REQUEST_CORRECT_SCORE * XPManager.XP_PER_SCORE_POINT))
-	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window · 1 customer left")
+	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window")
+	assert_str(hud.slot_label.text).is_equal("Customers: 1 / 2")
 	close_desk()
 
 func test_hud_shift_status_for_loan_desk_and_branch_manager_office() -> void:
@@ -144,7 +147,8 @@ func test_hud_shift_status_for_loan_desk_and_branch_manager_office() -> void:
 	# The 9 AM slot brings its application.
 	open_work_slot()
 	await settle()
-	assert_str(hud.shift_label.text).is_equal("On shift — Loan Desk 1 · 1 application left")
+	assert_str(hud.shift_label.text).is_equal("On shift — Loan Desk 1")
+	assert_str(hud.slot_label.text).is_equal("Application: 0 / 1")
 
 	promote()
 	var bm: BranchManagerScreen = room.branch_manager_screen

@@ -38,7 +38,6 @@ const CLOSE_MINUTES: float = 17.0 * 60.0
 const CUTOFF_MINUTES: float = 14.0 * 60.0
 
 const CLOCK_IN_REFUSED_TEXT: String = "The branch has closed for the day — too late to start a new shift."
-const DOORS_CLOSED_TEXT: String = "Branch closed — no more customers today"
 
 ## The day today's totals belong to (the day the summary is for).
 var stats_day: int = 1

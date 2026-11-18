@@ -135,6 +135,20 @@ func test_the_hud_column_still_fits_with_the_slot_line() -> void:
 		var column: Rect2 = (hud.get_node("RightColumn") as Control).get_global_rect()
 		assert_float(column.end.y).override_failure_message("hint %s: the column ends at %.0f" % [Hint.keys()[hint], column.end.y]).is_less(648.0)
 
+## The HUD's shift line says only what the slot line doesn't: where the
+## player is, and from Closing who is still waiting at the window.
+func test_the_shift_line_leaves_the_counting_to_the_slot_line() -> void:
+	start_slots_day()
+	clock_in()
+	continue_to_slot(DaySchedule.SLOT_9AM)
+	cq.spawn_timer.stop()
+	assert_str(room.describe_shift_status()).is_equal("On shift — Player Teller Window")
+	to_closing()
+	spawn()
+	assert_str(room.describe_shift_status()).is_equal("On shift — Player Teller Window · 1 customer still waiting")
+	spawn()
+	assert_str(room.describe_shift_status()).is_equal("On shift — Player Teller Window · 2 customers still waiting")
+
 # --- the card ----------------------------------------------------------------------------
 
 func test_the_card_reports_a_teller_slot() -> void:
@@ -184,4 +198,4 @@ func test_a_skipped_slot_reports_what_was_done() -> void:
 	continue_to_slot(DaySchedule.SLOT_9AM)
 	DayFlow.skip_slot()
 	await frames(1)
-	assert_str(card.done_label.text).is_equal("9 AM slot done\nCustomers you served: 0")
+	assert_str(card.done_label.text).is_equal("9 AM slot skipped\nCustomers you served: 0")

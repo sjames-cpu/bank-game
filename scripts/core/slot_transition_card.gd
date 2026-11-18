@@ -3,7 +3,8 @@ class_name SlotTransitionCard
 
 ## The card between two time slots (DayFlow.between_slots):
 ## the next slot, big ("11 AM"), what happened in the slot just finished
-## ("9 AM slot done", then each slot piece's own lines through SlotStatus:
+## ("9 AM slot done", or "9 AM slot skipped", then each slot piece's own
+## lines through SlotStatus:
 ## "Customers you served: 2", "+1 Reputation: a clean slot"), a note once
 ## the 2 PM cutoff has passed, and
 ## "Continue" (DayFlow.continue_day()) or "Go home early"
@@ -20,6 +21,7 @@ class_name SlotTransitionCard
 ## Shared by every role; it knows only DayFlow and SlotStatus, never a role.
 
 const DONE_TEXT: String = "%s slot done"
+const SKIPPED_TEXT: String = "%s slot skipped"
 const SHIFT_STARTED_TEXT: String = "Your shift has started."
 const CUTOFF_TEXT: String = "The 2 PM cutoff has passed: transactions from now on post on the next business day."
 const CLOSING_TEXT: String = "The branch closes. Do your closing count, then head home."
@@ -40,6 +42,8 @@ const CONFIRM_TEXT: String = "Go home early?\n\nThe rest of today's slots are sk
 var _pending: bool = false
 var _ended: DaySlot
 var _next: DaySlot
+## The last slot DayFlow skipped (the debug key, an event).
+var _skipped: DaySlot
 
 func _ready() -> void:
 	visible = false
@@ -49,12 +53,14 @@ func _ready() -> void:
 	confirm_button.pressed.connect(_on_go_home_confirmed)
 	cancel_button.pressed.connect(_show_card_panel)
 	DayFlow.slot_started.connect(_on_slot_started)
+	DayFlow.slot_skipped.connect(_on_slot_skipped)
 	DayFlow.between_slots.connect(_on_between_slots)
 	DayFlow.day_ended.connect(_on_day_moved_on)
 
 ## The autoloads outlive the room: let go of them with it.
 func _exit_tree() -> void:
 	DayFlow.slot_started.disconnect(_on_slot_started)
+	DayFlow.slot_skipped.disconnect(_on_slot_skipped)
 	DayFlow.between_slots.disconnect(_on_between_slots)
 	DayFlow.day_ended.disconnect(_on_day_moved_on)
 
@@ -69,6 +75,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_slot_started(_slot: DaySlot) -> void:
 	_on_day_moved_on()
+
+func _on_slot_skipped(slot: DaySlot) -> void:
+	_skipped = slot
 
 func _on_between_slots(ended: DaySlot, next: DaySlot) -> void:
 	_ended = ended
@@ -89,13 +98,14 @@ func _show() -> void:
 	get_tree().paused = true
 	_show_card_panel()
 
-## About the slot just finished: "9 AM slot done", then each slot piece's
-## lines ("Customers you served: 2").
+## About the slot just finished: "9 AM slot done" (or "skipped"), then each
+## slot piece's lines ("Customers you served: 2").
 func done_text() -> String:
 	if _ended == null:
 		return ""
 	if _ended.is_work:
-		var lines := PackedStringArray([DONE_TEXT % _ended.label])
+		var header := SKIPPED_TEXT if _ended == _skipped else DONE_TEXT
+		var lines := PackedStringArray([header % _ended.label])
 		lines.append_array(SlotStatus.slot_report(get_tree(), _ended))
 		return "\n".join(lines)
 	if _ended.id == DaySchedule.OPENING:

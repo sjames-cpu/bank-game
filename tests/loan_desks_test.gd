@@ -110,7 +110,7 @@ func test_clocking_in_at_loan_desk_1_swaps_its_officer_out_and_back() -> void:
 	assert_int(staff_records(ScheduleManager.SLOT_LOAN_DESK_1)).is_equal(0)
 	assert_int(staff_records(ScheduleManager.SLOT_LOAN_DESK_2)).is_equal(1)
 	assert_int(staff_records(ScheduleManager.SLOT_LOAN_DESK_3)).is_equal(1)
-	assert_str(room.describe_shift_status()).is_equal("On shift — Loan Desk 1 · 1 application left")
+	assert_str(room.describe_shift_status()).is_equal("On shift — Loan Desk 1")
 
 	# Clock-out at Closing: back to the desk, and deciding again once there
 	# (the next day, when the branch is open again).
