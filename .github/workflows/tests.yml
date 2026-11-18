@@ -42,33 +42,6 @@ jobs:
       - name: Run art check, tests and headless boots
         run: GODOT_BIN=~/godot/godot PYTHON_BIN=python ./run_tests.sh
 
-      # TEMP (CI diagnostics, remove before the PR): turn the gdUnit4 results
-      # into annotations, readable without the logs.
-      - name: Diagnose test failures
-        if: failure()
-        run: |
-          python - <<'PY'
-          import glob, os, re, subprocess, xml.etree.ElementTree as ET
-          def esc(t, prop=False):
-              t = t.replace('%', '%25').replace('\r', '').replace('\n', '%0A')
-              return t.replace(':', '%3A').replace(',', '%2C') if prop else t
-          godot = subprocess.run([os.path.expanduser('~/godot/godot'), '--version'], capture_output=True, text=True).stdout.strip()
-          reports = sorted(glob.glob('reports/report_*/results.xml'), key=lambda f: int(re.search(r'report_(\d+)', f).group(1)))
-          run = failed = 0
-          found = []
-          if reports:
-              root = ET.parse(reports[-1]).getroot()
-              for case in root.iter('testcase'):
-                  run += 1
-                  for bad in list(case.findall('failure')) + list(case.findall('error')):
-                      failed += 1
-                      text = (bad.get('message') or '') + ' ' + (bad.text or '')
-                      found.append((case.get('classname', '') + '.' + case.get('name', ''), ' '.join(text.split())))
-          for name, text in found[:10]:
-              print('::error title=%s::%s' % (esc(name, True), esc(text[:400])))
-          print('::notice::OS=%s | Godot=%s | tests run=%d | failed=%d | report=%s | failed step: Run art check, tests and headless boots' % (os.uname().sysname, godot, run, failed, reports[-1] if reports else 'none found'))
-          PY
-
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
