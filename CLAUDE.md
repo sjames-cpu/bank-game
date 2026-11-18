@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**Before any task, read `ROLE_BOUNDARIES.md` and `TIME_SLOTS_DECISIONS.md` and follow them.**
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project state
