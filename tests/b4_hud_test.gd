@@ -114,12 +114,13 @@ func test_hud_shows_career_values_with_no_screen_open() -> void:
 
 func test_hud_stays_visible_and_live_while_the_teller_screen_is_open() -> void:
 	clock_in()
+	open_work_slot() # the 9 AM slot's customers
 	open_desk()
 	await settle()
 	assert_bool(get_tree().paused).is_true()
 	assert_bool(hud.visible).is_true()
 	assert_bool(hud.stats_panel.is_visible_in_tree()).is_true()
-	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window · 4 customers left")
+	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window · 2 customers left")
 	close_desk()
 
 	var customer := spawn()
@@ -131,7 +132,7 @@ func test_hud_stays_visible_and_live_while_the_teller_screen_is_open() -> void:
 	assert_bool(ts.visible).is_true()
 	assert_str(hud.score_label.text).is_equal("Score: %d" % TellerScreen.CUSTOMER_REQUEST_CORRECT_SCORE)
 	assert_str(hud.xp_label.text).is_equal("XP: %d" % (TellerScreen.CUSTOMER_REQUEST_CORRECT_SCORE * XPManager.XP_PER_SCORE_POINT))
-	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window · 3 customers left")
+	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window · 1 customer left")
 	close_desk()
 
 func test_hud_shift_status_for_loan_desk_and_branch_manager_office() -> void:

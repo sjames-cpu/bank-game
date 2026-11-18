@@ -48,10 +48,10 @@ signal shift_clocked_out
 ## for themselves when a shift is "done."
 const APPLICATIONS_PER_SHIFT: int = 3
 
-## How many applications this shift may review: APPLICATIONS_PER_SHIFT, or
-## with time slots on what the slots so far have brought (LoanSlotAdapter
-## sets it: 0 at Opening, then DaySchedule's amount per work slot).
-var applications_per_shift: int = APPLICATIONS_PER_SHIFT:
+## How many applications this shift may review: what the day's slots have
+## brought so far (LoanSlotAdapter sets it: 0 at Opening, then DaySchedule's
+## amount per work slot).
+var applications_per_shift: int = 0:
 	set(value):
 		applications_per_shift = value
 		if is_node_ready():

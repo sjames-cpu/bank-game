@@ -50,9 +50,9 @@ var seat: LoanDeskSeat = null
 ## every check right).
 var staff_doc_slips: bool = true
 
-## Time slots (StaffSlotPacer, decision 2): at most slot_cap applicants per
-## work slot, counted from begin_slot(). -1, with slots off: no cap.
-var slot_cap: int = -1
+## At most slot_cap applicants per work slot (StaffSlotPacer, decision 2),
+## counted from begin_slot(); none until a work slot starts.
+var slot_cap: int = 0
 var _arrivals_this_slot: int = 0
 
 var _elapsed: float = 0.0
@@ -97,10 +97,8 @@ func begin_slot(cap: int) -> void:
 	slot_cap = cap
 	_arrivals_this_slot = 0
 
-## Applicants this work slot may still bring (-1: no cap).
+## Applicants this work slot may still bring.
 func arrivals_left_this_slot() -> int:
-	if slot_cap < 0:
-		return -1
 	return maxi(0, slot_cap - _arrivals_this_slot)
 
 ## The desk is changing hands (the player clocking in at Loan Desk 1): anyone

@@ -61,11 +61,10 @@ const INTENT_MAX_CENTS: int = 50000
 ## Requests are a round $10, so they read like something a person would say.
 const INTENT_STEP_CENTS: int = 1000
 
-## Caps how many customers can spawn in a single shift, independent of
-## queue_positions.size() (which caps how many can be in line at once).
-## 4 is a middle-of-the-road pick within the requested 3-5 range — enough
-## to keep a shift busy without letting the queue backlog indefinitely on
-## a slow player.
+## The customers a teller shift brought before time slots (4). Customers now
+## come in each work slot's batch (begin_batch()), but the drawer limits are
+## still reasoned on this many (TellerScreen) and tests use it for a shift's
+## worth of customers; the Teller redesign (Phase B) revisits it.
 const CUSTOMERS_PER_SHIFT_CAP: int = 4
 
 ## Phase 6g: emitted when a queued customer's patience runs out (see
@@ -132,11 +131,11 @@ const COUNTER_CLEAR_DISTANCE: float = 28.0
 ## counter spot (see serve_front_customer()).
 var _departing: Array[CustomerNPC] = []
 
-## Reset in start_shift() so each shift gets its own fresh cap.
+## Customers spawned since the shift or the slot's batch began.
 var _customers_spawned_this_shift: int = 0
-## How many customers the shift brings: CUSTOMERS_PER_SHIFT_CAP, or with
-## time slots the current slot's amount (begin_batch(), TellerSlotAdapter).
-var spawn_cap: int = CUSTOMERS_PER_SHIFT_CAP
+## How many customers the current work slot brings (begin_batch(),
+## TellerSlotAdapter): none until a slot's batch starts.
+var spawn_cap: int = 0
 
 func _ready() -> void:
 	kyc_rng.randomize()
@@ -150,8 +149,11 @@ func _collect_queue_positions() -> Array[Marker2D]:
 		positions.append(child as Marker2D)
 	return positions
 
+## Clock-in: the line's timer runs; customers come with the work slots'
+## batches.
 func start_shift() -> void:
 	_customers_spawned_this_shift = 0
+	spawn_cap = 0
 	spawn_timer.start(_next_spawn_interval())
 
 ## The gap before the next arrival: spawn_interval, shortened by
@@ -190,10 +192,9 @@ func clear_lobby() -> void:
 			child.queue_free()
 	queue.clear()
 
-## How many more customers this shift will still spawn before
-## CUSTOMERS_PER_SHIFT_CAP is reached — teller_room.gd uses this (with the
-## current queue size) to decide whether every customer this shift has been
-## handled before allowing clock-out.
+## How many more customers the current slot's batch will still spawn —
+## teller_room.gd uses this (with the current queue size) to decide whether
+## every customer has been handled before allowing clock-out.
 func get_customers_left_to_spawn() -> int:
 	return maxi(0, spawn_cap - _customers_spawned_this_shift)
 
@@ -274,7 +275,7 @@ func _try_spawn() -> void:
 		return
 	_spawn_customer()
 
-## The player's line stops at CUSTOMERS_PER_SHIFT_CAP per shift. Overridden
+## The player's line stops at the slot's batch (spawn_cap). Overridden
 ## by NpcCustomerLine, whose staff-served lines have no per-shift cap.
 func _may_spawn() -> bool:
 	return _customers_spawned_this_shift < spawn_cap
