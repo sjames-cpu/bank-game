@@ -319,6 +319,7 @@ func _process(_delta: float) -> void:
 	_update_player_walk_in()
 	_update_interaction_prompt()
 	_update_attention_markers()
+	update_use_glows()
 	_update_vault_notice()
 	_check_branch_opening()
 	_check_end_of_day()
@@ -632,6 +633,9 @@ var highlighted: Interactable = null
 ## &"teller", &"loan", &"vault", &"manager".
 var attention_markers: Dictionary[StringName, AttentionMarker] = {}
 
+## The soft glows on machines and doors in use, by place: &"atm", &"vault".
+var use_glows: Dictionary[StringName, UseGlow] = {}
+
 var zones: RoomZones
 var wall_signs: Array[WallSign] = []
 var feedback: FeedbackFloaters
@@ -659,6 +663,11 @@ func _build_world_visuals() -> void:
 	attention_markers[&"loan"] = _add_marker(loan_officer_desk, loan_officer_desk.get_node("Sprite2D") as Sprite2D, AttentionMarker.Kind.DOCUMENT)
 	attention_markers[&"vault"] = _add_marker(vault_door, $Decor/VaultDoor as Sprite2D, AttentionMarker.Kind.DOLLAR)
 	attention_markers[&"manager"] = _add_marker(branch_manager_desk, branch_manager_desk.get_node("Sprite2D") as Sprite2D, AttentionMarker.Kind.EXCLAMATION)
+	use_glows[&"atm"] = UseGlow.attach(atm.get_node("Sprite2D") as Sprite2D)
+	use_glows[&"vault"] = UseGlow.attach($Decor/VaultDoor as Sprite2D)
+	# The screens pause the room (so _process stops): they say when they open and close.
+	for screen: Control in [atm_screen, vault_transfer_screen, armored_truck_screen]:
+		screen.visibility_changed.connect(update_use_glows)
 	feedback = FeedbackFloaters.new()
 	feedback.name = "Feedback"
 	add_child(feedback)
@@ -723,6 +732,23 @@ func vault_attention() -> int:
 	if teller_screen.drawer_limit_warning() == TellerScreen.DRAWER_OVER_LIMIT_TEXT:
 		return AttentionMarker.Kind.DOLLAR
 	return -1
+
+## Whether someone is using the ATM: its screen is open.
+func atm_in_use() -> bool:
+	return atm_screen.visible
+
+## Whether the vault door is in use: a witness walking over or waiting, the
+## vault's screen open, or the armored truck's crew here.
+func vault_in_use() -> bool:
+	if vault_transfer_screen.visible or vault_control.is_busy():
+		return true
+	return armored_visit.phase != ArmoredTruckVisit.Phase.IDLE and armored_visit.phase != ArmoredTruckVisit.Phase.LEAVING
+
+func update_use_glows() -> void:
+	if use_glows.is_empty() or armored_visit == null:
+		return
+	use_glows[&"atm"].set_wanted(atm_in_use())
+	use_glows[&"vault"].set_wanted(vault_in_use())
 
 func _update_attention_markers() -> void:
 	attention_markers[&"teller"].set_active(teller_needs_player())
@@ -844,6 +870,8 @@ func _assign_staff_to_work() -> void:
 	window3_line.staff_npc = window_3_staff if window_3_staff != null else cover_npc
 	for worker in loan_desk_workers:
 		worker.staff_npc = _staff_by_slot.get(worker.slot_name)
+		if worker.staff_npc != null:
+			worker.staff_npc.work_source = worker
 	_update_staff_lines()
 
 ## How busy the staff teller windows are for customers choosing a line, 0-1:

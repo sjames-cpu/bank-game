@@ -23,15 +23,24 @@ const FOLLOW_ZOOM: float = 2.0
 const OVERVIEW_ZOOM: float = 1.0
 const TOGGLE_ACTION: StringName = &"toggle_overview"
 const SMOOTHING_SPEED: float = 6.0
+## The Z toggle eases between the two zooms over this long (skipped with
+## effects off, EffectsSetting: then it jumps at once).
+const EASE_SECONDS: float = 0.25
 
 var room_bounds: Rect2 = Rect2()
 var is_overview: bool = false
+
+var _easing: bool = false
+var _ease_from: float = FOLLOW_ZOOM
+var _ease_to: float = FOLLOW_ZOOM
+var _ease_age: float = 0.0
 
 func _ready() -> void:
 	position_smoothing_enabled = true
 	position_smoothing_speed = SMOOTHING_SPEED
 	limit_smoothed = true
 	_apply_zoom(FOLLOW_ZOOM)
+	set_process(false)
 	get_viewport().size_changed.connect(_update_limits)
 
 ## The room's extent in world pixels; the view stays inside it.
@@ -47,9 +56,62 @@ func zoom_factor() -> float:
 func toggle_overview() -> void:
 	set_overview(not is_overview)
 
+## `is_overview` changes at once; the zoom follows it (eased with effects on),
+## and zoom_changed, which is what hides or shows the highlights and numbers
+## for the overview, comes when the zoom has arrived.
 func set_overview(overview: bool) -> void:
 	is_overview = overview
-	_apply_zoom(OVERVIEW_ZOOM if overview else FOLLOW_ZOOM)
+	var target := OVERVIEW_ZOOM if overview else FOLLOW_ZOOM
+	if not EffectsSetting.is_on() or not is_inside_tree():
+		_easing = false
+		set_process(false)
+		_apply_zoom(target)
+		return
+	if is_equal_approx(zoom.x, target):
+		_easing = false
+		set_process(false)
+		_apply_zoom(target)
+		return
+	_easing = true
+	# The limits are hard while the zoom changes: smoothed ones would let the
+	# view glide out past the walls for a few frames as the view grows.
+	limit_smoothed = false
+	_ease_from = zoom.x
+	_ease_to = target
+	_ease_age = 0.0
+	set_process(true)
+
+## Whether the zoom is on its way between the two views.
+func is_easing() -> bool:
+	return _easing
+
+## Arrives now (tests, and effects turned off mid-ease).
+func finish_ease() -> void:
+	if _easing:
+		_easing = false
+		set_process(false)
+		_apply_zoom(_ease_to)
+		limit_smoothed = true
+
+func _process(delta: float) -> void:
+	if not _easing:
+		set_process(false)
+		return
+	if not EffectsSetting.is_on():
+		finish_ease()
+		return
+	_ease_age += delta
+	if _ease_age >= EASE_SECONDS:
+		finish_ease()
+		return
+	# Smoothstep: gentle at both ends. The clamp to the room holds all the
+	# way (the limits follow the zoom), and a zoom in between is fine; the
+	# text refits once it arrives.
+	var share := _ease_age / EASE_SECONDS
+	var eased := share * share * (3.0 - 2.0 * share)
+	var factor := lerpf(_ease_from, _ease_to, eased)
+	zoom = Vector2(factor, factor)
+	_update_limits()
 
 ## The part of the world on screen (after limits), for tests and the room.
 func visible_world_rect() -> Rect2:

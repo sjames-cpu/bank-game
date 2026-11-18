@@ -70,6 +70,9 @@ func set_zoom(zoom: float) -> void:
 	scale = Vector2.ONE * (ICON_SCREEN_PIXELS / (8.0 * zoom))
 
 func _process(_delta: float) -> void:
+	if not EffectsSetting.is_on():
+		position.y = _rest_y
+		return
 	position.y = _rest_y + sin(Time.get_ticks_msec() / 1000.0 * TAU * BOB_PER_SECOND) * BOB_HEIGHT
 
 func _draw() -> void:
