@@ -95,7 +95,7 @@ func test_the_first_shift_works_the_teaching_cases_then_applicants_are_generated
 	var names := sample_names()
 	for shift in 3:
 		await next_shift_at_loan_desk()
-		for i in LoanOfficerScreen.APPLICATIONS_PER_SHIFT:
+		for i in LoanOfficerScreen.PENDING_PILE_SIZE:
 			var application := decide_next_correctly()
 			assert_bool(names.has(application.applicant_name)).override_failure_message(application.applicant_name).is_false()
 			assert_int(application.calculate_risk_assessment()).is_equal(application.risk_tier)
@@ -127,7 +127,7 @@ func test_an_application_closed_undecided_stays_on_top() -> void:
 	# Shown fresh: the credit check to run again.
 	assert_bool(review.run_credit_check_button.visible).is_true()
 	assert_bool(review.decision_hbox.visible).is_false()
-	assert_int(LoanDeskManager.player_queue.size()).is_equal(LoanOfficerScreen.APPLICATIONS_PER_SHIFT)
+	assert_int(LoanDeskManager.player_queue.size()).is_equal(LoanOfficerScreen.PENDING_PILE_SIZE)
 
 # --- staff desks and names -----------------------------------------------------------
 
@@ -242,4 +242,4 @@ func test_an_older_save_without_a_pile() -> void:
 	assert_bool(LoanDeskManager.player_queue.is_empty()).is_true()
 	var first := LoanDeskManager.current_player_application()
 	assert_bool(sample_names().has(first.applicant_name)).is_false()
-	assert_int(LoanDeskManager.player_queue.size()).is_equal(LoanOfficerScreen.APPLICATIONS_PER_SHIFT)
+	assert_int(LoanDeskManager.player_queue.size()).is_equal(LoanOfficerScreen.PENDING_PILE_SIZE)

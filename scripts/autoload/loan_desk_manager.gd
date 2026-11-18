@@ -7,7 +7,7 @@ extends Node
 ## deterministic).
 ##
 ## The player's pile (player_queue) always holds the next
-## LoanOfficerScreen.APPLICATIONS_PER_SHIFT applications, the first being the
+## LoanOfficerScreen.PENDING_PILE_SIZE applications, the first being the
 ## one on the desk: one closed undecided stays first, a decided one leaves and
 ## a new one joins the end. A new career's pile is the three teaching cases
 ## (LoanApplicationsData.teaching_cases()), so the first Loan Officer shift
@@ -51,7 +51,7 @@ func reset() -> void:
 	names_today = PackedStringArray()
 
 func queue_size() -> int:
-	return LoanOfficerScreen.APPLICATIONS_PER_SHIFT
+	return LoanOfficerScreen.PENDING_PILE_SIZE
 
 # --- the player's pile -----------------------------------------------------------------
 

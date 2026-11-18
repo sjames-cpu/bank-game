@@ -8,8 +8,9 @@ class_name LoanOfficerScreen
 ## Mirrors teller_screen.gd's clock-in/out + shift-summary structure, but
 ## there's no cash drawer to count here, so clocking in starts the shift
 ## immediately instead of routing through a starting count first. The
-## shift's "work" is reviewing a fixed number of loan applications
-## (APPLICATIONS_PER_SHIFT) via the same LoanReviewScreen from 4b-4e,
+## shift's "work" is reviewing the loan applications the day's slots bring
+## (applications_per_shift; the pile they come from holds PENDING_PILE_SIZE)
+## via the same LoanReviewScreen from 4b-4e,
 ## instanced once here and re-shown for each application — its
 ## decision_graded signal (emitted alongside the Score/Reputation/XP calls
 ## it already makes per decision) is how this screen tallies a running
@@ -42,11 +43,11 @@ class_name LoanOfficerScreen
 signal shift_clocked_in
 signal shift_clocked_out
 
-## Fixed shift length rather than open-ended, so each shift reads as a
-## clear, comparable unit of work (same reasoning as Teller's fixed
-## clock-in/clock-out structure) instead of the player having to decide
-## for themselves when a shift is "done."
-const APPLICATIONS_PER_SHIFT: int = 3
+## The size of the player's pile of pending applications
+## (LoanDeskManager.player_queue): always the next this-many, the first on
+## the desk. It is not how many a shift reviews: the day's slots decide that
+## (applications_per_shift, LoanConfig.APPLICATIONS_PER_SLOT per work slot).
+const PENDING_PILE_SIZE: int = 3
 
 ## How many applications this shift may review: what the day's slots have
 ## brought so far (LoanSlotAdapter sets it: 0 at Opening, then DaySchedule's
@@ -130,7 +131,7 @@ func _on_application_graded(score_delta: int, reputation_delta: int, xp_delta: i
 	_update_shift_controls()
 
 ## Closing without a decision doesn't use up a slot toward
-## APPLICATIONS_PER_SHIFT — only an actual decision does (counted in
+## applications_per_shift — only an actual decision does (counted in
 ## _on_application_graded()). LoanReviewScreen keeps the undecided
 ## application current, so "Review Next Application" brings the same one
 ## back rather than letting it be skipped.
@@ -138,7 +139,7 @@ func _on_loan_review_screen_closed(_was_decided: bool) -> void:
 	_show_main_panel()
 
 ## Gated on work, not time: the shift only ends once all
-## APPLICATIONS_PER_SHIFT have been reviewed (the old 45-second wall-clock
+## applications_per_shift have been reviewed (the old 45-second wall-clock
 ## minimum could just be waited out inside this paused screen).
 func _on_clock_out_button_pressed() -> void:
 	# Time slots: the shift runs until Closing (shared with every desk).
