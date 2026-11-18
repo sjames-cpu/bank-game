@@ -1,9 +1,11 @@
 extends RefCounted
 class_name DaySchedule
 
-## The business day's time slots and how much work each role does in one
-## (TIME_SLOTS_DECISIONS.md). Static config only: DayFlow walks through
-## these slots, and the role adapters read their work amounts from here.
+## The shared slot-system config (TIME_SLOTS_DECISIONS.md): the business
+## day's time slots, the cutoff, the events' slots, the clean-slot reward
+## and the staff's work per slot. Static config only: DayFlow walks through
+## these slots. Each player role keeps its own amounts in its own config
+## (TellerConfig, LoanConfig; ROLE_BOUNDARIES.md).
 ##
 ##   Opening (8:30) -> 9 AM -> 11 AM -> 1 PM -> 3 PM -> Closing (5 PM)
 ##
@@ -22,12 +24,12 @@ const CLOSING: StringName = &"closing"
 ## post on the next business day.
 const FIRST_SLOT_AFTER_CUTOFF: StringName = SLOT_3PM
 
-## Who does a slot's work, for work_for().
-enum WorkRole { TELLER, LOAN_OFFICER, STAFF_TELLER_WINDOW, STAFF_LOAN_DESK }
+## Whose work per slot work_for() gives: the staff's (shared by every role).
+## The player's roles keep their own amounts in their configs
+## (TellerConfig.CUSTOMERS_PER_SLOT, LoanConfig.APPLICATIONS_PER_SLOT).
+enum WorkRole { STAFF_TELLER_WINDOW, STAFF_LOAN_DESK }
 
-## Work per slot (decisions 2 and 17).
-const TELLER_CUSTOMERS_PER_SLOT: int = 2
-const LOAN_OFFICER_APPLICATIONS_PER_SLOT: int = 1
+## Staff work per slot (decision 2).
 const STAFF_TELLER_WINDOW_CUSTOMERS_PER_SLOT: int = 4
 const STAFF_LOAN_DESK_DECISIONS_PER_SLOT: int = 2
 
@@ -82,10 +84,6 @@ static func first_after_cutoff_index() -> int:
 ## How much work `role` does in one work slot.
 static func work_for(role: WorkRole) -> int:
 	match role:
-		WorkRole.TELLER:
-			return TELLER_CUSTOMERS_PER_SLOT
-		WorkRole.LOAN_OFFICER:
-			return LOAN_OFFICER_APPLICATIONS_PER_SLOT
 		WorkRole.STAFF_TELLER_WINDOW:
 			return STAFF_TELLER_WINDOW_CUSTOMERS_PER_SLOT
 		WorkRole.STAFF_LOAN_DESK:

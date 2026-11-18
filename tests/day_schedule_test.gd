@@ -41,7 +41,8 @@ func test_lookups() -> void:
 	assert_object(DaySchedule.slot_at(2)).is_same(DaySchedule.slots()[2])
 
 func test_work_per_slot_for_each_role() -> void:
-	assert_int(DaySchedule.work_for(DaySchedule.WorkRole.TELLER)).is_equal(2)
-	assert_int(DaySchedule.work_for(DaySchedule.WorkRole.LOAN_OFFICER)).is_equal(1)
+	# Each role's own amount is in its config.
+	assert_int(TellerConfig.CUSTOMERS_PER_SLOT).is_equal(2)
+	assert_int(LoanConfig.APPLICATIONS_PER_SLOT).is_equal(1)
 	assert_int(DaySchedule.work_for(DaySchedule.WorkRole.STAFF_TELLER_WINDOW)).is_equal(4)
 	assert_int(DaySchedule.work_for(DaySchedule.WorkRole.STAFF_LOAN_DESK)).is_equal(2)

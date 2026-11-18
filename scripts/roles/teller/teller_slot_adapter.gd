@@ -8,7 +8,7 @@ class_name TellerSlotAdapter
 ## On a Teller day (PlayerShift.role_today, chosen at Opening by the shift's
 ## clock-in, ShiftSlotAdapter) each work slot (9 AM, 11 AM, 1 PM, 3 PM) is
 ## claimed while the player is clocked in at the teller window. The
-## player's line then brings DaySchedule.work_for(TELLER) customers, one by
+## player's line then brings TellerConfig.CUSTOMERS_PER_SLOT customers, one by
 ## one (decision 3, CustomerQueue.begin_batch()), and the slot is finished
 ## once all of them have arrived and left the line: served, refused, gone
 ## off upset, or given up waiting (decision 1). That's checked only while
@@ -50,7 +50,7 @@ func is_teller_working() -> bool:
 
 ## Customers this slot brings.
 func customers_per_slot() -> int:
-	return DaySchedule.work_for(DaySchedule.WorkRole.TELLER)
+	return TellerConfig.CUSTOMERS_PER_SLOT
 
 func _on_slot_started(slot: DaySlot) -> void:
 	_claimed = false

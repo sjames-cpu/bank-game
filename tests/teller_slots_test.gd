@@ -14,7 +14,7 @@ func current_id() -> StringName:
 	return DayFlow.current_slot().id
 
 func per_slot() -> int:
-	return DaySchedule.work_for(DaySchedule.WorkRole.TELLER)
+	return TellerConfig.CUSTOMERS_PER_SLOT
 
 ## A Teller day: clocked in at Opening, then into the 9 AM slot. The line's
 ## own timer is stopped: tests bring customers themselves.

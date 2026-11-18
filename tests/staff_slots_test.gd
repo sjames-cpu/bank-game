@@ -34,7 +34,7 @@ func teller_day_at_9am() -> void:
 
 ## The player's two customers served: the Teller's slot is done.
 func finish_teller_slot() -> void:
-	for i in DaySchedule.work_for(DaySchedule.WorkRole.TELLER):
+	for i in TellerConfig.CUSTOMERS_PER_SLOT:
 		serve_correctly(spawn(ShiftTransaction.Type.DEPOSIT, 20.0))
 
 func test_every_work_slot_starts_fresh_caps() -> void:

@@ -42,7 +42,7 @@ func press_continue() -> void:
 ## drawer stays under its limit all day), then the card comes up.
 func work_the_slot(id: StringName) -> void:
 	assert_str(current_id()).is_equal(id)
-	for i in DaySchedule.work_for(DaySchedule.WorkRole.TELLER):
+	for i in TellerConfig.CUSTOMERS_PER_SLOT:
 		serve_correctly(spawn(ShiftTransaction.Type.DEPOSIT, 20.0))
 	await frames(2)
 

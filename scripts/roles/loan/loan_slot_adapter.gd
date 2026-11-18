@@ -10,7 +10,7 @@ class_name LoanSlotAdapter
 ## (LoanOfficerScreen.applications_per_shift) is 0; on a Loan Officer day
 ## (PlayerShift.role_today, chosen at Opening by the shift's clock-in) each
 ## work slot is claimed while the player is clocked in at Loan Desk 1, and
-## brings DaySchedule.work_for(LOAN_OFFICER) more. The room's walk-in, the
+## brings LoanConfig.APPLICATIONS_PER_SLOT more. The room's walk-in, the
 ## screen's "Review Next Application" and its own clock-out check all follow
 ## that allowance. The slot is finished once those applications are
 ## decided (an Approve, Counter-Offer or Reject: closing the review without
@@ -56,7 +56,7 @@ func is_loan_officer_working() -> bool:
 
 ## Applications one work slot brings.
 func applications_per_slot() -> int:
-	return DaySchedule.work_for(DaySchedule.WorkRole.LOAN_OFFICER)
+	return LoanConfig.APPLICATIONS_PER_SLOT
 
 func is_claimed() -> bool:
 	return _claimed

@@ -297,7 +297,7 @@ func test_going_home_early_skips_to_the_summary() -> void:
 	assert_bool(eod.visible).is_false()
 	continue_to_slot(DaySchedule.SLOT_9AM)
 	cq.spawn_timer.stop()
-	for i in DaySchedule.work_for(DaySchedule.WorkRole.TELLER):
+	for i in TellerConfig.CUSTOMERS_PER_SLOT:
 		abandon(spawn())
 	await frames(2)
 	assert_bool(DayFlow.is_between_slots()).is_true()

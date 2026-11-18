@@ -104,7 +104,7 @@ func test_the_shift_cap_and_opening_hours_still_hold() -> void:
 	close_window(ScheduleManager.SLOT_TELLER_WINDOW_2)
 	clock_in()
 	open_work_slot()
-	var per_slot := DaySchedule.work_for(DaySchedule.WorkRole.TELLER)
+	var per_slot := TellerConfig.CUSTOMERS_PER_SLOT
 	assert_int(cq.get_customers_left_to_spawn()).is_equal(per_slot)
 	var arrivals := 0
 	for tick in 12:
