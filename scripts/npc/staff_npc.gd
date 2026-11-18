@@ -26,6 +26,11 @@ const SPEED: float = 110.0
 var staff: StaffMember = null
 var state: State = State.AT_DESK
 
+## Who gives this person work: their teller window's NpcCustomerLine or
+## their loan desk's NpcLoanDeskWorker (set by the line itself and by the
+## room). Only read by is_working().
+var work_source: Node = null
+
 var _route: Array[Vector2] = []
 var _route_end_state: State = State.AT_DESK
 
@@ -68,6 +73,20 @@ func _show_member() -> void:
 	_sprite.animation = animation
 	if was_playing:
 		_sprite.play(animation)
+
+## Whether they're serving someone right now (a customer at their window, an
+## applicant seated at their loan desk): the small rhythmic motion of
+## CharacterMotion. Idle, or away from the desk, is false.
+func is_working() -> bool:
+	if state != State.AT_DESK or work_source == null:
+		return false
+	var line := work_source as NpcCustomerLine
+	if line != null:
+		return line.staff_npc == self and line.is_serving()
+	var worker := work_source as NpcLoanDeskWorker
+	if worker != null:
+		return worker.staff_npc == self and worker.seat != null and worker.seat.phase == LoanDeskSeat.Phase.SEATED
+	return false
 
 ## Short speech line above the name label, hidden after `seconds` of
 ## unpaused time unless something newer replaced it.

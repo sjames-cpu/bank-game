@@ -34,6 +34,9 @@ const TEST_PREFIX := "user://test_career"
 
 const TEST_SAVE_PATH := "user://test_career_slot_1.json"
 
+## The Effects setting's file in tests (never the real one, EffectsSetting).
+const TEST_SETTINGS_PATH := "user://test_settings.cfg"
+
 var room: TellerRoom
 
 var cq: CustomerQueue
@@ -44,6 +47,9 @@ func before_test() -> void:
 	# Each career's loan applicants come from a seed of its own (LoanDeskManager).
 	LoanDeskManager.seed_source.seed = RNG_SEED
 	use_test_save_path()
+	# Effects Off unless a test turns them on (use_test_settings(true)), so
+	# positions, outlines and zooms stay exactly where the checks expect them.
+	use_test_settings(false)
 	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
 	CareerReset.reset_all()
 	# Onboarding done unless a test asks (onboarding_test.gd).
@@ -120,10 +126,22 @@ func after_test() -> void:
 	room = null
 	CareerReset.reset_all()
 	use_test_save_path()
+	use_test_settings(false)
 	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
 	# Let queue_free()'d nodes (rebuilt UI rows, re-placed staff) actually go
 	# before gdUnit's orphan check.
 	await get_tree().process_frame
+
+## Points the Effects setting at the test settings file (TEST_SETTINGS_PATH),
+## removes any file left there, and sets it On or Off for this test without
+## writing it. The default for every test is Off.
+func use_test_settings(effects_on: bool = false) -> void:
+	EffectsSetting.use_file(TEST_SETTINGS_PATH)
+	for leftover: String in [TEST_SETTINGS_PATH]:
+		if FileAccess.file_exists(leftover):
+			DirAccess.remove_absolute(leftover)
+	EffectsSetting.set_on(effects_on, false)
+	CharacterMotionDriver.clock = 0.0
 
 ## Points SaveGame at the test save files (TEST_PREFIX), plays Slot 1
 ## (TEST_SAVE_PATH), and removes every test save (all slots, the old single

@@ -57,7 +57,12 @@ signal wound_down
 @export var spawn_interval_min: float = 12.0
 @export var spawn_interval_max: float = 18.0
 
-var staff_npc: StaffNPC = null
+var staff_npc: StaffNPC = null:
+	set(value):
+		staff_npc = value
+		# So the staff member knows whose work they do (StaffNPC.is_working()).
+		if value != null:
+			value.work_source = self
 var active: bool = false
 
 ## The staff member has been called to witness the vault (VaultDualControl):

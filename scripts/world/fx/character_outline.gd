@@ -41,6 +41,7 @@ var _frames: SpriteFrames = null
 var _animation: StringName = &""
 var _frame: int = -1
 var _flipped: bool = false
+var _sprite_position: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	if sprite == null:
@@ -52,14 +53,21 @@ func _ready() -> void:
 	sprite.sprite_frames_changed.connect(_request_redraw)
 
 func _process(_delta: float) -> void:
+	refresh()
+
+## Redraws if the sprite's frame, animation, flip, frames or position changed
+## since the last drawing. flip_h has no signal, and the motion moves the
+## sprite's position (CharacterMotion calls this right after, so the outline
+## is never a frame behind the sprite), so this checks them all.
+func refresh() -> void:
 	if sprite == null:
 		return
-	# flip_h has no signal, so it (and everything else) is also checked here.
-	if sprite.frame != _frame or sprite.animation != _animation or sprite.flip_h != _flipped or sprite.sprite_frames != _frames:
+	if sprite.frame != _frame or sprite.animation != _animation or sprite.flip_h != _flipped or sprite.sprite_frames != _frames or sprite.position != _sprite_position:
 		_frame = sprite.frame
 		_animation = sprite.animation
 		_flipped = sprite.flip_h
 		_frames = sprite.sprite_frames
+		_sprite_position = sprite.position
 		_request_redraw()
 
 func _request_redraw() -> void:
