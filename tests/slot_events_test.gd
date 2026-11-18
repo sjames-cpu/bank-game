@@ -55,18 +55,18 @@ func test_the_regional_manager_visits_in_the_11_am_slot() -> void:
 	manager_day()
 	continue_to_slot(DaySchedule.SLOT_9AM)
 	await frames(2)
-	assert_object(room.regional_visitor).is_null()
+	assert_object(regional_visit().visitor).is_null()
 	manager.end_slot()
 	continue_to_slot(DaySchedule.SLOT_11AM)
 	# In from the entrance (not placed at the spot), and the slot isn't held.
-	var visitor := room.regional_visitor
+	var visitor := regional_visit().visitor
 	assert_object(visitor).is_not_null()
-	assert_vector(visitor.global_position).is_equal(TellerRoom.VISIT_ENTRANCE)
+	assert_vector(visitor.global_position).is_equal(RegionalVisitSlot.VISIT_ENTRANCE)
 	assert_bool(DayFlow.is_held()).is_false()
 	visitor.finish_route()
-	assert_vector(visitor.global_position).is_equal(TellerRoom.VISIT_ROUTE[-1])
+	assert_vector(visitor.global_position).is_equal(RegionalVisitSlot.VISIT_ROUTE[-1])
 	await frames(3)
-	assert_object(room.regional_visitor).is_same(visitor)
+	assert_object(regional_visit().visitor).is_same(visitor)
 	# The slot ends as usual, and they walk out.
 	manager.end_slot()
 	assert_bool(DayFlow.is_between_slots()).is_true()
@@ -74,11 +74,11 @@ func test_the_regional_manager_visits_in_the_11_am_slot() -> void:
 	visitor.finish_route()
 	await frames(1)
 	assert_bool(is_instance_valid(visitor)).is_false()
-	assert_object(room.regional_visitor).is_null()
+	assert_object(regional_visit().visitor).is_null()
 	# Not again today.
 	manager.end_slot()
 	continue_to_slot(DaySchedule.SLOT_1PM)
-	assert_object(room.regional_visitor).is_null()
+	assert_object(regional_visit().visitor).is_null()
 
 func test_a_skipped_11_am_slot_sends_them_out() -> void:
 	promote()
@@ -87,7 +87,7 @@ func test_a_skipped_11_am_slot_sends_them_out() -> void:
 	continue_to_slot(DaySchedule.SLOT_9AM)
 	manager.end_slot()
 	continue_to_slot(DaySchedule.SLOT_11AM)
-	var visitor := room.regional_visitor
+	var visitor := regional_visit().visitor
 	assert_object(visitor).is_not_null()
 	DayFlow.skip_slot()
 	assert_int(visitor.state).is_equal(StaffNPC.State.WALKING)
@@ -99,7 +99,7 @@ func test_no_visit_on_other_days() -> void:
 	continue_to_slot(DaySchedule.SLOT_9AM)
 	manager.end_slot()
 	continue_to_slot(DaySchedule.SLOT_11AM)
-	assert_object(room.regional_visitor).is_null()
+	assert_object(regional_visit().visitor).is_null()
 
 # --- vacant desks ------------------------------------------------------------------------
 

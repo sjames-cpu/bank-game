@@ -205,7 +205,7 @@ func test_a_regional_review_day() -> void:
 	var visited: Array[StringName] = []
 	await play_manager_day(func(id: StringName) -> void:
 		# Here, and not on their way out.
-		if is_instance_valid(room.regional_visitor) and not room._visitor_leaving:
+		if is_instance_valid(regional_visit().visitor) and not regional_visit().is_leaving():
 			visited.append(id))
 	# The visit came in the 11 AM slot only.
 	assert_array(visited).is_equal([DaySchedule.SLOT_11AM])

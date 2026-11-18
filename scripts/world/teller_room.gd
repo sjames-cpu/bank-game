@@ -417,7 +417,8 @@ func show_end_of_day() -> void:
 	# The loans' day (once): payments late, caught up or defaulted, and the
 	# portfolio report when one is due (its letter queues before the summary).
 	LoanBookManager.close_day(BusinessDay.stats_day)
-	end_regional_visit()
+	# Any Regional visit still under way ends with the day.
+	(get_node("RegionalVisitSlot") as RegionalVisitSlot).end_visit()
 	if RegionalManager.demote_if_due():
 		save_career()
 		if letter_screen.visible:
@@ -436,61 +437,7 @@ func show_end_of_day() -> void:
 	end_of_day_screen.show_summary(figures, BusinessDay.closures_before_next_day())
 	save_career()
 
-# --- the Regional Manager's visit (RegionalManager) --------------------------------
-
-## On a review day the Regional Manager walks in from the entrance when the
-## 11 AM slot starts, stands outside the Manager's Office, and walks out when
-## it ends (RegionalVisitSlot calls start_regional_visit() and
-## send_regional_visitor_out()).
-## Entrance -> up the aisle beside the lounge -> outside the Manager's
-## Office door (columns 9-10), facing it.
-const VISIT_ENTRANCE: Vector2 = Vector2(384, 690)
-const VISIT_ROUTE: Array[Vector2] = [Vector2(384, 330), Vector2(320, 330), Vector2(320, 290)]
-const VISIT_GREETING: String = "Just here to observe. Carry on."
-
-## The visiting Regional Manager (null when not here).
-var regional_visitor: StaffNPC = null
-var _visitor_leaving: bool = false
-## The day they last came, so they don't come back once they've left.
-var _visit_day: int = 0
-
-## The visitor walks out the way they came, and is gone at the entrance.
-func send_regional_visitor_out() -> void:
-	if not is_instance_valid(regional_visitor) or _visitor_leaving:
-		return
-	_visitor_leaving = true
-	var route: Array[Vector2] = VISIT_ROUTE.duplicate()
-	route.reverse()
-	route.remove_at(0) # standing there
-	route.append(VISIT_ENTRANCE)
-	regional_visitor.follow_route(route, StaffNPC.State.ON_BREAK)
-	regional_visitor.route_finished.connect(end_regional_visit, CONNECT_ONE_SHOT)
-
-## Whether the Regional Manager has come today already.
-func regional_visit_done_today() -> bool:
-	return _visit_day == BusinessDay.stats_day
-
-func start_regional_visit() -> void:
-	_visit_day = BusinessDay.stats_day
-	_visitor_leaving = false
-	var member := StaffMember.new()
-	member.staff_name = RegionalManager.SENDER
-	member.look = StaffLooks.REGIONAL_MANAGER_LOOK
-	regional_visitor = STAFF_NPC_SCENE.instantiate()
-	regional_visitor.setup(member)
-	regional_visitor.name = "RegionalManagerVisitor"
-	staff_layer.add_child(regional_visitor)
-	regional_visitor.place_at(VISIT_ENTRANCE, StaffNPC.State.ON_BREAK)
-	regional_visitor.follow_route(VISIT_ROUTE, StaffNPC.State.ON_BREAK)
-	regional_visitor.route_finished.connect(regional_visitor.say.bind(VISIT_GREETING, 4.0), CONNECT_ONE_SHOT)
-
-## The visitor leaves the room (walked out, the day ended, or going home).
-func end_regional_visit() -> void:
-	# queue_free only: this can run from the visitor's own route_finished.
-	if is_instance_valid(regional_visitor):
-		regional_visitor.queue_free()
-	regional_visitor = null
-	_visitor_leaving = false
+# --- the Regional Manager (RegionalManager) ---------------------------------------
 
 ## Demoted to Loan Officer (RegionalManager, at a review's End of Day): undoes
 ## _apply_branch_manager_desks(). ScheduleManager has already closed Teller

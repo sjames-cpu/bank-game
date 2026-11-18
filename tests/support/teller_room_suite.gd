@@ -144,6 +144,10 @@ func use_interview_setting(enabled: bool) -> void:
 func start_slots_day() -> void:
 	slot_day().start_day()
 
+## The room's Regional visit (RegionalVisitSlot).
+func regional_visit() -> RegionalVisitSlot:
+	return room.get_node("RegionalVisitSlot")
+
 ## The room's SlotDayController (starting days, the doormat, F3).
 func slot_day() -> SlotDayController:
 	return room.get_node("SlotDayController")

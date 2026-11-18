@@ -583,26 +583,26 @@ func test_the_regional_manager_visits_on_review_day() -> void:
 	set_clock(5, 8, 30)
 	hold_slot(DaySchedule.REGIONAL_VISIT_SLOT)
 	await frames(2)
-	assert_object(room.regional_visitor).is_null()
+	assert_object(regional_visit().visitor).is_null()
 	DayFlow.release(&"test holds the slot")
 	await go_home_and_start_next_day()
 
 	# Review day: nobody before the 11 AM slot.
 	assert_bool(RegionalManager.is_review_day()).is_true()
 	await frames(2)
-	assert_object(room.regional_visitor).is_null()
+	assert_object(regional_visit().visitor).is_null()
 	hold_slot(DaySchedule.REGIONAL_VISIT_SLOT)
-	var visitor := room.regional_visitor
+	var visitor := regional_visit().visitor
 	assert_object(visitor).is_not_null()
 	assert_str((visitor.get_node("NameLabel") as Label).text).is_equal("Regional Manager")
 	var sprite: AnimatedSprite2D = visitor.get_node("AnimatedSprite2D")
 	assert_str(sprite.sprite_frames.resource_path).is_equal(StaffLooks.frames_path(StaffLooks.REGIONAL_MANAGER_LOOK))
 	# They start at the entrance and walk in.
-	assert_vector(visitor.global_position).is_equal(TellerRoom.VISIT_ENTRANCE)
+	assert_vector(visitor.global_position).is_equal(RegionalVisitSlot.VISIT_ENTRANCE)
 	assert_int(visitor.state).is_equal(StaffNPC.State.WALKING)
 	# A frame later they're still the one visitor, on their way.
 	await frames(1)
-	assert_object(room.regional_visitor).is_same(visitor)
+	assert_object(regional_visit().visitor).is_same(visitor)
 
 	# Walks in and stands outside the Manager's Office, facing it.
 	Engine.time_scale = 4.0
@@ -611,10 +611,10 @@ func test_the_regional_manager_visits_on_review_day() -> void:
 		await get_tree().physics_frame
 		waited += 1
 	await get_tree().physics_frame # standing still from here
-	assert_vector(visitor.global_position).is_equal(TellerRoom.VISIT_ROUTE[-1])
+	assert_vector(visitor.global_position).is_equal(RegionalVisitSlot.VISIT_ROUTE[-1])
 	assert_str(sprite.animation).is_equal("idle_up")
-	assert_str((visitor.get_node("SpeechLabel") as Label).text).is_equal(TellerRoom.VISIT_GREETING)
-	assert_object(room.regional_visitor).is_same(visitor)
+	assert_str((visitor.get_node("SpeechLabel") as Label).text).is_equal(RegionalVisitSlot.VISIT_GREETING)
+	assert_object(regional_visit().visitor).is_same(visitor)
 
 	# The slot ends: they walk back out and are gone, and don't come back
 	# that day.
@@ -628,9 +628,9 @@ func test_the_regional_manager_visits_on_review_day() -> void:
 		waited += 1
 	Engine.time_scale = 1.0
 	assert_bool(is_instance_valid(visitor)).is_false()
-	assert_object(room.regional_visitor).is_null()
+	assert_object(regional_visit().visitor).is_null()
 	await frames(2)
-	assert_object(room.regional_visitor).is_null()
+	assert_object(regional_visit().visitor).is_null()
 	DayFlow.release(&"test holds the slot")
 
 # --- HUD ------------------------------------------------------------------------------
