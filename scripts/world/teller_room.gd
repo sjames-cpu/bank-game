@@ -335,7 +335,6 @@ func _process(_delta: float) -> void:
 	_update_interaction_prompt()
 	_update_vault_notice()
 	_check_branch_opening()
-	_update_regional_visit()
 	_check_end_of_day()
 
 # --- loan walk-ins (LoanDeskSeat) ---------------------------------------------------
@@ -456,14 +455,10 @@ func show_end_of_day() -> void:
 
 # --- the Regional Manager's visit (RegionalManager) --------------------------------
 
-## On a review day the Regional Manager walks in from the entrance at
-## VISIT_START_MINUTES, stands outside the Manager's Office, and walks out
-## again at VISIT_END_MINUTES. A room loaded part-way through the visit finds
-## them already standing there.
-const VISIT_START_MINUTES: float = 10.0 * 60.0
-const VISIT_END_MINUTES: float = 11.0 * 60.0 + 30.0
-## Later than this after VISIT_START_MINUTES, they're placed at the spot.
-const VISIT_LATE_ARRIVAL_MINUTES: float = 10.0
+## On a review day the Regional Manager walks in from the entrance when the
+## 11 AM slot starts, stands outside the Manager's Office, and walks out when
+## it ends (RegionalVisitSlot calls start_regional_visit() and
+## send_regional_visitor_out()).
 ## Entrance -> up the aisle beside the lounge -> outside the Manager's
 ## Office door (columns 9-10), facing it.
 const VISIT_ENTRANCE: Vector2 = Vector2(384, 690)
@@ -475,19 +470,6 @@ var regional_visitor: StaffNPC = null
 var _visitor_leaving: bool = false
 ## The day they last came, so they don't come back once they've left.
 var _visit_day: int = 0
-
-func _update_regional_visit() -> void:
-	# Time slots: RegionalVisitSlot brings them for the 11 AM slot instead.
-	if DayFlow.slots_enabled:
-		return
-	var during_visit := GameClock.minutes >= VISIT_START_MINUTES and GameClock.minutes < VISIT_END_MINUTES and not BusinessDay.is_day_over()
-	if not is_instance_valid(regional_visitor):
-		regional_visitor = null
-		if during_visit and RegionalManager.is_review_day() and _visit_day != BusinessDay.stats_day:
-			start_regional_visit()
-		return
-	if not during_visit:
-		send_regional_visitor_out()
 
 ## The visitor walks out the way they came, and is gone at the entrance.
 func send_regional_visitor_out() -> void:
@@ -515,9 +497,6 @@ func start_regional_visit() -> void:
 	regional_visitor.setup(member)
 	regional_visitor.name = "RegionalManagerVisitor"
 	staff_layer.add_child(regional_visitor)
-	if not DayFlow.slots_enabled and GameClock.minutes - VISIT_START_MINUTES > VISIT_LATE_ARRIVAL_MINUTES:
-		regional_visitor.place_at(VISIT_ROUTE[-1], StaffNPC.State.ON_BREAK)
-		return
 	regional_visitor.place_at(VISIT_ENTRANCE, StaffNPC.State.ON_BREAK)
 	regional_visitor.follow_route(VISIT_ROUTE, StaffNPC.State.ON_BREAK)
 	regional_visitor.route_finished.connect(regional_visitor.say.bind(VISIT_GREETING, 4.0), CONNECT_ONE_SHOT)

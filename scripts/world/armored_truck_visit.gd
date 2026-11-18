@@ -3,25 +3,18 @@ class_name ArmoredTruckVisit
 
 ## The armored truck's visit to the branch (part 2 of the cash supply): on a
 ## day with cash to deliver or collect (VaultManager.has_visit_due()), a crew
-## of two guards (StaffLooks.GUARD_LOOKS) walks in from the entrance at
-## ARRIVAL_MINUTES and waits by the vault door.
+## of two guards (StaffLooks.GUARD_LOOKS) walks in from the entrance when the
+## 9 AM slot starts (ArmoredTruckSlot calls arrive_now()) and waits by the
+## vault door.
 ## - Before promotion the NPC branch manager receives them as they arrive
 ##   (VaultManager.npc_handle_visit()) and they leave.
 ## - A player Branch Manager receives them at the vault door under dual
 ##   control (teller_room.gd: the vault door's ARMORED purpose, then
-##   ArmoredTruckScreen). If nobody has started that within WAIT_MINUTES,
-##   the crew leaves and the shipment is rescheduled for the next business
-##   day (VaultManager.miss_visit(), graded as a delay).
-## Mid-shift state: the crew isn't saved (a visit saved while they were here
-## loads as BUILT, and they come back if there's still time).
-
-## 10:30 AM: a carrier's mid-morning stop, after the opening rush and the
-## morning counts and before the lunch-time queues.
-const ARRIVAL_MINUTES: float = 10.0 * 60.0 + 30.0
-## They wait 45 game minutes (30 seconds of unpaused play; open screens stop
-## the clock) and leave at 11:15 AM. A real stop is tighter, but the manager
-## has to notice, walk to the vault and get a witness there.
-const WAIT_MINUTES: float = 45.0
+##   ArmoredTruckScreen); they hold the 9 AM slot until then
+##   (ArmoredTruckSlot), which also sends them off, missed (miss()), if
+##   nobody at all could witness. A visit still due at End of Day is settled
+##   then (settle_day()).
+## Mid-shift state: the crew isn't saved.
 
 ## In from the entrance, up the aisle beside the lounge, along the aisle
 ## behind the desks, straight up through the vault's door gap and into the
@@ -31,9 +24,8 @@ const ENTRANCE: Vector2 = Vector2(384, 690)
 const ROUTE_IN: Array[Vector2] = [Vector2(384, 288), Vector2(112, 288), Vector2(112, 232), Vector2(112, 206)]
 const GUARD_SPOTS: Array[Vector2] = [Vector2(88, 206), Vector2(136, 206)]
 
-const ARRIVED_TEXT: String = "The armored truck crew is at the vault door. As Branch Manager, receive them there with a witness before %s."
-## With time slots on (ArmoredTruckSlot): they wait, holding the 9 AM slot.
-const ARRIVED_SLOTS_TEXT: String = "The armored truck crew is at the vault door. As Branch Manager, receive them there with a witness: the 9 AM slot waits for them."
+## They wait, holding the 9 AM slot (ArmoredTruckSlot).
+const ARRIVED_TEXT: String = "The armored truck crew is at the vault door. As Branch Manager, receive them there with a witness: the 9 AM slot waits for them."
 
 ## Missing the truck costs as much as refusing a good bag (ArmoredTruckScreen).
 const MISSED_SCORE: int = -3
@@ -49,25 +41,8 @@ var _arrived: int = 0
 
 func _process(_delta: float) -> void:
 	_drop_freed()
-	# Time slots: ArmoredTruckSlot brings the crew at 9 AM (arrive_now()),
-	# and they wait, without a clock.
-	if DayFlow.slots_enabled:
-		return
-	match phase:
-		Phase.IDLE:
-			if _should_arrive():
-				_arrive()
-		Phase.WAITING:
-			if GameClock.minutes >= ARRIVAL_MINUTES + WAIT_MINUTES or BusinessDay.is_day_over():
-				miss()
 
-func _should_arrive() -> bool:
-	var day := GameClock.day
-	if BusinessDay.is_day_over() or not VaultManager.has_visit_due(day):
-		return false
-	return GameClock.minutes >= ARRIVAL_MINUTES and GameClock.minutes < ARRIVAL_MINUTES + WAIT_MINUTES
-
-## The crew comes in now (time slots: ArmoredTruckSlot, at 9 AM), if there's
+## The crew comes in now (ArmoredTruckSlot, at 9 AM), if there's
 ## cash to move today and they haven't come yet. Returns whether they came.
 func arrive_now() -> bool:
 	if phase != Phase.IDLE or BusinessDay.is_day_over() or not VaultManager.has_visit_due(GameClock.day):
@@ -116,8 +91,7 @@ func _on_guard_arrived() -> void:
 		guards[0].say("All signed. Thanks!", 2.5)
 		leave()
 	else:
-		var text := ARRIVED_SLOTS_TEXT if DayFlow.slots_enabled else ARRIVED_TEXT % GameClock.format_time(ARRIVAL_MINUTES + WAIT_MINUTES)
-		room.show_timed_notice(text, 6.0)
+		room.show_timed_notice(ARRIVED_TEXT, 6.0)
 
 ## The Branch Manager has started receiving them at the vault door.
 func begin_receiving() -> void:

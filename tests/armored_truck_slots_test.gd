@@ -97,7 +97,7 @@ func test_the_9_am_slot_waits_for_the_truck_on_a_manager_day() -> void:
 	assert_bool(DayFlow.is_held()).is_true()
 	crew_at_the_door()
 	assert_bool(truck.is_waiting()).is_true()
-	assert_str(room.desk_notice_label.text).is_equal(ArmoredTruckVisit.ARRIVED_SLOTS_TEXT)
+	assert_str(room.desk_notice_label.text).is_equal(ArmoredTruckVisit.ARRIVED_TEXT)
 	# "End this slot" isn't enough: the slot waits for the truck.
 	manager.bar.end_button.pressed.emit()
 	await frames(3)
