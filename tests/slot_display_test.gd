@@ -59,7 +59,7 @@ func test_the_tint_fades_into_closing() -> void:
 
 func test_the_doormat_prompt_points_to_the_card() -> void:
 	start_slots_day()
-	assert_str(room.interaction_prompt_text(room.exit_door)).is_equal(TellerRoom.GO_HOME_SLOTS_PROMPT)
+	assert_str(room.interaction_prompt_text(room.exit_door)).is_equal(SlotDayController.GO_HOME_SLOTS_PROMPT)
 
 # --- the pause menu ------------------------------------------------------------------------
 

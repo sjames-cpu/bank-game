@@ -142,7 +142,11 @@ func use_interview_setting(enabled: bool) -> void:
 ## A day started at Opening that waits between slots
 ## (DayFlow.pause_between_slots), as the room runs it.
 func start_slots_day() -> void:
-	room.start_slots_day()
+	slot_day().start_day()
+
+## The room's SlotDayController (starting days, the doormat, F3).
+func slot_day() -> SlotDayController:
+	return room.get_node("SlotDayController")
 
 ## The room's time-slot pieces (placed by SlotWiring).
 func slot_card() -> SlotTransitionCard:
@@ -164,7 +168,7 @@ const TEST_HOLD: StringName = &"test keeps the branch open"
 func open_work_slot() -> void:
 	if not DayFlow.is_running():
 		_holding_branch = false
-		room.start_slots_day()
+		slot_day().start_day()
 	if DayFlow.current_slot().id == DaySchedule.OPENING and not DayFlow.is_between_slots():
 		DayFlow.skip_slot()
 	if DayFlow.is_between_slots():

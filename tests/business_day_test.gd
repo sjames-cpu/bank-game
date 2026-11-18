@@ -293,7 +293,7 @@ func test_going_home_early_skips_to_the_summary() -> void:
 	# On shift, the doormat says to clock out first and does nothing.
 	clock_in()
 	assert_str(room.interaction_prompt_text(room.exit_door)).is_equal("Clock out before you go home")
-	room._on_exit_door_interacted()
+	room.exit_door.interacted.emit()
 	assert_bool(eod.visible).is_false()
 	continue_to_slot(DaySchedule.SLOT_9AM)
 	cq.spawn_timer.stop()

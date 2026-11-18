@@ -17,10 +17,8 @@ class_name SlotWiring
 ## - StaffSlotPacer: staff work per slot.
 ## - ArmoredTruckSlot: the armored truck at 9 AM.
 ## - RegionalVisitSlot: the Regional Manager's visit at 11 AM.
-##
-## Still in the room for now (session 4): starting each day
-## (TellerRoom.start_slots_day()), the debug skip key (F3) and the doormat's
-## note that going home is on the card.
+## - SlotDayController (last): starts each day, the doormat's note that going
+##   home is on the card, and the debug skip key (F3).
 
 const SLOT_CARD_SCENE: PackedScene = preload("res://scenes/ui/slot_transition_card.tscn")
 
@@ -59,6 +57,10 @@ static func install(room: TellerRoom) -> void:
 	regional.name = "RegionalVisitSlot"
 	regional.room = room
 	room.add_child(regional)
+	var day := SlotDayController.new()
+	day.name = "SlotDayController"
+	day.room = room
+	room.add_child(day)
 
 ## Every desk's clock-in and clock-out, reported to PlayerShift with its role.
 static func _report_shifts(room: TellerRoom) -> void:

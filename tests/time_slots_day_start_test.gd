@@ -1,6 +1,6 @@
 extends "res://tests/support/teller_room_suite.gd"
 
-## Starting the real day on a time-slot day (teller_room.start_slots_day()):
+## Starting the real day on a time-slot day (SlotDayController.start_day()):
 ## when the room loads and at "Start Day N+1", never twice and never
 ## straight from an End of Day; a save made at End of Day shows that End of
 ## Day again (its day_ended flag); the doormat sends going home to the card; and a
@@ -56,7 +56,7 @@ func test_a_day_never_starts_twice() -> void:
 	start_slots_day()
 	clock_in()
 	assert_bool(DayFlow.is_between_slots()).is_true()
-	room.start_slots_day()
+	slot_day().start_day()
 	assert_bool(DayFlow.is_between_slots()).is_true()
 	assert_str(DayFlow.next_slot().id).is_equal(DaySchedule.SLOT_9AM)
 
@@ -65,7 +65,7 @@ func test_start_day_n_plus_1_starts_the_next_day_and_nothing_else_does() -> void
 	assert_bool(eod.is_summary_shown()).is_true()
 	assert_bool(DayFlow.is_running()).is_false()
 	# Waiting on the summary starts nothing.
-	room.start_slots_day()
+	slot_day().start_day()
 	await frames(3)
 	assert_bool(DayFlow.is_running()).is_false()
 	assert_bool(eod.is_summary_shown()).is_true()
@@ -102,10 +102,10 @@ func test_a_save_made_at_end_of_day_shows_that_end_of_day_again() -> void:
 
 func test_the_doormat_points_to_the_card() -> void:
 	start_slots_day()
-	room._on_exit_door_interacted()
+	room.exit_door.interacted.emit()
 	assert_bool(eod.visible).is_false()
 	assert_bool(room.desk_notice.visible).is_true()
-	assert_str(room.desk_notice_label.text).is_equal(TellerRoom.GO_HOME_BETWEEN_SLOTS_TEXT)
+	assert_str(room.desk_notice_label.text).is_equal(SlotDayController.GO_HOME_BETWEEN_SLOTS_TEXT)
 	assert_str(current_id()).is_equal(DaySchedule.OPENING)
 
 func test_business_day_going_home_goes_through_dayflow() -> void:
@@ -161,8 +161,8 @@ func f3() -> InputEventKey:
 	return key
 
 func test_f3_is_the_debug_skip_slot_key() -> void:
-	assert_bool(InputMap.has_action(TellerRoom.DEBUG_SKIP_SLOT_ACTION)).is_true()
-	assert_bool(f3().is_action_pressed(TellerRoom.DEBUG_SKIP_SLOT_ACTION)).is_true()
+	assert_bool(InputMap.has_action(SlotDayController.DEBUG_SKIP_SLOT_ACTION)).is_true()
+	assert_bool(f3().is_action_pressed(SlotDayController.DEBUG_SKIP_SLOT_ACTION)).is_true()
 
 func test_f3_skips_the_current_slot() -> void:
 	room.debug_cheats_enabled = true
@@ -173,17 +173,17 @@ func test_f3_skips_the_current_slot() -> void:
 	var skipped: Array[StringName] = []
 	var on_skip := func(slot: DaySlot) -> void: skipped.append(slot.id)
 	DayFlow.slot_skipped.connect(on_skip)
-	room._unhandled_input(f3())
+	slot_day()._unhandled_input(f3())
 	DayFlow.slot_skipped.disconnect(on_skip)
 	assert_array(skipped).is_equal([DaySchedule.SLOT_9AM])
 	assert_bool(DayFlow.is_between_slots()).is_true()
 	# Between slots there's nothing to skip.
-	assert_bool(room.debug_skip_slot()).is_false()
+	assert_bool(slot_day().debug_skip_slot()).is_false()
 	assert_bool(DayFlow.is_between_slots()).is_true()
 
 func test_f3_does_nothing_in_a_release_build() -> void:
 	start_slots_day()
 	room.debug_cheats_enabled = false
-	room._unhandled_input(f3())
+	slot_day()._unhandled_input(f3())
 	assert_str(current_id()).is_equal(DaySchedule.OPENING)
-	assert_bool(room.debug_skip_slot()).is_false()
+	assert_bool(slot_day().debug_skip_slot()).is_false()

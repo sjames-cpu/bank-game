@@ -89,10 +89,6 @@ class_name TellerRoom
 
 const DEBUG_UNLOCK_KEY := KEY_F1
 const DEBUG_LOAN_OFFICER_KEY := KEY_F2
-## The debug skip-slot key (F3, the `debug_skip_slot` action; decision 4):
-## skips the current time slot (DayFlow.skip_slot()). Debug builds only
-## (debug_cheats_enabled).
-const DEBUG_SKIP_SLOT_ACTION: StringName = &"debug_skip_slot"
 const DEBUG_LOAN_OFFICER_REPUTATION: int = 50
 
 ## Whether DEBUG_UNLOCK_KEY and DEBUG_LOAN_OFFICER_KEY work — only in debug builds. A variable rather
@@ -252,7 +248,6 @@ func _ready() -> void:
 	_update_branch_manager_desk_availability()
 
 	atm.interacted.connect(_on_atm_interacted)
-	exit_door.interacted.connect(_on_exit_door_interacted)
 	vault_control = VaultDualControl.new()
 	vault_control.name = "VaultDualControl"
 	vault_control.room = self
@@ -311,20 +306,8 @@ func _ready() -> void:
 	add_child(onboarding_flow)
 	onboarding_flow.finished.connect(_show_arrival_hints)
 	onboarding_flow.start()
+	# The time-slot pieces, which also start today's slots (SlotDayController).
 	SlotWiring.install(self)
-	start_slots_day()
-
-## Starts today's time slots at Opening, waiting between
-## slots for the card. Never while a day is running or its End of Day is
-## due, so a day never starts twice or straight from an End of Day: the
-## next one starts from "Start Day N+1" (_on_next_day_requested()). A career
-## loaded from a save whose day had ended has its End of Day due already
-## (DayFlow.load_data()), so it comes back to that End of Day.
-func start_slots_day() -> void:
-	if DayFlow.is_running() or DayFlow.end_of_day_due:
-		return
-	DayFlow.pause_between_slots = true
-	DayFlow.start_day()
 
 func _show_arrival_hints() -> void:
 	hud.show_hint_once(HintManager.Hint.ARRIVAL)
@@ -523,21 +506,10 @@ func _on_branch_manager_demoted() -> void:
 	loan_desk_worker.active = true
 	save_career()
 
-## Going home early is on the card between slots: the doormat's notice,
-## and its prompt.
-const GO_HOME_BETWEEN_SLOTS_TEXT: String = "You can go home early between slots, from the slot card."
-const GO_HOME_SLOTS_PROMPT: String = "Going home early is on the card between slots"
-
-func _on_exit_door_interacted() -> void:
-	if end_of_day_screen.visible or is_player_on_shift():
-		return
-	_show_notice(GO_HOME_BETWEEN_SLOTS_TEXT)
-
-## "Start Day N+1": 8:30 AM the next business day, its slots starting at
-## Opening, saved.
+## "Start Day N+1": 8:30 AM the next business day, saved; SlotDayController
+## then starts its slots at Opening.
 func _on_next_day_requested() -> void:
 	BusinessDay.start_next_day()
-	start_slots_day()
 	save_career()
 
 func _on_shift_completed() -> void:
@@ -723,7 +695,7 @@ func interaction_prompt_text(desk: Interactable) -> String:
 	if desk == exit_door:
 		if is_player_on_shift():
 			return "Clock out before you go home"
-		return GO_HOME_SLOTS_PROMPT
+		return SlotDayController.GO_HOME_SLOTS_PROMPT
 	if desk == atm:
 		return "%s — Use ATM" % key
 	if desk == vault_door:
@@ -1247,20 +1219,10 @@ func _on_atm_interacted() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not debug_cheats_enabled:
 		return
-	if event.is_action_pressed(DEBUG_SKIP_SLOT_ACTION) and not event.is_echo():
-		debug_skip_slot()
-		return
 	var key_event := event as InputEventKey
 	if key_event == null or not key_event.pressed or key_event.echo:
 		return
 	apply_debug_key(key_event.keycode)
-
-## F3: skips the current time slot (debug builds). Returns whether
-## it did.
-func debug_skip_slot() -> bool:
-	if not debug_cheats_enabled or not DayFlow.is_running() or DayFlow.is_between_slots():
-		return false
-	return DayFlow.skip_slot()
 
 ## What F1 or F2 does (OnboardingFlow also calls this after skipping
 ## onboarding with either key).

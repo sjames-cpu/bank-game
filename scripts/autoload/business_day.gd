@@ -186,7 +186,7 @@ func start_next_day() -> void:
 	stats_day = GameClock.day
 	_start_totals()
 	# The ended day's End of Day mark goes; the room starts the new day's
-	# slots (teller_room.start_slots_day()).
+	# slots (SlotDayController.start_day()).
 	DayFlow.reset()
 
 # --- save and load -----------------------------------------------------------------
