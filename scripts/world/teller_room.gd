@@ -300,6 +300,8 @@ func _ready() -> void:
 	if XPManager.is_branch_manager_unlocked:
 		_apply_branch_manager_desks()
 
+	_build_world_visuals()
+
 	# A new career's onboarding first (at once if it's done), then the
 	# first-run hints.
 	onboarding_flow = OnboardingFlow.new()
@@ -316,6 +318,7 @@ func _show_arrival_hints() -> void:
 func _process(_delta: float) -> void:
 	_update_player_walk_in()
 	_update_interaction_prompt()
+	_update_attention_markers()
 	_update_vault_notice()
 	_check_branch_opening()
 	_update_regional_visit()
@@ -693,8 +696,124 @@ func _update_interaction_prompt() -> void:
 	var desk := interactable_in_range()
 	if desk == null:
 		hud.hide_prompt()
-	else:
-		hud.show_prompt(interaction_prompt_text(desk), desk.global_position)
+		_set_highlighted(null)
+		return
+	var text := interaction_prompt_text(desk)
+	hud.show_prompt(text, desk.global_position)
+	# Only a prompt that starts with the key ("E — Clock in…") is something E
+	# does; locked, covered and waiting desks get no highlight.
+	_set_highlighted(desk if text.begins_with(_usable_prompt_prefix()) else null)
+
+# --- world visuals: highlights, markers, zones, feedback ---------------------------
+
+## The interactable whose highlight is on now (what E would act on), or null.
+var highlighted: Interactable = null
+
+## Floating icons over the desks and doors that need the player, by place:
+## &"teller", &"loan", &"vault", &"manager".
+var attention_markers: Dictionary[StringName, AttentionMarker] = {}
+
+var zones: RoomZones
+var wall_signs: Array[WallSign] = []
+var feedback: FeedbackFloaters
+
+var _prompt_key: String = ""
+var _prompt_prefix: String = ""
+
+const MARKER_GAP: float = 12.0
+
+func _usable_prompt_prefix() -> String:
+	var key := InputPrompts.key_for(InputPrompts.INTERACT)
+	if key != _prompt_key:
+		_prompt_key = key
+		_prompt_prefix = key + " — "
+	return _prompt_prefix
+
+func _build_world_visuals() -> void:
+	zones = RoomZones.new()
+	zones.name = "Zones"
+	room_layer.add_child(zones)
+	wall_signs = RoomZones.add_signs($Decor as Node2D)
+	for desk in _interactables():
+		desk.highlight = InteractableHighlight.attach(desk, _highlight_sprite(desk), _highlight_box(desk))
+	attention_markers[&"teller"] = _add_marker(teller_desk, teller_desk.get_node("Sprite2D") as Sprite2D, AttentionMarker.Kind.CUSTOMER)
+	attention_markers[&"loan"] = _add_marker(loan_officer_desk, loan_officer_desk.get_node("Sprite2D") as Sprite2D, AttentionMarker.Kind.DOCUMENT)
+	attention_markers[&"vault"] = _add_marker(vault_door, $Decor/VaultDoor as Sprite2D, AttentionMarker.Kind.DOLLAR)
+	attention_markers[&"manager"] = _add_marker(branch_manager_desk, branch_manager_desk.get_node("Sprite2D") as Sprite2D, AttentionMarker.Kind.EXCLAMATION)
+	feedback = FeedbackFloaters.new()
+	feedback.name = "Feedback"
+	add_child(feedback)
+	feedback.connect_to(player)
+	camera.zoom_changed.connect(_on_camera_zoom_changed)
+	_on_camera_zoom_changed(camera.zoom_factor())
+
+## The sprite a desk's highlight outlines (the vault door's is the safe
+## in Decor), or null for one that is only a box (the doormat).
+func _highlight_sprite(desk: Interactable) -> Sprite2D:
+	if desk == vault_door:
+		return $Decor/VaultDoor as Sprite2D
+	return desk.get_node_or_null("Sprite2D") as Sprite2D
+
+func _highlight_box(desk: Interactable) -> Rect2:
+	for child in desk.get_children():
+		var shape_node := child as CollisionShape2D
+		if shape_node != null and shape_node.shape is RectangleShape2D:
+			var size: Vector2 = (shape_node.shape as RectangleShape2D).size
+			return Rect2(shape_node.position - size / 2.0, size)
+	return Rect2()
+
+func _add_marker(parent: Node2D, sprite: Sprite2D, icon: AttentionMarker.Kind) -> AttentionMarker:
+	var top := sprite.global_position.y + sprite.offset.y - sprite.texture.get_height() / 2.0
+	return AttentionMarker.attach(parent, icon, top - parent.global_position.y - MARKER_GAP)
+
+func _set_highlighted(desk: Interactable) -> void:
+	if desk == highlighted:
+		return
+	highlighted = desk
+	for each in _interactables():
+		each.highlight.set_wanted(each == desk)
+
+## The overview hides the clutter (highlights, feedback numbers) and keeps
+## the markers and signs, which are refitted to the zoom.
+func _on_camera_zoom_changed(zoom: float) -> void:
+	for each in _interactables():
+		each.highlight.set_overview(camera.is_overview)
+	feedback.set_overview(camera.is_overview)
+	for marker: AttentionMarker in attention_markers.values():
+		marker.set_zoom(zoom)
+	for sign_node in wall_signs:
+		sign_node.refresh()
+
+# Attention markers: a place needs the player.
+
+func teller_needs_player() -> bool:
+	return teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN and not customer_queue.queue.is_empty()
+
+func loan_needs_player() -> bool:
+	var seat := player_loan_seat()
+	return loan_officer_screen.is_clocked_in() and seat != null and seat.is_seated()
+
+func manager_needs_player() -> bool:
+	return XPManager.is_branch_manager_unlocked and not StaffReviewManager.queue.is_empty()
+
+## What the vault door needs, as an icon: the armored truck waiting for the
+## manager, else the drawer over its limit; -1 for nothing.
+func vault_attention() -> int:
+	if XPManager.is_branch_manager_unlocked and armored_visit.is_waiting():
+		return AttentionMarker.Kind.TRUCK
+	if teller_screen.drawer_limit_warning() == TellerScreen.DRAWER_OVER_LIMIT_TEXT:
+		return AttentionMarker.Kind.DOLLAR
+	return -1
+
+func _update_attention_markers() -> void:
+	attention_markers[&"teller"].set_active(teller_needs_player())
+	attention_markers[&"loan"].set_active(loan_needs_player())
+	attention_markers[&"manager"].set_active(manager_needs_player())
+	var vault_icon := vault_attention()
+	var vault_marker := attention_markers[&"vault"]
+	if vault_icon >= 0:
+		vault_marker.set_kind(vault_icon as AttentionMarker.Kind)
+	vault_marker.set_active(vault_icon >= 0)
 
 ## "E — what pressing the interact key does here", or, for a desk the player
 ## can't use, why not. The key comes from the InputMap (InputPrompts).

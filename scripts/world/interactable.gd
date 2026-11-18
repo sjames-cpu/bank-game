@@ -13,6 +13,9 @@ signal interacted
 
 var player_in_range := false
 
+## The pulsing outline shown while E would act here (built by the room).
+var highlight: InteractableHighlight = null
+
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
