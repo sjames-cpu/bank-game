@@ -1,4 +1,4 @@
-extends "res://tests/support/teller_room_suite.gd"
+extends "res://tests/support/loan/loan_suite.gd"
 
 ## The career's loan applicants in the room (LoanDeskManager): the first Loan
 ## Officer shift works the three teaching cases, clear to borderline, then

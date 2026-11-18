@@ -1,4 +1,4 @@
-extends "res://tests/support/teller_room_suite.gd"
+extends "res://tests/support/loan/loan_suite.gd"
 
 ## Loan applicants in the room: walking in through the entrance to a loan
 ## desk, sitting down, saying what the loan is for and leaving after the

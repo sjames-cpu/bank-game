@@ -1,4 +1,4 @@
-extends "res://tests/support/teller_room_suite.gd"
+extends "res://tests/support/loan/loan_suite.gd"
 
 ## Three staffed loan desks (ScheduleManager.LOAN_DESK_SLOTS, one
 ## NpcLoanDeskWorker each): all three are staffed and decide applications;
