@@ -12,6 +12,9 @@ class_name PlayerMovement
 var _facing: String = "down"
 var _facing_flip: bool = false
 
+func _ready() -> void:
+	CharacterFx.attach(self, sprite)
+
 func _physics_process(_delta: float) -> void:
 	# get_vector() clamps combined/diagonal input to length 1, same effect
 	# as the previous manual normalize() call — diagonal movement stays at

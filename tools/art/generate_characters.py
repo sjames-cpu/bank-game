@@ -26,6 +26,9 @@ Outputs, all in assets/sprites/:
   - customer_{a,b,c}2 .. 4: recolours of each customer design (hair, skin,
     clothing), nine new looks alongside the three originals.
 
+  - icon_customer, icon_dollar, icon_truck, icon_document, icon_exclamation:
+    8x8 attention icons that float over desks and doors (AttentionMarker).
+
 Standard library only (no Pillow): PNGs are read and written with zlib.
 Output is deterministic, so
 
@@ -90,7 +93,10 @@ def read_png(path):
     return [[list(row[x * 4:x * 4 + 4]) for x in range(width)] for row in rows]
 
 
-def png_bytes(image):
+def png_bytes(image, level=9):
+    # level 0 stores the data uncompressed, so the bytes are the same under
+    # every zlib (the icons use it: zlib and zlib-ng deflate a few tiny
+    # images differently, and the art check compares bytes).
     height, width = len(image), len(image[0])
 
     def chunk(kind, body):
@@ -99,7 +105,7 @@ def png_bytes(image):
     raw = b"".join(b"\x00" + bytes(channel for pixel in row for channel in pixel) for row in image)
     return (b"\x89PNG\r\n\x1a\n"
             + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(raw, 9))
+            + chunk(b"IDAT", zlib.compress(raw, level))
             + chunk(b"IEND", b""))
 
 # --- sheets ---------------------------------------------------------------------
@@ -278,6 +284,33 @@ CUSTOMER_VARIANTS = {
     "customer_c4": ("customer_c", {"hair": "#8a3b22", "skin": "#f2c9a6", "top": "#7a4f9a", "hat": "#2f8f86", "bottom": "#5d7aa8"}),
 }
 
+# --- attention icons ---------------------------------------------------------------
+
+# 8x8 world icons that float over a desk or door when something there needs
+# the player (AttentionMarker). Drawn here, not from the character sheets, so
+# the art check covers them. '.' is transparent.
+ICON_PALETTE = {
+    "O": "#1c1c2e", "S": "#f1c9a0", "B": "#3a6fd8", "Y": "#f4c542", "W": "#ffffff",
+    "G": "#5b8a3c", "C": "#8fd3f4", "R": "#e0433f", "K": "#6a6a88",
+}
+ICONS = {
+    "customer": ["...OO...", "..OSSO..", "..OSSO..", "...OO...", ".OBBBBO.", "OBBBBBBO", "OBBBBBBO", "OOOOOOOO"],
+    "dollar": ["..OOOO..", ".OYYYYO.", "OYYWWYYO", "OYWYYYYO", "OYYWWYYO", "OYYYYWYO", ".OYWWYO.", "..OOOO.."],
+    "truck": ["........", "OOOOOO..", "OGGGGOOO", "OGGGGOCO", "OGGGGOOO", "OOOOOOOO", "OKOOOOKO", ".OO..OO."],
+    "document": [".OOOOOO.", ".OWWWWO.", ".OWKKWO.", ".OWWWWO.", ".OWKKWO.", ".OWWWWO.", ".OWKKWO.", ".OOOOOO."],
+    "exclamation": ["..OOOO..", ".ORRRRO.", "ORRWWRRO", "ORRWWRRO", "ORRWWRRO", "ORRRRRRO", ".ORWWRO.", "..OOOO.."],
+}
+
+
+def icon_image(rows):
+    image = []
+    for row in rows:
+        assert len(row) == 8
+        image.append([rgb(ICON_PALETTE[c]) + [255] if c != "." else [0, 0, 0, 0] for c in row])
+    assert len(image) == 8
+    return image
+
+
 # --- output ---------------------------------------------------------------------
 
 
@@ -309,6 +342,8 @@ def outputs():
     for name, (design, colours) in CUSTOMER_VARIANTS.items():
         roles = CUSTOMER_ROLES[design]
         add(name, recolour(load_sheet(design), {roles[role]: colour for role, colour in colours.items()}))
+    for name, rows in ICONS.items():
+        files[SPRITES / f"icon_{name}.png"] = png_bytes(icon_image(rows), 0)
     return files
 
 
