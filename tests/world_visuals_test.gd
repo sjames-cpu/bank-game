@@ -1,4 +1,4 @@
-extends "res://tests/support/teller_room_suite.gd"
+extends "res://tests/support/teller/teller_suite.gd"
 
 ## The art visibility pass (world-space effects only): character shadows and
 ## outlines (CharacterFx), the pulsing highlight on what E would do
@@ -57,8 +57,8 @@ func test_every_staff_member_the_regional_manager_and_guards_have_them() -> void
 	for npc: StaffNPC in room._staff_by_slot.values():
 		assert_has_fx(npc)
 	promote()
-	room._start_regional_visit()
-	assert_has_fx(room.regional_visitor)
+	regional_visit().start_visit()
+	assert_has_fx(regional_visit().visitor)
 	var guard := (load("res://scenes/characters/staff_npc.tscn") as PackedScene).instantiate() as StaffNPC
 	var member := StaffMember.new()
 	member.staff_name = "Guard"
@@ -146,8 +146,11 @@ func test_the_manager_desk_atm_and_doormat() -> void:
 	assert_bool(highlight_shown(room.branch_manager_desk)).is_true()
 	stand_at(room.atm)
 	assert_bool(highlight_shown(room.atm)).is_true()
+	# On a slot day E at the doormat only explains that going home is on the
+	# card between slots, so it doesn't glow.
 	stand_at(room.exit_door)
-	assert_bool(highlight_shown(room.exit_door)).is_true()
+	assert_str(room.interaction_prompt_text(room.exit_door)).is_equal(SlotDayController.GO_HOME_SLOTS_PROMPT)
+	assert_bool(highlight_shown(room.exit_door)).is_false()
 
 func test_the_doormat_does_not_glow_while_on_shift() -> void:
 	clock_in()
@@ -212,7 +215,8 @@ func test_the_vault_marker_shows_the_armored_truck_for_the_manager() -> void:
 	assert_str(VaultManager.place_order(5 * VaultManager.STRAP_CENTS, 3)).is_empty()
 	GameClock.day = 4
 	BusinessDay.stats_day = 4
-	GameClock.minutes = ArmoredTruckVisit.ARRIVAL_MINUTES
+	# On a slot day the crew comes in with the 9 AM slot (ArmoredTruckSlot).
+	assert_bool(room.armored_visit.arrive_now()).is_true()
 	await frames(2)
 	for guard: StaffNPC in room.armored_visit.guards.duplicate():
 		guard.finish_route()
@@ -227,10 +231,11 @@ func test_the_vault_marker_shows_the_armored_truck_for_the_manager() -> void:
 func test_the_loan_marker_follows_the_seated_applicant() -> void:
 	for worker in room.loan_desk_workers:
 		worker.active = false
-	GameClock.minutes = 10 * 60.0
+	start_slots_day()
 	XPManager.is_loan_officer_unlocked = true
 	room._on_loan_officer_desk_interacted()
 	room.loan_officer_screen.clock_in_button.pressed.emit()
+	open_work_slot()
 	room.loan_officer_screen.close_button.pressed.emit()
 	room._process(0.0)
 	var seat := room.player_loan_seat()
@@ -396,6 +401,11 @@ func census_difference(earlier: Dictionary, later: Dictionary) -> String:
 			lines.append("%s +%d" % [key, extra])
 	return ", ".join(lines)
 
+## Every loan desk's seat emptied (the applicants walking in are characters in flight).
+func clear_loan_seats() -> void:
+	for seat: LoanDeskSeat in room.loan_seats.values():
+		seat.clear()
+
 func test_no_node_is_left_behind_after_a_busy_day() -> void:
 	await frames(3)
 	var lines: Array[CustomerQueue] = [cq]
@@ -403,7 +413,7 @@ func test_no_node_is_left_behind_after_a_busy_day() -> void:
 	# The staff loan desks' walk-in applicants are characters in flight, not leftovers: stop them.
 	for worker in room.loan_desk_workers:
 		worker.active = false
-	room._clear_loan_seats()
+	clear_loan_seats()
 	await frames(2)
 	var baseline := get_tree().get_node_count()
 	var census_before := node_census(room)
@@ -419,7 +429,7 @@ func test_no_node_is_left_behind_after_a_busy_day() -> void:
 	for line in lines:
 		line.spawn_timer.stop()
 		line.clear_lobby()
-	room._clear_loan_seats()
+	clear_loan_seats()
 	for i in 6:
 		ScoreManager.add_shift_score(1)
 		ReputationManager.add_reputation(1)
