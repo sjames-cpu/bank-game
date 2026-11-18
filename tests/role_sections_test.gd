@@ -44,8 +44,9 @@ func test_a_role_reads_numbers_back_with_the_typed_getters() -> void:
 func test_a_new_career_starts_every_section_empty() -> void:
 	TellerRole.section["x"] = "y"
 	CareerReset.reset_all()
-	for role: Node in [TellerRole, LoanRole, ManagerRole]:
-		assert_dict(role.get("section") as Dictionary).is_empty()
+	assert_dict(TellerRole.section).is_empty()
+	assert_dict(LoanRole.section).is_empty()
+	assert_dict(ManagerRole.section).is_empty()
 
 func test_a_version_2_save_without_the_sections_still_loads() -> void:
 	var saved := SaveGame.read_file(OLD_SAVE)
