@@ -21,6 +21,24 @@ cd "$(dirname "$0")"
 logs="$(mktemp -d)"
 status=0
 
+# TEMP (CI diagnostics): say clearly which step failed, with the last 30 lines
+# of its output, as a GitHub annotation when running in CI.
+step_failed() {
+	local name="$1" file="${2:-}"
+	echo "STEP FAILED: $name" >&2
+	if [[ -n "$file" && -f "$file" ]]; then
+		echo "--- last 30 lines of $name ---" >&2
+		sed 's/\x1b\[[0-9;]*m//g' "$file" | tail -n 30 >&2
+		if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+			local tail_text
+			tail_text="$(sed 's/\x1b\[[0-9;]*m//g' "$file" | tail -n 30 | head -c 900 | tr -d '\r' | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+			echo "::error title=STEP FAILED $name::$tail_text"
+		fi
+	elif [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+		echo "::error title=STEP FAILED $name::see the log"
+	fi
+}
+
 echo "== Checking generated art is current"
 # The committed character sprites must match tools/art/generate_characters.py
 # (see ART.md). PYTHON_BIN overrides the interpreter; otherwise the first of
@@ -38,8 +56,10 @@ fi
 if [[ -z "$python_bin" ]]; then
 	echo "No Python 3 found for the art check; set PYTHON_BIN." >&2
 	status=1
-elif ! "$python_bin" tools/art/generate_characters.py --check; then
+elif ! "$python_bin" tools/art/generate_characters.py --check >"$logs/art.log" 2>&1; then
+	cat "$logs/art.log"
 	echo "Generated art is out of date: run python tools/art/generate_characters.py" >&2
+	step_failed "art check" "$logs/art.log"
 	status=1
 fi
 
@@ -49,6 +69,7 @@ import_exit=$?
 if [[ $import_exit -ne 0 ]]; then
 	cat "$logs/import.log"
 	echo "Import failed (exit $import_exit)" >&2
+	step_failed "import" "$logs/import.log"
 	status=1
 fi
 
@@ -65,6 +86,7 @@ rm -f override.cfg
 cat "$logs/warnings.log"
 if [[ $override_exit -ne 0 || $check_exit -ne 0 ]]; then
 	echo "Script check failed (exit $override_exit/$check_exit)" >&2
+	step_failed "warnings check" "$logs/warnings.log"
 	status=1
 fi
 
@@ -75,6 +97,7 @@ echo "== Running tests"
 tests_exit=${PIPESTATUS[0]}
 if [[ $tests_exit -ne 0 ]]; then
 	echo "Tests failed (exit $tests_exit)" >&2
+	step_failed "tests" "$logs/tests.log"
 	status=1
 fi
 
@@ -83,6 +106,7 @@ echo "== Headless boot (300 frames)"
 boot_exit=${PIPESTATUS[0]}
 if [[ $boot_exit -ne 0 ]]; then
 	echo "Headless boot failed (exit $boot_exit)" >&2
+	step_failed "headless boot" "$logs/boot.log"
 	status=1
 fi
 
@@ -93,6 +117,7 @@ echo "== Headless boot of the teller room (300 frames)"
 room_boot_exit=${PIPESTATUS[0]}
 if [[ $room_boot_exit -ne 0 ]]; then
 	echo "Teller room boot failed (exit $room_boot_exit)" >&2
+	step_failed "teller room boot" "$logs/room_boot.log"
 	status=1
 fi
 
@@ -101,6 +126,8 @@ echo "== Checking output for errors"
 if sed 's/\x1b\[[0-9;]*m//g' "$logs/import.log" "$logs/warnings.log" "$logs/tests.log" "$logs/boot.log" "$logs/room_boot.log" \
 	| grep -E '^\s*(SCRIPT ERROR|USER ERROR|ERROR):' ; then
 	echo "Godot printed errors (above)" >&2
+	cat "$logs/import.log" "$logs/warnings.log" "$logs/tests.log" "$logs/boot.log" "$logs/room_boot.log" >"$logs/all.log"
+	step_failed "error lines in the output" "$logs/all.log"
 	status=1
 else
 	echo "No errors printed."
