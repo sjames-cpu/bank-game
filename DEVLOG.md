@@ -342,6 +342,7 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - **1x overview** hides the highlights and the feedback numbers and keeps the markers and signs.
 - Nothing allocates per frame, hidden effects don't process, and `world_visuals_test.gd` checks that no node is left behind after a busy day. The y-sort test now skips the marker icons, which are overlays. No screen changed size.
 - Built on the `shared/art-visibility` branch (it edits `teller_room.gd`, a shared file); before/after screenshots are in `scratch/viz_shots/` (not committed).
+- **Merged with the time-slots main** (6c67e7f): no textual conflicts. The tests moved to `start_regional_visit` via `regional_visit().start_visit()`, the truck arrives with `arrive_now()` (what the 9 AM slot calls), the loan seats are emptied through `room.loan_seats`, and the loan marker test clocks in through a real work slot. The doormat no longer glows on slot days (E there only explains). New tests cover the teller marker in a work slot, effects staying outside every CanvasLayer, highlights hiding under the transition card, and the overview on a slot day.
 
 ## Notes for next session
 
