@@ -33,6 +33,10 @@ Every character uses the same format, so they all share one size and style and t
 
 The staff uniform is built on the player's body, so proportions and animation match. It has a blue blazer, a white shirt front, charcoal trousers and a gold name tag. Each look has its own hair style (the player's short cut or customer A's ponytail), hair colour and skin tone.
 
+## Attention icons
+
+`icon_customer`, `icon_dollar`, `icon_truck`, `icon_document` and `icon_exclamation` are 8x8 world icons (`AttentionMarker`) that float over a desk or door when something there needs the player. All original, drawn as pixel maps in `tools/art/generate_characters.py` (`ICONS`), so `--check` covers them. Character shadows and outlines are drawn in code (`CharacterFx`), not art.
+
 ## Regenerating the art
 
 `tools/art/generate_characters.py` builds every generated sheet and its `.tres` from the source sheets above. It never overwrites the sources. It needs Python 3 and only the standard library (no Pillow), and its output is deterministic.
