@@ -7,21 +7,18 @@ class_name PauseMenu
 ## (no desk screen, letter or End of Day summary is up), so it never lands
 ## on top of a half-finished screen; Esc again, or Resume, closes it.
 ##
-## Back to Main Menu saves first when that's safe, i.e. off shift: a career
-## is only ever saved off shift (SaveGame: mid-shift state such as the queue
-## and the drawer is never saved), so off shift the save is the same as a
-## clock-out's. Clocked in at any desk, it can't be saved, so the menu asks
-## first and says what will be lost (ON_SHIFT_TEXT). Either way the room's
-## slot is left and the whole career is reset (the start screen does it
-## again when it opens), so nothing leaks into the next slot played.
+## Back to Main Menu: a career is saved only at the end of a day and at its
+## start (decision 8, SlotSavePolicy), so once the day is under way the menu
+## asks first and says the day will restart from Opening (decision 10,
+## MID_DAY_TEXT), and saves nothing; at Opening before the clock-in, or once
+## the day has ended, it goes at once (saving if the rules allow). Either way
+## the room's slot is left and the whole career is reset (the start screen
+## does it again when it opens), so nothing leaks into the next slot played.
 
 const ACTION: StringName = &"pause_menu"
 const START_SCREEN: String = "res://scenes/ui/start_screen.tscn"
 
-const ON_SHIFT_TEXT: String = "You're clocked in, and a career can't be saved in the middle of a shift.\n\nGoing back now loses everything since your last save (your last clock-out): this shift's customers and drawer, and the Score, Reputation and XP they earned.\n\nGo back to the main menu anyway?"
-const ON_SHIFT_CONFIRM_TEXT: String = "Lose This Shift and Go to Main Menu"
-## With time slots (decision 10): a career is saved only at the end of a
-## day and at its start, so leaving mid-day restarts that day.
+## Leaving mid-day (decision 10): the day restarts from Opening.
 const MID_DAY_TEXT: String = "Today isn't over, and a career is only saved at the end of a day.\n\nIf you go back now, this day restarts from Opening when you load this career: everything since the start of today (its customers, applications, Score, Reputation and XP) is lost.\n\nGo back to the main menu anyway?"
 const MID_DAY_CONFIRM_TEXT: String = "Lose Today and Go to Main Menu"
 
@@ -72,14 +69,12 @@ func _show_menu() -> void:
 	confirm_panel.visible = false
 	resume_button.grab_focus()
 
-## Off shift: save and go. On shift: ask first (it can't be saved). With
-## time slots: mid-day, ask first (the day will restart from Opening); at
-## Opening before the clock-in nothing would be lost.
+## Mid-day: ask first (the day will restart from Opening). At Opening
+## before the clock-in, or once the day has ended, nothing would be lost.
 func _on_main_menu_pressed() -> void:
 	var warning := leave_warning()
 	if warning != "":
 		confirm_label.text = warning
-		confirm_button.text = MID_DAY_CONFIRM_TEXT if warning == MID_DAY_TEXT else ON_SHIFT_CONFIRM_TEXT
 		menu_panel.visible = false
 		confirm_panel.visible = true
 		cancel_button.grab_focus()
@@ -88,16 +83,12 @@ func _on_main_menu_pressed() -> void:
 
 ## What leaving now would lose ("" if nothing).
 func leave_warning() -> String:
-	if DayFlow.slots_enabled:
-		if not DayFlow.is_running():
-			return ""
-		var at_opening := DayFlow.current_slot().id == DaySchedule.OPENING
-		if at_opening and not PlayerShift.is_on_shift():
-			return ""
-		return MID_DAY_TEXT
-	if room != null and room.is_player_on_shift():
-		return ON_SHIFT_TEXT
-	return ""
+	if not DayFlow.is_running():
+		return ""
+	var at_opening := DayFlow.current_slot().id == DaySchedule.OPENING
+	if at_opening and not PlayerShift.is_on_shift():
+		return ""
+	return MID_DAY_TEXT
 
 ## Back to the main menu, saving first if `save`. The slot is left and the
 ## career reset, so the next slot played starts clean.

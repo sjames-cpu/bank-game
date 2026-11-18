@@ -7,9 +7,10 @@ extends CanvasModulate
 ##
 ## Over a game day: night until dawn, brightening to full daylight by 8 AM,
 ## bright through business hours, warming through the late afternoon to
-## 5 PM, then dimming into the evening and night. The colour comes straight
-## from the clock (colour_at()), so it stops when the clock does (a desk
-## screen or letter pauses both) and matches a loaded save at once.
+## 5 PM, then dimming into the evening and night. The colour comes from the
+## clock (colour_at()): it fades to each slot's colour as the clock moves on
+## (SLOT_FADE_SECONDS), pauses with the tree, and matches a loaded save at
+## once.
 ##
 ## No gameplay hook: nothing reads the tint, and it affects no spawning, NPC
 ## behaviour or scoring.
@@ -31,10 +32,9 @@ const KEYFRAMES: Array = [
 	[24.0 * 60.0, NIGHT],
 ]
 
-## With time slots on, the clock jumps from one slot's start time to the
-## next (3 PM to 5 PM, 5 PM to 8:30 the next morning), so the tint fades to
-## its new colour over this many seconds of unpaused time instead of
-## snapping. With slots off it follows the clock directly, as before.
+## The clock jumps from one slot's start time to the next (3 PM to 5 PM,
+## 5 PM to 8:30 the next morning), so the tint fades to its new colour over
+## this many seconds of unpaused time instead of snapping.
 const SLOT_FADE_SECONDS: float = 1.5
 
 var _fade_from: Color = DAY
@@ -48,11 +48,6 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var target := colour_at(GameClock.minutes)
-	if not DayFlow.slots_enabled:
-		color = target
-		_fade_to = target
-		_fade_elapsed = SLOT_FADE_SECONDS
-		return
 	if target != _fade_to:
 		_fade_from = color
 		_fade_to = target

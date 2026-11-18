@@ -1,7 +1,7 @@
 extends RefCounted
 class_name SlotStatus
 
-## What shared UI shows about the time-slot day (slots on only): the HUD's
+## What shared UI shows about the time-slot day: the HUD's
 ## clock line ("Wed, Day 3 · 11 AM slot"), its slot line (from whichever
 ## SlotStatusProvider answers) and the card's report on a finished slot.
 ## Knows DayFlow and the providers, never a role.
@@ -9,11 +9,9 @@ class_name SlotStatus
 const DAY_ENDED_TEXT: String = "End of Day"
 const WORK_SLOT_TEXT: String = "%s slot"
 
-## The HUD's top line: with slots on, the day and where it is in its slots
-## (the clock only shows each slot's start time); otherwise GameClock's.
+## The HUD's top line: the day and where it is in its slots (the clock only
+## shows each slot's start time); GameClock's before the first day starts.
 static func clock_text() -> String:
-	if not DayFlow.slots_enabled:
-		return GameClock.hud_text()
 	var where := where_text()
 	if where == "":
 		return GameClock.hud_text()
@@ -33,10 +31,10 @@ static func slot_text(slot: DaySlot) -> String:
 		return ""
 	return WORK_SLOT_TEXT % slot.label if slot.is_work else slot.label
 
-## The HUD's slot line: the first provider's, or "" (slots off, between
-## slots, or nobody has anything to say).
+## The HUD's slot line: the first provider's, or "" (no day running,
+## between slots, or nobody has anything to say).
 static func status_text(tree: SceneTree) -> String:
-	if not DayFlow.slots_enabled or not DayFlow.is_running() or DayFlow.is_between_slots():
+	if not DayFlow.is_running() or DayFlow.is_between_slots():
 		return ""
 	for provider in _providers(tree):
 		var text := provider.status_text()

@@ -47,10 +47,9 @@ var witness_line: NpcCustomerLine = null
 var _route_in: Array[Vector2] = []
 var _origin: Vector2 = Vector2.ZERO
 var _origin_state: StaffNPC.State = StaffNPC.State.AT_DESK
-var _left_at_minutes: float = 0.0
 ## Unpaused seconds this controller has run, and the count when the witness
-## left: with time slots the game clock doesn't move inside a slot, so their
-## time away is these seconds at the clock's usual rate
+## left: the game clock doesn't move inside a slot, so their time away is
+## these seconds at the old running clock's pace
 ## (GameClock.GAME_MINUTES_PER_SECOND).
 var _run_seconds: float = 0.0
 var _left_at_seconds: float = 0.0
@@ -148,7 +147,6 @@ func _walk_in() -> void:
 	_origin = witness.global_position
 	_origin_state = witness.state
 	_route_in = room.route_to_vault(witness)
-	_left_at_minutes = GameClock.minutes
 	_left_at_seconds = _run_seconds
 	witness.say("Coming to the vault.")
 	witness.follow_route(_route_in, StaffNPC.State.AT_VAULT)
@@ -189,21 +187,18 @@ func _walk_back() -> void:
 	back.append(_origin)
 	var returning := witness
 	returning.follow_route(back, _origin_state)
-	returning.route_finished.connect(_on_returned.bind(returning, witness_line, _left_at_minutes, _left_at_seconds), CONNECT_ONE_SHOT)
+	returning.route_finished.connect(_on_returned.bind(returning, witness_line, _left_at_seconds), CONNECT_ONE_SHOT)
 	_reset()
 
-func _on_returned(returning: StaffNPC, line: NpcCustomerLine, left_at_minutes: float, left_at_seconds: float) -> void:
+func _on_returned(returning: StaffNPC, line: NpcCustomerLine, left_at_seconds: float) -> void:
 	if is_instance_valid(line):
 		line.paused_for_vault = false
 	if is_instance_valid(returning):
-		witness_returned.emit(returning.staff.staff_name, minutes_away(left_at_minutes, left_at_seconds))
+		witness_returned.emit(returning.staff.staff_name, minutes_away(left_at_seconds))
 
-## Game minutes since the witness left: by the clock, or with time slots by
-## the unpaused seconds since.
-func minutes_away(left_at_minutes: float, left_at_seconds: float) -> float:
-	if DayFlow.slots_enabled:
-		return maxf(0.0, (_run_seconds - left_at_seconds) * GameClock.GAME_MINUTES_PER_SECOND)
-	return maxf(0.0, GameClock.minutes - left_at_minutes)
+## Game minutes since the witness left, from the unpaused seconds since.
+func minutes_away(left_at_seconds: float) -> float:
+	return maxf(0.0, (_run_seconds - left_at_seconds) * GameClock.GAME_MINUTES_PER_SECOND)
 
 func _reset() -> void:
 	phase = Phase.IDLE
