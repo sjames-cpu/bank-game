@@ -207,6 +207,9 @@ func test_room_is_y_sorted_with_sort_origins_at_each_base() -> void:
 	assert_int(sprites.size()).is_greater(20)
 	for node in sprites:
 		var sprite := node as Sprite2D
+		# Attention markers are overlays drawn above the room (z_index), not furniture.
+		if sprite.get_parent() is AttentionMarker:
+			continue
 		assert_object(sort_unit(sprite)).is_same(sprite)
 		assert_int(sprite.z_index).is_equal(0)
 		var bottom := sprite.global_position.y + sprite.get_rect().end.y

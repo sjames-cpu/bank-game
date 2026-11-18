@@ -188,6 +188,7 @@ var _facing: String = "down"
 var _facing_flip: bool = false
 
 func _ready() -> void:
+	CharacterFx.attach(self, _sprite)
 	target_position = global_position
 	_sprite.sprite_frames = CUSTOMER_FRAME_SETS.pick_random()
 	look_index = CUSTOMER_FRAME_SETS.find(_sprite.sprite_frames)

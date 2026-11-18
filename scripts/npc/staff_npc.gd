@@ -45,6 +45,7 @@ var _facing_flip: bool = false
 var _speech_token: int = 0
 
 func _ready() -> void:
+	CharacterFx.attach(self, _sprite)
 	# Readable at any camera zoom (WorldText).
 	WorldText.register(_name_label)
 	WorldText.register(_speech_label)
