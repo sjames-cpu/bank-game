@@ -209,6 +209,12 @@ static func capture() -> Dictionary:
 		"business_day": BusinessDay.save_data(),
 		"regional": RegionalManager.save_data(),
 		"day_flow": DayFlow.save_data(),
+		# Each role's own data from Phase B on (ROLE_BOUNDARIES.md).
+		"roles": {
+			"teller": TellerRole.save_data(),
+			"loan": LoanRole.save_data(),
+			"manager": ManagerRole.save_data(),
+		},
 	}
 
 ## Replaces the current career with `career` (from capture() or read()).
@@ -242,6 +248,11 @@ static func restore(career: Dictionary) -> void:
 	LoanBookManager.load_data(dict_of(career, "loan_book"))
 	# After XPManager and the business day: the review window is the manager's.
 	RegionalManager.load_data(dict_of(career, "regional"))
+	# Each role's own section (a save from before them loads them empty).
+	var roles := dict_of(career, "roles")
+	TellerRole.load_data(dict_of(roles, "teller"))
+	LoanRole.load_data(dict_of(roles, "loan"))
+	ManagerRole.load_data(dict_of(roles, "manager"))
 	# Last: whether the day had ended, read against the loaded clock and day.
 	var day_flow := dict_of(career, "day_flow").duplicate()
 	day_flow["clock_minutes"] = GameClock.minutes

@@ -37,6 +37,9 @@ LoanBookManager="*res://scripts/autoload/loan_book_manager.gd"
 BusinessDay="*res://scripts/autoload/business_day.gd"
 RegionalManager="*res://scripts/autoload/regional_manager.gd"
 ReportManager="*res://scripts/autoload/report_manager.gd"
+TellerRole="*res://scripts/roles/teller/teller_role.gd"
+LoanRole="*res://scripts/roles/loan/loan_role.gd"
+ManagerRole="*res://scripts/roles/manager/manager_role.gd"
 
 [debug]
 
