@@ -352,3 +352,7 @@ Brought in Phase 4-5 role systems plus a Phase 6a customer queue:
 - The save has one slot and no autosave mid-shift: quitting mid-shift loses that shift's work.
 - The business day has opening hours and an End of Day summary (`BusinessDay`), but nothing ever closes the career's days for good: there's no week, month or year view yet.
 - Loan application figures are whole-dollar floats by design (judged, never moved as cash).
+
+## Session 39 — Nov 18, 2026: The black figure beside the player (`shared/art-shadow-fix`)
+
+A black, body-shaped figure the player's size appeared beside them when they walked left (at 2x it sat under the HUD's notification box while standing still, which is why the first look missed it). Cause: `CharacterOutline` drew its four dark copies with a negative-width rectangle when the sprite was mirrored, and Godot anchors such a rectangle at its left edge, so the copy landed one frame width to the right. Fixed by drawing positive rectangles and mirroring with a transform about the frame's centre. The outline now also redraws from the sprite's own signals (it used to lag a frame), and a character whose art is missing shows a magenta warning box. `character_fx_look_test.gd` measures what is drawn across every character type, facing, mirror and frame at both zooms. Before/after screenshots: `scratch/shadow_shots/` (ignored).
