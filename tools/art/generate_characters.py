@@ -93,7 +93,10 @@ def read_png(path):
     return [[list(row[x * 4:x * 4 + 4]) for x in range(width)] for row in rows]
 
 
-def png_bytes(image):
+def png_bytes(image, level=9):
+    # level 0 stores the data uncompressed, so the bytes are the same under
+    # every zlib (the icons use it: zlib and zlib-ng deflate a few tiny
+    # images differently, and the art check compares bytes).
     height, width = len(image), len(image[0])
 
     def chunk(kind, body):
@@ -102,7 +105,7 @@ def png_bytes(image):
     raw = b"".join(b"\x00" + bytes(channel for pixel in row for channel in pixel) for row in image)
     return (b"\x89PNG\r\n\x1a\n"
             + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(raw, 9))
+            + chunk(b"IDAT", zlib.compress(raw, level))
             + chunk(b"IEND", b""))
 
 # --- sheets ---------------------------------------------------------------------
@@ -340,7 +343,7 @@ def outputs():
         roles = CUSTOMER_ROLES[design]
         add(name, recolour(load_sheet(design), {roles[role]: colour for role, colour in colours.items()}))
     for name, rows in ICONS.items():
-        files[SPRITES / f"icon_{name}.png"] = png_bytes(icon_image(rows))
+        files[SPRITES / f"icon_{name}.png"] = png_bytes(icon_image(rows), 0)
     return files
 
 
