@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-**BankSim** is a Godot 4.7 bank-branch simulation written entirely in GDScript (the project is configured for .NET, but there are no C# scripts, `.csproj` or `.sln`). The player starts as a Teller, unlocks Loan Officer and then Branch Manager, works alongside NPC coworkers, and can be disciplined and fired. `HANDOFF.md` (the original bug list and roadmap) and `AUDIT_REPORT.md` (an audit of the first fixes) drive the current work; both have a status note at the top. `DEVLOG.md` records how the project got here, session by session.
+**BankSim** is a Godot 4.7 bank-branch simulation written entirely in GDScript (the project is configured for .NET, but there are no C# scripts, `.csproj` or `.sln`). The player starts as a Teller, unlocks Loan Officer and then Branch Manager, works alongside NPC coworkers, and can be disciplined and fired. `HANDOFF.md` (the original bug list and roadmap) and `AUDIT_REPORT.md` (an audit of the first fixes) drive the current work; both have a status note at the top. `DEVLOG.md` records how the project got here, session by session. `ROLE_BOUNDARIES.md` says who owns which files (the Teller is Liam's, the Loan Officer James's, the rest shared), where new files go, and the Phase B rules: no new autoloads or input actions on a role branch (use `TellerRole`/`LoanRole` and the reserved `DebugKeys`), cutscenes only through `Cutscenes`, each role's numbers in its own config.
 
 Keep this file in step with the code: update it when structure or behaviour changes.
 
