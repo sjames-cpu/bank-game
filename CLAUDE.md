@@ -163,7 +163,7 @@ Small `Resource` structs built in code (no `.tres` data files): `Account`, `Shif
 - **.NET/C#**: enabled (`[dotnet] project/assembly_name="BankSim"`) but unused; the first C# script would need a generated `.sln`/`.csproj`.
 - **Physics**: 3D engine is Jolt (unused; the game is 2D). Physics layers in use: 1 walls, 2 player, 4 customers, 8 staff, 16 furniture.
 - **Display**: 1152×648, stretch `canvas_items` with `expand` aspect.
-- **Input**: `move_up/down/left/right` (WASD + arrows), `interact` (E), `toggle_overview` (Z, the camera's overview) and `pause_menu` (Esc, the pause menu) and `skip_cutscene` (Esc too, read only while a cutscene plays, when the paused tree keeps the pause menu shut), and `debug_skip_slot` (F3, debug builds only); desks also accept `ui_accept`.
+- **Input**: `move_up/down/left/right` (WASD + arrows), `interact` (E), `toggle_overview` (Z, the camera's overview) and `pause_menu` (Esc, the pause menu) and `skip_cutscene` (Esc too, read only while a cutscene plays, when the paused tree keeps the pause menu shut), and `debug_skip_slot` (F3, debug builds only); desks also accept `ui_accept`. Reserved for Phase B, doing nothing yet (`DebugKeys`, `scripts/core/debug_keys.gd`, read in debug builds only): `debug_teller_1` (F5) and `debug_teller_2` (F6) for the Teller, `debug_loan_1` (F9) and `debug_loan_2` (F10) for the Loan Officer. `debug_keys_test.gd` checks they're there and that no key does two things (Esc's two uses aside).
 - **GDScript warnings**: untyped declarations, unsafe property/method access, unsafe casts, unsafe call arguments and integer division are enabled (Warn level) on top of the defaults. Addons are excluded (`directory_rules`). CI fails on any warning (see Tests).
 
 The file is hand-editable, but prefer the editor for engine settings; when editing directly, keep its section/key format.
@@ -210,3 +210,4 @@ It fails on stale generated art, any warning, any failing test, a failed boot, o
 - Either key first skips any onboarding left (`OnboardingFlow`, which hears them while its letters and lessons pause the room).
 - **F3** (the `debug_skip_slot` action, `DEBUG_SKIP_SLOT_ACTION`; decision 4) skips the current time slot (`SlotDayController.debug_skip_slot()` → `DayFlow.skip_slot()`), only inside a slot.
 - **F2** (`DEBUG_LOAN_OFFICER_KEY`) raises XP to at least 500 and Reputation to at least 50 (never lowers them), unlocking Loan Officer but not Branch Manager (which needs Reputation 60).
+- **F5, F6** (Teller) and **F9, F10** (Loan Officer) are reserved for each role's own debug shortcuts (`DebugKeys`; nothing yet).
