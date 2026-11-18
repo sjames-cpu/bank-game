@@ -8,8 +8,6 @@ extends "res://tests/support/loan/loan_suite.gd"
 ## fitting the window; and staff loan officers' document checks, their misses
 ## going to staff review (Serious when they lent on them, Minor when not).
 
-var lo: LoanOfficerScreen
-var review: LoanReviewScreen
 var window_before: Vector2i
 
 func before_test() -> void:
@@ -27,10 +25,6 @@ func after_test() -> void:
 
 # --- helpers -------------------------------------------------------------------
 
-func frames(count: int) -> void:
-	for i in count:
-		await get_tree().process_frame
-
 ## Clocked in at Loan Desk 1 (at Opening, or in a slot already running),
 ## then into a work slot: the slot brings the player's application.
 func clock_in_at_loan_desk() -> void:
@@ -38,12 +32,6 @@ func clock_in_at_loan_desk() -> void:
 	room._on_loan_officer_desk_interacted()
 	lo.clock_in_button.pressed.emit()
 	open_work_slot()
-
-func sample(applicant_name: String) -> LoanApplication:
-	for application in LoanApplicationsData.get_applications():
-		if application.applicant_name == applicant_name:
-			return application
-	return null
 
 ## Sample `applicant_name` with documents showing `doc_problem` and/or
 ## `id_problem`, from the real generator (seeds tried in turn).
@@ -64,12 +52,6 @@ func open_next(application: LoanApplication) -> void:
 	lo.applications_reviewed = 0
 	lo.review_next_button.pressed.emit()
 	assert_object(review.current_application()).is_same(application)
-
-func assert_fits() -> void:
-	await frames(4)
-	var problems := layout_problems(review.main_panel)
-	problems.append_array(controls_line_problems(review.main_panel))
-	assert_array(problems).override_failure_message("\n".join(problems)).is_empty()
 
 func speech(npc: StaffNPC) -> String:
 	return (npc.get_node("SpeechLabel") as Label).text

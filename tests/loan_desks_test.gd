@@ -10,8 +10,6 @@ extends "res://tests/support/loan/loan_suite.gd"
 
 const SLOTS := ScheduleManager.LOAN_DESK_SLOTS
 
-var lo: LoanOfficerScreen
-
 func before_test() -> void:
 	await super()
 	# A time-slot day at Opening, as the room starts it.
@@ -19,10 +17,6 @@ func before_test() -> void:
 	lo = room.loan_officer_screen
 
 # --- helpers -------------------------------------------------------------------
-
-func frames(count: int) -> void:
-	for i in count:
-		await get_tree().process_frame
 
 func worker_for(slot_name: String) -> NpcLoanDeskWorker:
 	for worker in room.loan_desk_workers:

@@ -11,8 +11,6 @@ extends "res://tests/support/loan/loan_suite.gd"
 const Tier := LoanApplication.RiskTier
 const Outcome := BookedLoan.Outcome
 
-var lo: LoanOfficerScreen
-var review: LoanReviewScreen
 var window_before: Vector2i
 
 func before_test() -> void:
@@ -28,22 +26,12 @@ func after_test() -> void:
 
 # --- helpers -------------------------------------------------------------------
 
-func frames(count: int) -> void:
-	for i in count:
-		await get_tree().process_frame
-
 func sample(applicant_name: String) -> LoanApplication:
 	for application in LoanApplicationsData.get_applications():
 		if application.applicant_name == applicant_name:
 			application.documents_issued = true
 			return application
 	return null
-
-func clock_in_at_loan_desk() -> void:
-	GameClock.minutes = 10 * 60.0
-	XPManager.is_loan_officer_unlocked = true
-	room._on_loan_officer_desk_interacted()
-	lo.clock_in_button.pressed.emit()
 
 ## Opens `application`, verifies, checks credit and decides.
 func decide(application: LoanApplication, decision: LoanApplication.DecisionType, reasons: Array = []) -> void:

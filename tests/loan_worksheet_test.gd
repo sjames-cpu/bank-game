@@ -7,8 +7,6 @@ extends "res://tests/support/loan/loan_suite.gd"
 ## deciding (graded against the new assessment, their review items carrying
 ## the worksheet), and old saves' loan review items still loading.
 
-var lo: LoanOfficerScreen
-var review: LoanReviewScreen
 var window_before: Vector2i
 
 func before_test() -> void:
@@ -24,25 +22,9 @@ func after_test() -> void:
 
 # --- helpers -------------------------------------------------------------------
 
-func frames(count: int) -> void:
-	for i in count:
-		await get_tree().process_frame
-
 func acknowledge_letters() -> void:
 	while room.letter_screen.visible and room.letter_screen.action_button.text == "Acknowledge":
 		room.letter_screen.action_button.pressed.emit()
-
-func sample(applicant_name: String) -> LoanApplication:
-	for application in LoanApplicationsData.get_applications():
-		if application.applicant_name == applicant_name:
-			return application
-	return null
-
-func clock_in_at_loan_desk() -> void:
-	GameClock.minutes = 10 * 60.0
-	XPManager.is_loan_officer_unlocked = true
-	room._on_loan_officer_desk_interacted()
-	lo.clock_in_button.pressed.emit()
 
 ## Puts `application` on top of the player's pile and opens it, verifying
 ## its documents first unless `check_documents` is false.
@@ -59,12 +41,6 @@ func open_next(application: LoanApplication, check_documents: bool = true) -> Lo
 func open_application(applicant_name: String, check_documents: bool = true) -> LoanApplication:
 	clock_in_at_loan_desk()
 	return open_next(sample(applicant_name), check_documents)
-
-func assert_fits() -> void:
-	await frames(4)
-	var problems := layout_problems(review.main_panel)
-	problems.append_array(controls_line_problems(review.main_panel))
-	assert_array(problems).override_failure_message("\n".join(problems)).is_empty()
 
 func tick(reasons: Array) -> void:
 	for reason: int in reasons:

@@ -7,9 +7,6 @@ extends "res://tests/support/loan/loan_suite.gd"
 ## business day; and the pile (pending and queued) survives a save, with the
 ## career's generator carrying on exactly where it left off.
 
-var lo: LoanOfficerScreen
-var review: LoanReviewScreen
-
 func before_test() -> void:
 	await super()
 	# A time-slot day at Opening, as the room starts it.
@@ -24,12 +21,6 @@ func sample_names() -> Array[String]:
 	for application in LoanApplicationsData.get_applications():
 		names.append(application.applicant_name)
 	return names
-
-func clock_in_at_loan_desk() -> void:
-	GameClock.minutes = 10 * 60.0
-	XPManager.is_loan_officer_unlocked = true
-	room._on_loan_officer_desk_interacted()
-	lo.clock_in_button.pressed.emit()
 
 ## Opens the next application, verifies its documents, runs the credit check
 ## and makes the right call for it (a counter-offer at what they can afford,
