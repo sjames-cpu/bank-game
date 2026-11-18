@@ -157,7 +157,7 @@ Small `Resource` structs built in code (no `.tres` data files): `Account`, `Shif
 
 ## Engine configuration (`project.godot`)
 
-- **Godot**: 4.7 (4.7.1 locally and in CI), GL Compatibility renderer on desktop and mobile; Windows rendering device `d3d12`.
+- **Godot**: 4.7 (4.7.2 locally and in CI), GL Compatibility renderer on desktop and mobile; Windows rendering device `d3d12`.
 - **.NET/C#**: enabled (`[dotnet] project/assembly_name="BankSim"`) but unused; the first C# script would need a generated `.sln`/`.csproj`.
 - **Physics**: 3D engine is Jolt (unused; the game is 2D). Physics layers in use: 1 walls, 2 player, 4 customers, 8 staff, 16 furniture.
 - **Display**: 1152×648, stretch `canvas_items` with `expand` aspect.
@@ -183,7 +183,7 @@ Tests use **gdUnit4 v6.2.1** (`addons/gdUnit4/`, the addon's own self-tests left
 Run everything locally (Git Bash on Windows):
 
 ```sh
-GODOT_BIN="/c/Users/USER/Downloads/Godot_v4.7.1-stable_win64.exe/Godot_v4.7.1-stable_win64_console.exe" ./run_tests.sh
+GODOT_BIN="/c/Users/USER/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe" ./run_tests.sh
 ```
 
 `run_tests.sh`:
@@ -193,7 +193,7 @@ GODOT_BIN="/c/Users/USER/Downloads/Godot_v4.7.1-stable_win64.exe/Godot_v4.7.1-st
 4. Runs every suite in `tests/`.
 5. Does two `--headless --quit-after 300` boots: the main scene (the start screen's main menu) and `teller_room.tscn` directly, so the gameplay room is boot-checked on its own, not only through tests.
 
-It fails on stale generated art, any warning, any failing test, a failed boot, or any `ERROR:`/`SCRIPT ERROR:` line. CI (`.github/workflows/tests.yml`) runs the same script on every push and pull request with a pinned Godot 4.7.1 Linux build and Python 3.12, and uploads the gdUnit4 report. Keep the CI, local and gdUnit4 versions in step.
+It fails on stale generated art, any warning, any failing test, a failed boot, or any `ERROR:`/`SCRIPT ERROR:` line. CI (`.github/workflows/tests.yml`) runs the same script on every push and pull request with a pinned Godot 4.7.2 Linux build and Python 3.12, and uploads the gdUnit4 report. Keep the CI, local and gdUnit4 versions in step.
 
 **Screen fit**: `teller_room_suite.controls_line_problems(panel)` checks a panel stays clear of the HUD's bottom-left controls line (used by the loan review tests). `teller_room_suite.layout_problems(panel)` checks a laid-out screen panel and every visible control in it: each inside the panel, inside the 1152×648 window with `WINDOW_MARGIN` (8 px) to spare, and left of the HUD column (`HUD_COLUMN_LEFT`, x 952); controls inside a ScrollContainer are checked through the container. `tests/screen_fit_test.gd` runs it on every screen that lists desks or staff, with a Branch Manager's six desks: Staff Scheduling (before and after confirming), the Branch Manager hub (with a vacancy) and its shift summary, Staff Review, Hiring (two vacancies) and the Regional review letter. A screen must be visible in the tree (its parent screen open) to be laid out.
 
