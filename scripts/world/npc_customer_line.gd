@@ -181,8 +181,21 @@ func crowding() -> float:
 func is_serving() -> bool:
 	return _serving != null
 
+## At most slot_cap arrivals per work slot (StaffSlotPacer, decision 2),
+## counted from begin_slot(); none until a work slot starts.
+var slot_cap: int = 0
+var _spawned_before_slot: int = 0
+
+func begin_slot(cap: int) -> void:
+	slot_cap = cap
+	_spawned_before_slot = _customers_spawned_this_shift
+
+## Arrivals this work slot may still bring.
+func arrivals_left_this_slot() -> int:
+	return maxi(0, slot_cap - (_customers_spawned_this_shift - _spawned_before_slot))
+
 func _may_spawn() -> bool:
-	return active
+	return active and arrivals_left_this_slot() != 0
 
 func _rolls_complaint() -> bool:
 	return false

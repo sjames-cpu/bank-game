@@ -5,11 +5,24 @@ extends "res://tests/support/teller_room_suite.gd"
 ## (2026-10-12): +5 per correct request, -3 Score / -2 Reputation per
 ## abandonment or first mistake, drawer bonus scaled by customers served.
 
+func before_test() -> void:
+	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
+
+
+## Before Closing the shift goes on; at Closing, customers still in the line
+## or a transaction not completed keep the teller there, while customers
+## who never came (the doors have closed) don't.
 func test_clock_out_blocked_until_all_customers_handled() -> void:
 	clock_in()
-	assert_bool(clock_out()).is_false()
-	assert_str(ts.error_label.text).contains("4 more customers still to arrive")
+	open_desk()
+	ts.clock_out_button.pressed.emit()
+	assert_bool(ts.drawer_count_screen.visible).is_false()
+	assert_str(ts.error_label.text).contains(ShiftSlotAdapter.CLOCK_OUT_REFUSED_TEXT)
+	close_desk()
 
+	to_closing()
 	var first := spawn()
 	close_desk()
 	assert_bool(clock_out()).is_false()
@@ -26,6 +39,7 @@ func test_clock_out_blocked_until_all_customers_handled() -> void:
 		serve_correctly(spawn())
 	assert_bool(clock_out()).is_true()
 	assert_int(ts.shift_state).is_equal(TellerScreen.ShiftState.CLOCKED_OUT)
+	# Nobody else came after the doors closed, and that didn't block it.
 
 ## [actions per customer, minor count?, expected Score, Reputation, XP]
 func _scenarios() -> Dictionary:

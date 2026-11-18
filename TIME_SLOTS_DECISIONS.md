@@ -67,7 +67,7 @@ Opening (8:30) → 9 AM → 11 AM → 1 PM → 3 PM → Closing (5 PM)
 
 ## Build plan
 
-All of Phase A happens on **one branch** (`shared/time-slots-foundation`), worked on by **one person at a time**, behind the temporary switch `SLOTS_ENABLED`. It is merged into `main` before Phase B starts.
+All of Phase A happens on **one branch** (`shared/time-slots-foundation`), worked on by **one person at a time**, behind the temporary switch `SLOTS_ENABLED` (turned on for good and removed in session 3b, along with the old clock paths). It is merged into `main` before Phase B starts.
 
 | Session | Commits from the impact check |
 |---|---|

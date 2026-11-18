@@ -22,6 +22,8 @@ var reviews: Array[Dictionary] = []
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	letters = room.letter_screen
 	bm = room.branch_manager_screen
 	eod = room.end_of_day_screen
@@ -80,21 +82,23 @@ func bm_clock_in() -> void:
 	bm.clock_in_button.pressed.emit()
 	acknowledge_letters() # the first shift's orientation
 
-## A Perfect vault count, then clock-out and the summary closed.
+## At Closing: a Perfect vault count, then clock-out and the summary closed.
 func bm_clock_out() -> void:
+	to_closing()
 	reconcile_vault()
 	bm.clock_out_button.pressed.emit()
 	bm.shift_summary_done_button.pressed.emit()
 	bm.hide_screen()
 
-## Off shift: the doormat, "Go home", then whatever comes (a review's letters,
-## then the summary), and on to the next morning.
+## The day ends (off shift: Opening skipped and home from the card), then
+## whatever comes (a review's letters, then the summary), and on to the next
+## morning.
 func go_home_and_start_next_day() -> void:
-	room._on_exit_door_interacted()
-	eod.go_home_button.pressed.emit()
-	acknowledge_letters()
-	await frames(2)
-	assert_bool(eod.is_summary_shown()).is_true()
+	if DayFlow.is_running() and not BusinessDay.is_day_over():
+		if DayFlow.current_slot().id == DaySchedule.OPENING and not DayFlow.is_between_slots():
+			DayFlow.skip_slot()
+		to_closing()
+	await run_end_of_day()
 	start_next_day()
 
 ## "Start Day N+1", through a weekend or holiday notice if one follows.
@@ -103,10 +107,11 @@ func start_next_day() -> void:
 	if eod.is_closure_shown():
 		eod.next_day_button.pressed.emit()
 
-## A working day as Branch Manager: clock in at noon, do `work`, reconcile the
-## vault (Perfect), clock out and go home.
+## A working day as Branch Manager: clock in at Opening, do `work`, reconcile
+## the vault (Perfect) and clock out at Closing, and the day ends.
 func work_day(day: int, work: Callable) -> void:
-	set_clock(day, 12, 0)
+	GameClock.day = day
+	BusinessDay.stats_day = day
 	bm_clock_in()
 	work.call()
 	bm_clock_out()
@@ -137,8 +142,9 @@ func test_reviews_come_every_5_days_as_branch_manager() -> void:
 		assert_array(reviews).override_failure_message("reviewed on Day %d" % day).is_empty()
 
 	# Day 8: the review letter comes before the summary.
-	room._on_exit_door_interacted()
-	eod.go_home_button.pressed.emit()
+	DayFlow.skip_slot()
+	DayFlow.go_home_early()
+	await frames(2)
 	assert_int(reviews.size()).is_equal(1)
 	assert_bool(letters.visible).is_true()
 	assert_bool(eod.visible).is_false()
@@ -329,7 +335,8 @@ func test_the_review_collects_from_the_branch() -> void:
 	set_clock(3, 11, 0)
 	RegionalManager.sample_vacancies()
 	assert_float(RegionalManager.vacant_desk_minutes).is_equal_approx(120.0, 0.01)
-	BusinessDay.go_home_early()
+	# Going home: the clock jumps to Closing, and the skipped hours count too.
+	set_clock(3, 17, 0)
 	RegionalManager.sample_vacancies()
 	assert_float(RegionalManager.vacant_desk_minutes).is_equal_approx(480.0, 0.01)
 	# Nothing is collected before a promotion.
@@ -385,8 +392,9 @@ func test_the_review_letter_breaks_down_each_area() -> void:
 	promote()
 	set_clock(6, 8, 30)
 	RegionalManager.warnings = 1
-	room._on_exit_door_interacted()
-	eod.go_home_button.pressed.emit()
+	DayFlow.skip_slot()
+	DayFlow.go_home_early()
+	await frames(2)
 	var body := letters.body_label.text
 	assert_str(body).contains("This is your review for your last 5 days as Branch Manager (Days 2-6).")
 	# Vault 0 (15%) and vacancies 100 (5%): 500 / 20 = 25.
@@ -418,8 +426,9 @@ func test_three_warnings_demote_to_loan_officer() -> void:
 
 	# An Unsatisfactory review on Day 6 is the third warning.
 	set_clock(6, 8, 30)
-	room._on_exit_door_interacted()
-	eod.go_home_button.pressed.emit()
+	DayFlow.skip_slot()
+	DayFlow.go_home_early()
+	await frames(2)
 	assert_str(letters.title_label.text).is_equal("Branch Manager Review — Days 2-6")
 	assert_str(letters.body_label.text).contains("Regional warnings: 3 of 3. That is the limit")
 	letters.action_button.pressed.emit()
@@ -502,6 +511,8 @@ func test_promotion_again_needs_500_more_xp_and_reputation_60() -> void:
 	assert_bool(ReportManager.is_exempt).is_true()
 	assert_int(RegionalManager.next_review_day()).is_equal(7)
 	assert_int(RegionalManager.warnings).is_equal(0)
+	# The next day's shift.
+	await go_home_and_start_next_day()
 	bm.show_screen()
 	bm.clock_in_button.pressed.emit()
 	assert_bool(bm.is_clocked_in()).is_true()
@@ -538,10 +549,11 @@ func test_demotion_closes_waiting_review_items_without_penalty() -> void:
 	assert_int(ReputationManager.reputation).is_equal(reputation_before)
 	assert_int(ScoreManager.total_score).is_equal(score_before)
 
-	# Promoted again: the first clock-out has nothing from before to answer for.
+	# Promoted again: the first clock-out (the next day's) has nothing from
+	# before to answer for.
 	XPManager._grant_branch_manager()
 	acknowledge_letters()
-	set_clock(3, 12, 0)
+	await go_home_and_start_next_day()
 	bm_clock_in()
 	bm_clock_out()
 	assert_int(records_graded("Ignored").size()).is_equal(1)
@@ -550,32 +562,47 @@ func test_demotion_closes_waiting_review_items_without_penalty() -> void:
 
 # --- the visit -------------------------------------------------------------------------
 
+## Today's slots run to the start of `id`, which the test then holds open
+## (nobody works them, so they'd otherwise end at once).
+func hold_slot(id: StringName) -> void:
+	for step in DaySchedule.count() * 2:
+		if not DayFlow.is_running():
+			return
+		if DayFlow.is_between_slots():
+			if DayFlow.next_slot().id == id:
+				DayFlow.hold(&"test holds the slot")
+				DayFlow.continue_day()
+				return
+			DayFlow.continue_day()
+		else:
+			DayFlow.skip_slot()
+
 func test_the_regional_manager_visits_on_review_day() -> void:
 	promote()
 	# Not on an ordinary day.
-	set_clock(5, 10, 0)
+	set_clock(5, 8, 30)
+	hold_slot(DaySchedule.REGIONAL_VISIT_SLOT)
 	await frames(2)
-	assert_object(room.regional_visitor).is_null()
+	assert_object(regional_visit().visitor).is_null()
+	DayFlow.release(&"test holds the slot")
+	await go_home_and_start_next_day()
 
-	# Review day: nobody before mid-morning.
-	set_clock(6, 9, 59)
+	# Review day: nobody before the 11 AM slot.
+	assert_bool(RegionalManager.is_review_day()).is_true()
 	await frames(2)
-	assert_object(room.regional_visitor).is_null()
-	set_clock(6, 10, 0)
-	# The visit starts in the room's own update; called here directly, so the
-	# checks below don't depend on how far a frame lets them walk.
-	room._update_regional_visit()
-	var visitor := room.regional_visitor
+	assert_object(regional_visit().visitor).is_null()
+	hold_slot(DaySchedule.REGIONAL_VISIT_SLOT)
+	var visitor := regional_visit().visitor
 	assert_object(visitor).is_not_null()
 	assert_str((visitor.get_node("NameLabel") as Label).text).is_equal("Regional Manager")
 	var sprite: AnimatedSprite2D = visitor.get_node("AnimatedSprite2D")
 	assert_str(sprite.sprite_frames.resource_path).is_equal(StaffLooks.frames_path(StaffLooks.REGIONAL_MANAGER_LOOK))
 	# They start at the entrance and walk in.
-	assert_vector(visitor.global_position).is_equal(TellerRoom.VISIT_ENTRANCE)
+	assert_vector(visitor.global_position).is_equal(RegionalVisitSlot.VISIT_ENTRANCE)
 	assert_int(visitor.state).is_equal(StaffNPC.State.WALKING)
 	# A frame later they're still the one visitor, on their way.
 	await frames(1)
-	assert_object(room.regional_visitor).is_same(visitor)
+	assert_object(regional_visit().visitor).is_same(visitor)
 
 	# Walks in and stands outside the Manager's Office, facing it.
 	Engine.time_scale = 4.0
@@ -584,37 +611,27 @@ func test_the_regional_manager_visits_on_review_day() -> void:
 		await get_tree().physics_frame
 		waited += 1
 	await get_tree().physics_frame # standing still from here
-	assert_vector(visitor.global_position).is_equal(TellerRoom.VISIT_ROUTE[-1])
+	assert_vector(visitor.global_position).is_equal(RegionalVisitSlot.VISIT_ROUTE[-1])
 	assert_str(sprite.animation).is_equal("idle_up")
-	assert_str((visitor.get_node("SpeechLabel") as Label).text).is_equal(TellerRoom.VISIT_GREETING)
-	assert_object(room.regional_visitor).is_same(visitor)
+	assert_str((visitor.get_node("SpeechLabel") as Label).text).is_equal(RegionalVisitSlot.VISIT_GREETING)
+	assert_object(regional_visit().visitor).is_same(visitor)
 
-	# 11:30: walks back out and is gone, and doesn't come back that day.
-	set_clock(6, 11, 30)
+	# The slot ends: they walk back out and are gone, and don't come back
+	# that day.
+	DayFlow.release(&"test holds the slot")
+	assert_bool(DayFlow.is_between_slots()).is_true()
+	# On to the 1 PM slot (Continue on the card), where they leave.
+	hold_slot(DaySchedule.SLOT_1PM)
 	waited = 0
 	while is_instance_valid(visitor) and waited < 600:
 		await get_tree().physics_frame
 		waited += 1
 	Engine.time_scale = 1.0
 	assert_bool(is_instance_valid(visitor)).is_false()
-	assert_object(room.regional_visitor).is_null()
-	set_clock(6, 10, 30)
+	assert_object(regional_visit().visitor).is_null()
 	await frames(2)
-	assert_object(room.regional_visitor).is_null()
-
-func test_a_visit_already_under_way_and_going_home() -> void:
-	promote()
-	# A room that comes into a visit part-way finds them standing there.
-	set_clock(6, 10, 45)
-	await frames(1)
-	assert_vector(room.regional_visitor.global_position).is_equal(TellerRoom.VISIT_ROUTE[-1])
-	# Going home ends the visit along with the day.
-	var visitor := room.regional_visitor
-	room._on_exit_door_interacted()
-	eod.go_home_button.pressed.emit()
-	assert_object(room.regional_visitor).is_null()
-	await frames(1)
-	assert_bool(is_instance_valid(visitor)).is_false()
+	assert_object(regional_visit().visitor).is_null()
+	DayFlow.release(&"test holds the slot")
 
 # --- HUD ------------------------------------------------------------------------------
 

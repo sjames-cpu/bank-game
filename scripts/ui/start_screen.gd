@@ -145,14 +145,19 @@ static func role_of(career: Dictionary) -> String:
 		return "Loan Officer"
 	return "Teller"
 
-## "Day 3 · Wednesday 7 January 2026 · 10:42 AM": where the career's game
-## clock stands.
+## Where a saved day picks up: its End of Day, or its start (any other day
+## replays from Opening).
+const DAY_ENDED_TEXT: String = "End of Day"
+const DAY_START_TEXT: String = "Start of day"
+
+## "Day 3 · Wednesday 7 January 2026 · Start of day" (or "· End of Day"):
+## where the saved career's day picks up (SaveGame.read_day_ended()).
 static func game_date_of(career: Dictionary) -> String:
 	var clock := SaveGame.dict_of(career, "clock")
 	var day := maxi(GameClock.START_DAY, SaveGame.int_of(clock, "day", GameClock.START_DAY))
 	var start := BankCalendar.from_iso(SaveGame.string_of(clock, "start_date", ""), BankCalendar.start_date())
-	var minutes := SaveGame.float_of(clock, "minutes", GameClock.START_MINUTES)
-	return "Day %d · %s · %s" % [day, BankCalendar.long_text(BankCalendar.business_day_date(start, day)), GameClock.format_time(minutes)]
+	var when := DAY_ENDED_TEXT if SaveGame.read_day_ended(career) else DAY_START_TEXT
+	return "Day %d · %s · %s" % [day, BankCalendar.long_text(BankCalendar.business_day_date(start, day)), when]
 
 ## The save's real-world time ("2026-10-21T14:05:33") as "2026-10-21 14:05":
 ## the one place the player sees the wall clock.

@@ -11,6 +11,8 @@ var letters: DisciplineLetterScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	_bind_room()
 
 func _bind_room() -> void:
@@ -112,12 +114,15 @@ func test_hud_shows_career_values_with_no_screen_open() -> void:
 
 func test_hud_stays_visible_and_live_while_the_teller_screen_is_open() -> void:
 	clock_in()
+	open_work_slot() # the 9 AM slot's customers
 	open_desk()
 	await settle()
 	assert_bool(get_tree().paused).is_true()
 	assert_bool(hud.visible).is_true()
 	assert_bool(hud.stats_panel.is_visible_in_tree()).is_true()
-	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window · 4 customers left")
+	# The slot line counts the slot's customers; the shift line just says where.
+	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window")
+	assert_str(hud.slot_label.text).is_equal("Customers: 0 / 2")
 	close_desk()
 
 	var customer := spawn()
@@ -129,7 +134,8 @@ func test_hud_stays_visible_and_live_while_the_teller_screen_is_open() -> void:
 	assert_bool(ts.visible).is_true()
 	assert_str(hud.score_label.text).is_equal("Score: %d" % TellerScreen.CUSTOMER_REQUEST_CORRECT_SCORE)
 	assert_str(hud.xp_label.text).is_equal("XP: %d" % (TellerScreen.CUSTOMER_REQUEST_CORRECT_SCORE * XPManager.XP_PER_SCORE_POINT))
-	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window · 3 customers left")
+	assert_str(hud.shift_label.text).is_equal("On shift — Player Teller Window")
+	assert_str(hud.slot_label.text).is_equal("Customers: 1 / 2")
 	close_desk()
 
 func test_hud_shift_status_for_loan_desk_and_branch_manager_office() -> void:
@@ -137,9 +143,12 @@ func test_hud_shift_status_for_loan_desk_and_branch_manager_office() -> void:
 	var loan: LoanOfficerScreen = room.loan_officer_screen
 	loan.show_screen()
 	loan.clock_in_button.pressed.emit()
-	await settle()
-	assert_str(hud.shift_label.text).is_equal("On shift — Loan Desk 1 · 3 applications left")
 	loan.hide_screen()
+	# The 9 AM slot brings its application.
+	open_work_slot()
+	await settle()
+	assert_str(hud.shift_label.text).is_equal("On shift — Loan Desk 1")
+	assert_str(hud.slot_label.text).is_equal("Application: 0 / 1")
 
 	promote()
 	var bm: BranchManagerScreen = room.branch_manager_screen
@@ -390,6 +399,7 @@ func test_prompt_at_the_player_teller_window_follows_the_shift() -> void:
 	assert_str(prompt()).is_equal("E — Clock in (Player Teller Window)")
 
 	clock_in()
+	open_work_slot()
 	await settle()
 	assert_str(prompt()).is_equal("E — Serve customers (Player Teller Window)")
 
@@ -399,6 +409,8 @@ func test_prompt_at_the_player_teller_window_follows_the_shift() -> void:
 	close_desk()
 
 	serve_whole_shift()
+	# The shift ends at Closing.
+	to_closing()
 	await settle()
 	assert_str(prompt()).is_equal("E — Clock out (Player Teller Window)")
 
@@ -415,6 +427,7 @@ func test_prompt_explains_the_locked_loan_desk() -> void:
 	assert_bool(room.loan_officer_screen.visible).is_true()
 	room.loan_officer_screen.clock_in_button.pressed.emit()
 	room.loan_officer_screen.hide_screen()
+	open_work_slot()
 	await settle()
 	assert_str(prompt()).is_equal("E — Review applications (Loan Desk 1)")
 
@@ -455,9 +468,9 @@ func test_arrival_hint_shows_once_per_career() -> void:
 	hud.hint_dismiss_button.pressed.emit()
 	# The opening-hours hint comes straight after it, once too.
 	assert_int(hud.current_hint).is_equal(Hint.OPENING_HOURS)
-	assert_str(hud.hint_label.text).contains("9:00 AM to 5:00 PM")
-	assert_str(hud.hint_label.text).contains("not after 4:30 PM")
-	assert_str(hud.hint_label.text).contains("entrance doormat and press E to go home")
+	assert_str(hud.hint_label.text).contains("time slots")
+	assert_str(hud.hint_label.text).contains("your shift runs until Closing")
+	assert_str(hud.hint_label.text).contains("The card between slots lets you go home")
 	hud.hint_dismiss_button.pressed.emit()
 	assert_bool(hud.hint_panel.visible).is_false()
 
@@ -524,6 +537,8 @@ func test_first_clock_out_hint_shows_once() -> void:
 	assert_str(hud.hint_label.text).is_equal("Count the drawer to finish your shift.")
 	close_desk()
 	hud.hint_dismiss_button.pressed.emit()
+	# The next shift is the next day's.
+	await go_to_next_day()
 
 	clock_in()
 	serve_whole_shift()

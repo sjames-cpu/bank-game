@@ -4,21 +4,14 @@ class_name EndOfDayScreen
 ## The end of the business day (BusinessDay): the "End of Day N" summary
 ## (the date, customers the whole branch served today, the player's shifts,
 ## today's Score, Reputation and XP changes, and transactions after the
-## 2:00 PM cutoff) with its "Start Day N+1" button, and the "Go home and end
-## Day N?" question the entrance doormat asks (ExitDoor). When the next
-## business day comes after a weekend or bank holiday, "Start Day N+1" first
-## shows the closure ("Weekend — the branch is closed") in the same panel,
-## and its button then starts the day. teller_room.gd decides when to show either and what the
-## buttons do. Pauses the tree while up, like the letters; process_mode
+## 2:00 PM cutoff) with its "Start Day N+1" button. When the next business
+## day comes after a weekend or bank holiday, "Start Day N+1" first shows the
+## closure ("Weekend — the branch is closed") in the same panel, and its
+## button then starts the day. teller_room.gd decides when to show it and
+## what the button does. (Going home early is on the card between slots.) Pauses the tree while up, like the letters; process_mode
 ## ALWAYS so its buttons work while paused.
 
-signal go_home_confirmed
 signal next_day_requested
-
-@onready var confirm_panel: PanelContainer = $ConfirmPanel
-@onready var confirm_label: Label = $ConfirmPanel/VBox/QuestionLabel
-@onready var go_home_button: Button = $ConfirmPanel/VBox/ButtonsHBox/GoHomeButton
-@onready var stay_button: Button = $ConfirmPanel/VBox/ButtonsHBox/StayButton
 
 @onready var summary_panel: PanelContainer = $SummaryPanel
 @onready var summary_title_label: Label = $SummaryPanel/VBox/TitleLabel
@@ -43,8 +36,6 @@ const MAX_CUTOFF_LINES_WITH_LOANS: int = 3
 
 func _ready() -> void:
 	visible = false
-	go_home_button.pressed.connect(_on_go_home_pressed)
-	stay_button.pressed.connect(close)
 	next_day_button.pressed.connect(_on_next_day_pressed)
 	# The text's wrapped height is only known once it has its width.
 	summary_label.resized.connect(_fit_summary)
@@ -69,11 +60,6 @@ func is_summary_shown() -> bool:
 ## The weekend or holiday notice is up.
 func is_closure_shown() -> bool:
 	return is_summary_shown() and _closure_shown
-
-## "Go home and end Day N?"
-func ask_go_home(day: int) -> void:
-	confirm_label.text = "Go home and end Day %d?" % day
-	_open(confirm_panel)
 
 ## The summary for BusinessDay.summary()'s figures. `closures`: the closed
 ## days before the next business day (BusinessDay.closures_before_next_day()).
@@ -175,15 +161,11 @@ func close() -> void:
 		_paused_by_self = false
 
 func _open(panel: Control) -> void:
-	confirm_panel.visible = panel == confirm_panel
 	summary_panel.visible = panel == summary_panel
 	visible = true
 	if not get_tree().paused:
 		get_tree().paused = true
 		_paused_by_self = true
-
-func _on_go_home_pressed() -> void:
-	go_home_confirmed.emit()
 
 func _on_next_day_pressed() -> void:
 	if not _closures.is_empty():

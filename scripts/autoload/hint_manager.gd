@@ -59,7 +59,7 @@ func text_for(hint: Hint) -> String:
 		Hint.BRANCH_MANAGER_UNLOCKED:
 			return "Branch Manager unlocked! Your desk is in the Manager's Office at the back."
 		Hint.OPENING_HOURS:
-			return "The branch is open 9:00 AM to 5:00 PM. You can clock in early for the opening count, but not after 4:30 PM. Done for the day? Walk to the entrance doormat and press %s to go home." % key
+			return "A day runs in time slots, from Opening to Closing; customers come in the 9 AM to 3 PM slots. Clock in at Opening: your shift runs until Closing. Done early? The card between slots lets you go home."
 		# The policy behind these two is in the training; they only point at
 		# where to act.
 		Hint.ID_CHECK:

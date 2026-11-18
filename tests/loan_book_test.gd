@@ -1,4 +1,4 @@
-extends "res://tests/support/teller_room_suite.gd"
+extends "res://tests/support/loan/loan_suite.gd"
 
 ## The loan book and loan outcomes (LoanBookManager, BookedLoan): loans join
 ## the book; outcomes come at the configured odds by tier and documents and

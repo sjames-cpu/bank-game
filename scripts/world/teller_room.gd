@@ -248,7 +248,6 @@ func _ready() -> void:
 	_update_branch_manager_desk_availability()
 
 	atm.interacted.connect(_on_atm_interacted)
-	exit_door.interacted.connect(_on_exit_door_interacted)
 	vault_control = VaultDualControl.new()
 	vault_control.name = "VaultDualControl"
 	vault_control.room = self
@@ -265,7 +264,6 @@ func _ready() -> void:
 	armored_visit.room = self
 	add_child(armored_visit)
 	armored_truck_screen.closed.connect(_on_armored_truck_screen_closed)
-	end_of_day_screen.go_home_confirmed.connect(_on_go_home_confirmed)
 	end_of_day_screen.next_day_requested.connect(_on_next_day_requested)
 	# Customers the staff serve count toward today's branch total; those who
 	# give up at a staffed window count against the manager's review.
@@ -310,6 +308,8 @@ func _ready() -> void:
 	add_child(onboarding_flow)
 	onboarding_flow.finished.connect(_show_arrival_hints)
 	onboarding_flow.start()
+	# The time-slot pieces, which also start today's slots (SlotDayController).
+	SlotWiring.install(self)
 
 func _show_arrival_hints() -> void:
 	hud.show_hint_once(HintManager.Hint.ARRIVAL)
@@ -321,7 +321,6 @@ func _process(_delta: float) -> void:
 	_update_attention_markers()
 	_update_vault_notice()
 	_check_branch_opening()
-	_update_regional_visit()
 	_check_end_of_day()
 
 # --- loan walk-ins (LoanDeskSeat) ---------------------------------------------------
@@ -359,10 +358,6 @@ func _on_loan_decision_recorded(application: LoanApplication) -> void:
 	var seat := player_loan_seat()
 	if seat != null and seat.application == application:
 		seat.send_off_after_decision(application)
-
-func _clear_loan_seats() -> void:
-	for seat: LoanDeskSeat in loan_seats.values():
-		seat.clear()
 
 # --- the business day (BusinessDay) -----------------------------------------------
 
@@ -404,7 +399,9 @@ func is_lobby_empty() -> bool:
 func _check_end_of_day() -> void:
 	if end_of_day_screen.visible or get_tree().paused:
 		return
-	if BusinessDay.is_day_over() and not is_player_on_shift() and is_lobby_empty():
+	# The cover teller (Loan Desk days) finishes and leaves the window first,
+	# so the summary never freezes her there.
+	if BusinessDay.is_day_over() and not is_player_on_shift() and is_lobby_empty() and not is_window_covered():
 		show_end_of_day()
 
 ## The End of Day summary, saved as it appears. On a review day the Regional
@@ -423,7 +420,8 @@ func show_end_of_day() -> void:
 	# The loans' day (once): payments late, caught up or defaulted, and the
 	# portfolio report when one is due (its letter queues before the summary).
 	LoanBookManager.close_day(BusinessDay.stats_day)
-	end_regional_visit()
+	# Any Regional visit still under way ends with the day.
+	(get_node("RegionalVisitSlot") as RegionalVisitSlot).end_visit()
 	if RegionalManager.demote_if_due():
 		save_career()
 		if letter_screen.visible:
@@ -442,68 +440,7 @@ func show_end_of_day() -> void:
 	end_of_day_screen.show_summary(figures, BusinessDay.closures_before_next_day())
 	save_career()
 
-# --- the Regional Manager's visit (RegionalManager) --------------------------------
-
-## On a review day the Regional Manager walks in from the entrance at
-## VISIT_START_MINUTES, stands outside the Manager's Office, and walks out
-## again at VISIT_END_MINUTES. A room loaded part-way through the visit finds
-## them already standing there.
-const VISIT_START_MINUTES: float = 10.0 * 60.0
-const VISIT_END_MINUTES: float = 11.0 * 60.0 + 30.0
-## Later than this after VISIT_START_MINUTES, they're placed at the spot.
-const VISIT_LATE_ARRIVAL_MINUTES: float = 10.0
-## Entrance -> up the aisle beside the lounge -> outside the Manager's
-## Office door (columns 9-10), facing it.
-const VISIT_ENTRANCE: Vector2 = Vector2(384, 690)
-const VISIT_ROUTE: Array[Vector2] = [Vector2(384, 330), Vector2(320, 330), Vector2(320, 290)]
-const VISIT_GREETING: String = "Just here to observe. Carry on."
-
-## The visiting Regional Manager (null when not here).
-var regional_visitor: StaffNPC = null
-var _visitor_leaving: bool = false
-## The day they last came, so they don't come back once they've left.
-var _visit_day: int = 0
-
-func _update_regional_visit() -> void:
-	var during_visit := GameClock.minutes >= VISIT_START_MINUTES and GameClock.minutes < VISIT_END_MINUTES and not BusinessDay.is_day_over()
-	if not is_instance_valid(regional_visitor):
-		regional_visitor = null
-		if during_visit and RegionalManager.is_review_day() and _visit_day != BusinessDay.stats_day:
-			_start_regional_visit()
-		return
-	if not during_visit and not _visitor_leaving:
-		_visitor_leaving = true
-		var route: Array[Vector2] = VISIT_ROUTE.duplicate()
-		route.reverse()
-		route.remove_at(0) # standing there
-		route.append(VISIT_ENTRANCE)
-		regional_visitor.follow_route(route, StaffNPC.State.ON_BREAK)
-		regional_visitor.route_finished.connect(end_regional_visit, CONNECT_ONE_SHOT)
-
-func _start_regional_visit() -> void:
-	_visit_day = BusinessDay.stats_day
-	_visitor_leaving = false
-	var member := StaffMember.new()
-	member.staff_name = RegionalManager.SENDER
-	member.look = StaffLooks.REGIONAL_MANAGER_LOOK
-	regional_visitor = STAFF_NPC_SCENE.instantiate()
-	regional_visitor.setup(member)
-	regional_visitor.name = "RegionalManagerVisitor"
-	staff_layer.add_child(regional_visitor)
-	if GameClock.minutes - VISIT_START_MINUTES > VISIT_LATE_ARRIVAL_MINUTES:
-		regional_visitor.place_at(VISIT_ROUTE[-1], StaffNPC.State.ON_BREAK)
-		return
-	regional_visitor.place_at(VISIT_ENTRANCE, StaffNPC.State.ON_BREAK)
-	regional_visitor.follow_route(VISIT_ROUTE, StaffNPC.State.ON_BREAK)
-	regional_visitor.route_finished.connect(regional_visitor.say.bind(VISIT_GREETING, 4.0), CONNECT_ONE_SHOT)
-
-## The visitor leaves the room (walked out, the day ended, or going home).
-func end_regional_visit() -> void:
-	# queue_free only: this can run from the visitor's own route_finished.
-	if is_instance_valid(regional_visitor):
-		regional_visitor.queue_free()
-	regional_visitor = null
-	_visitor_leaving = false
+# --- the Regional Manager (RegionalManager) ---------------------------------------
 
 ## Demoted to Loan Officer (RegionalManager, at a review's End of Day): undoes
 ## _apply_branch_manager_desks(). ScheduleManager has already closed Teller
@@ -519,26 +456,8 @@ func _on_branch_manager_demoted() -> void:
 	loan_desk_worker.active = true
 	save_career()
 
-func _on_exit_door_interacted() -> void:
-	if end_of_day_screen.visible or is_player_on_shift():
-		return
-	end_of_day_screen.ask_go_home(BusinessDay.stats_day)
-
-## Going home early: the rest of the day is skipped, with nobody left in the
-## lobby to serve (no customers or staff work are simulated).
-func _on_go_home_confirmed() -> void:
-	end_of_day_screen.close()
-	BusinessDay.go_home_early()
-	for line: CustomerQueue in [customer_queue, window1_npc_line, window2_line, window3_line]:
-		line.clear_lobby()
-	_customers_awaiting_farewell.clear()
-	_customer_being_served = null
-	end_regional_visit()
-	armored_visit.clear()
-	_clear_loan_seats()
-	show_end_of_day()
-
-## "Start Day N+1": 8:30 AM the next morning, saved.
+## "Start Day N+1": 8:30 AM the next business day, saved; SlotDayController
+## then starts its slots at Opening.
 func _on_next_day_requested() -> void:
 	BusinessDay.start_next_day()
 	save_career()
@@ -842,7 +761,7 @@ func interaction_prompt_text(desk: Interactable) -> String:
 	if desk == exit_door:
 		if is_player_on_shift():
 			return "Clock out before you go home"
-		return "%s — Go home (end Day %d)" % [key, BusinessDay.stats_day]
+		return SlotDayController.GO_HOME_SLOTS_PROMPT
 	if desk == atm:
 		return "%s — Use ATM" % key
 	if desk == vault_door:
@@ -859,19 +778,22 @@ func interaction_prompt_text(desk: Interactable) -> String:
 	return ""
 
 ## The HUD's shift line: "Off shift", or "On shift — " and where, with
-## what's left of that shift's work.
+## only what the HUD's slot line doesn't show: customers still waiting at the
+## teller window from Closing, and whether the Branch Manager has reconciled
+## the vault.
 func describe_shift_status() -> String:
 	var parts: PackedStringArray = []
 	if teller_screen.shift_state == TellerScreen.ShiftState.CLOCKED_IN:
-		var customers_left := customer_queue.queue.size() + customers_still_to_arrive()
-		var teller_part := "%s · %d customer%s left" % [PLAYER_TELLER_WINDOW, customers_left, "" if customers_left == 1 else "s"]
-		# Closing time cut this shift short: say so, since fewer than 4 came.
-		if BusinessDay.doors_closed() and customer_queue.get_customers_left_to_spawn() > 0:
-			teller_part += " · %s" % BusinessDay.DOORS_CLOSED_TEXT
+		var teller_part := PLAYER_TELLER_WINDOW
+		# In a work slot the HUD's slot line counts the customers; from
+		# Closing, say who is still waiting to be served.
+		var waiting := customer_queue.queue.size()
+		if BusinessDay.doors_closed() and waiting > 0:
+			teller_part += " · %d customer%s still waiting" % [waiting, "" if waiting == 1 else "s"]
 		parts.append(teller_part)
 	if loan_officer_screen.is_clocked_in():
-		var applications_left: int = loan_officer_screen.applications_left()
-		parts.append("%s · %d application%s left" % [ScheduleManager.SLOT_LOAN_DESK_1, applications_left, "" if applications_left == 1 else "s"])
+		# The HUD's slot line counts the slot's application.
+		parts.append(ScheduleManager.SLOT_LOAN_DESK_1)
 	if branch_manager_screen.is_clocked_in():
 		parts.append("Branch Manager office · vault %s" % ("reconciled" if branch_manager_screen.is_vault_reconciled() else "not reconciled yet"))
 	if parts.is_empty():
@@ -1198,6 +1120,10 @@ func _on_teller_screen_closed() -> void:
 ## that's the case, otherwise a short description of what's left for the
 ## error message.
 func _describe_remaining_shift_work() -> String:
+	# Time slots: the shift runs until Closing, whatever's left.
+	var refusal := ShiftSlotAdapter.clock_out_refusal()
+	if refusal != "":
+		return refusal
 	var parts: PackedStringArray = []
 	var waiting := customer_queue.queue.size()
 	if is_instance_valid(_customer_being_served) and customer_queue.queue.has(_customer_being_served):
@@ -1309,7 +1235,9 @@ func _on_branch_manager_clocked_in() -> void:
 ## orientation letter. Never mid-shift state: the save holds only the
 ## autoloads' career data, and a loaded career starts off shift.
 func save_career() -> void:
-	SaveGame.save()
+	# Time slots: only at the end of a day or its start (SlotSavePolicy).
+	if SlotSavePolicy.may_save():
+		SaveGame.save()
 
 ## After promotion (never mid-shift — XPManager holds it until clock-out):
 ## the Player Teller Window becomes Teller Window 3, staffed (ScheduleManager
