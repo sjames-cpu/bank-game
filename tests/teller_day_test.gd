@@ -1,6 +1,6 @@
 extends "res://tests/support/teller_room_suite.gd"
 
-## A whole Teller day with time slots on, played through the room as the
+## A whole Teller day on a time-slot day, played through the room as the
 ## player would: the opening count at Opening, two customers in each work
 ## slot with Continue on each card, the closing count at Closing, then the
 ## End of Day summary and save, once. And the same day going home early

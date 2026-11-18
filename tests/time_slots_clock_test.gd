@@ -1,21 +1,18 @@
 extends GdUnitTestSuite
 
-## The clock and the business day with time slots on (DayFlow.slots_enabled):
-## GameClock stops running and shows each slot's start time, and BusinessDay's
-## hours and cutoff follow the slots instead of the minutes. With slots off,
-## nothing changes.
+## The clock and the business day on a time-slot day: GameClock doesn't run
+## and shows each slot's start time, and BusinessDay's hours and cutoff
+## follow the slots, not the minutes.
 
 ## The reason every slot is held in these tests, so each can be looked at.
 const LOOK: StringName = &"test looks at the slot"
 
 func before_test() -> void:
-	DayFlow.slots_enabled = DayFlow.SLOTS_ENABLED
 	CareerReset.reset_all()
 
 func after_test() -> void:
 	if DayFlow.slot_started.is_connected(_hold_slot):
 		DayFlow.slot_started.disconnect(_hold_slot)
-	DayFlow.slots_enabled = DayFlow.SLOTS_ENABLED
 	CareerReset.reset_all()
 
 func frames(count: int) -> void:
@@ -25,10 +22,9 @@ func frames(count: int) -> void:
 func _hold_slot(_slot: DaySlot) -> void:
 	DayFlow.hold(LOOK)
 
-## Starts a day with slots on, held at every slot, and moves on to `id`.
+## Starts a day held at every slot, and moves on to `id`.
 func go_to_slot(id: StringName) -> void:
 	if not DayFlow.is_running():
-		DayFlow.slots_enabled = true
 		DayFlow.slot_started.connect(_hold_slot)
 		DayFlow.start_day()
 	while DayFlow.current_slot().id != id:
@@ -36,14 +32,12 @@ func go_to_slot(id: StringName) -> void:
 
 # --- GameClock -----------------------------------------------------------------------
 
-func test_the_clock_stops_running_with_slots_on() -> void:
+func test_the_clock_does_not_run() -> void:
 	GameClock.minutes = 600.0
-	DayFlow.slots_enabled = true
 	await frames(5)
 	assert_float(GameClock.minutes).is_equal(600.0)
 
 func test_the_clock_shows_each_slot_start_time_before_it_is_announced() -> void:
-	DayFlow.slots_enabled = true
 	var seen: Array[String] = []
 	var record := func(_slot: DaySlot) -> void: seen.append(GameClock.time_text())
 	DayFlow.slot_started.connect(record)
@@ -55,7 +49,6 @@ func test_the_clock_shows_each_slot_start_time_before_it_is_announced() -> void:
 # --- BusinessDay ----------------------------------------------------------------------
 
 func test_before_the_day_starts() -> void:
-	DayFlow.slots_enabled = true
 	assert_bool(BusinessDay.is_open()).is_false()
 	assert_bool(BusinessDay.doors_closed()).is_false()
 	assert_bool(BusinessDay.can_start_shift()).is_true()
@@ -90,7 +83,7 @@ func test_closing_closes_the_doors_and_shifts() -> void:
 	assert_bool(BusinessDay.doors_closed()).is_true()
 	assert_bool(BusinessDay.can_start_shift()).is_false()
 
-func test_with_slots_on_the_minutes_do_not_decide() -> void:
+func test_the_minutes_do_not_decide() -> void:
 	# The slot decides, whatever the clock says.
 	go_to_slot(DaySchedule.OPENING)
 	GameClock.minutes = 10.0 * 60.0
@@ -100,7 +93,6 @@ func test_with_slots_on_the_minutes_do_not_decide() -> void:
 	assert_bool(BusinessDay.is_after_cutoff()).is_false()
 
 func test_not_open_between_slots() -> void:
-	DayFlow.slots_enabled = true
 	DayFlow.pause_between_slots = true
 	DayFlow.start_day()
 	DayFlow.continue_day() # 9 AM, unclaimed: ends, and the day waits

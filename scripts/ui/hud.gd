@@ -23,7 +23,7 @@ class_name Hud
 ## "Wed, Day 3 · 10:42 AM" (GameClock), at the top of the column; with
 ## time slots "Wed, Day 3 · 11 AM slot" (SlotStatus).
 @onready var clock_label: Label = $RightColumn/StatsPanel/VBox/ClockLabel
-## Time slots only: how the player's slot is going ("Customers: 1 / 2"),
+## How the player's slot is going ("Customers: 1 / 2"),
 ## from whichever slot piece answers (SlotStatus); hidden otherwise.
 @onready var slot_label: Label = $RightColumn/StatsPanel/VBox/SlotLabel
 @onready var role_label: Label = $RightColumn/StatsPanel/VBox/RoleLabel
@@ -109,7 +109,7 @@ func _process(_delta: float) -> void:
 
 func refresh() -> void:
 	visible = letter_screen == null or not letter_screen.is_full_screen_letter_shown()
-	# With time slots: "Wed, Day 3 · 11 AM slot" (SlotStatus).
+	# "Wed, Day 3 · 11 AM slot" (SlotStatus).
 	clock_label.text = SlotStatus.clock_text()
 	slot_label.text = SlotStatus.status_text(get_tree())
 	slot_label.visible = slot_label.text != ""

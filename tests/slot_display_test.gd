@@ -1,10 +1,10 @@
 extends "res://tests/support/teller_room_suite.gd"
 
-## The rest of what the player sees with time slots on: the day/night tint
+## The rest of what the player sees on a time-slot day: the day/night tint
 ## fades between slots instead of jumping (DayNightCycle.SLOT_FADE_SECONDS),
 ## the doormat points to the card for going home early, and the pause menu's
 ## Back to Main Menu warns that leaving mid-day restarts the day from
-## Opening (decision 10). With slots off, all three are as before.
+## Opening (decision 10).
 
 const DayNightCycle := preload("res://scripts/world/day_night_cycle.gd")
 

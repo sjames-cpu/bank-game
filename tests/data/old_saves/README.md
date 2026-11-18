@@ -8,4 +8,4 @@ Saves in older formats, for `tests/old_saves_test.gd`. Each holds a real career 
 | `v1_end_of_day.json` | 1 | At the End of Day summary, Day 4 (5 PM), with the vault's and loans' day closed |
 | `v1_onboarding.json` | 1 | During onboarding, at the contract (Day 1, 8:30 AM) |
 | `v1_promotion.json` | 1 | At the promotion to Branch Manager at a clock-out (Day 9, 1 PM) |
-| `v2_switch_off_mid_day.json` | 2 | Part-way through Day 2 (11 AM), with the time-slot switch off |
+| `v2_switch_off_mid_day.json` | 2 | Part-way through Day 2 (11 AM), with the time-slot switch off (while the slot system was being built) |

@@ -1,6 +1,6 @@
 extends "res://tests/support/teller_room_suite.gd"
 
-## End of Day with time slots on: it comes when DayFlow's day ends
+## End of Day on a time-slot day: it comes when DayFlow's day ends
 ## (day_ended), not when the clock shows 5 PM, through the room's usual End
 ## of Day (teller_room.show_end_of_day()), in the usual order: the vault and
 ## the loan book close, the Regional review's letter, then the summary, then
@@ -15,7 +15,6 @@ func before_test() -> void:
 	start_slots_day()
 	eod = room.end_of_day_screen
 	letters = room.letter_screen
-	use_slots_setting(true)
 
 func frames(count: int) -> void:
 	for i in count:

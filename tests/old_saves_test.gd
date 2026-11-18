@@ -1,7 +1,7 @@
 extends "res://tests/support/teller_room_suite.gd"
 
-## Saves made before the slot system, or with the switch off, loaded into a
-## time-slot day (tests/data/old_saves/, real careers written the way their
+## Saves made before the slot system, or with its switch off while it was
+## being built, loaded into a time-slot day (tests/data/old_saves/, real careers written the way their
 ## version wrote them):
 ## - a version 1 save made part-way through a day (a clock-out at 2:15 PM)
 ##   replays that day from Opening, its day-only counters started again;
@@ -10,9 +10,9 @@ extends "res://tests/support/teller_room_suite.gd"
 ## - a version 1 save made during onboarding resumes it at Opening;
 ## - a version 1 save made at a mid-day promotion is a Branch Manager at
 ##   Opening, with no second promotion letter;
-## - a version 2 save made mid-day with the switch off replays from Opening.
-## Career progress always survives. With the switch off, each loads exactly
-## as before.
+## - a version 2 save made mid-day, back when the switch was off, replays
+##   from Opening.
+## Career progress always survives.
 
 const SAMPLES := "res://tests/data/old_saves/"
 
@@ -62,10 +62,9 @@ func balance_of(account_name: String) -> int:
 			return account.balance_cents
 	return -1
 
-# --- with slots on -------------------------------------------------------------------------
+# --- each kind of old save --------------------------------------------------------------------
 
 func test_a_mid_day_save_replays_its_day_from_opening() -> void:
-	use_slots_setting(true)
 	var career := sample_career("v1_mid_day.json")
 	var vault := SaveGame.int_of(SaveGame.dict_of(career, "vault"), "expected_cents", -1)
 	await load_sample("v1_mid_day.json")
@@ -106,7 +105,6 @@ func test_a_mid_day_save_replays_its_day_from_opening() -> void:
 	assert_int(SaveGame.int_of(SaveGame.dict_of(SaveGame.read().career, "business_day"), "customers_served_by_player", -1)).is_equal(0)
 
 func test_an_end_of_day_save_shows_that_end_of_day_again_once() -> void:
-	use_slots_setting(true)
 	var career := sample_career("v1_end_of_day.json")
 	var vault := SaveGame.int_of(SaveGame.dict_of(career, "vault"), "expected_cents", -1)
 	await load_sample("v1_end_of_day.json")
@@ -127,7 +125,6 @@ func test_an_end_of_day_save_shows_that_end_of_day_again_once() -> void:
 	assert_int(GameClock.day).is_equal(5)
 
 func test_an_onboarding_save_resumes_onboarding_at_opening() -> void:
-	use_slots_setting(true)
 	await load_sample("v1_onboarding.json", true)
 	assert_str(current_id()).is_equal(DaySchedule.OPENING)
 	assert_int(OnboardingManager.step).is_equal(OnboardingManager.Step.CONTRACT)
@@ -135,7 +132,6 @@ func test_an_onboarding_save_resumes_onboarding_at_opening() -> void:
 	assert_str(room.letter_screen.title_label.text).is_equal(OnboardingData.CONTRACT_TITLE)
 
 func test_a_promotion_save_is_a_branch_manager_at_opening() -> void:
-	use_slots_setting(true)
 	var promoted := [0]
 	var on_promoted := func() -> void: promoted[0] += 1
 	XPManager.branch_manager_unlocked.connect(on_promoted)
@@ -156,7 +152,6 @@ func test_a_promotion_save_is_a_branch_manager_at_opening() -> void:
 	assert_int(PlayerShift.role_today).is_equal(PlayerShift.Role.BRANCH_MANAGER)
 
 func test_a_switch_off_mid_day_save_replays_from_opening() -> void:
-	use_slots_setting(true)
 	await load_sample("v2_switch_off_mid_day.json")
 	assert_str(current_id()).is_equal(DaySchedule.OPENING)
 	assert_int(GameClock.day).is_equal(2)
@@ -164,7 +159,6 @@ func test_a_switch_off_mid_day_save_replays_from_opening() -> void:
 	assert_int(BusinessDay.customers_served_by_player).is_equal(0)
 
 func test_the_slot_screen_says_where_each_save_picks_up() -> void:
-	use_slots_setting(true)
 	assert_str(StartScreen.game_date_of(sample_career("v1_mid_day.json"))).ends_with("· " + StartScreen.DAY_START_TEXT)
 	assert_str(StartScreen.game_date_of(sample_career("v1_end_of_day.json"))).ends_with("· " + StartScreen.DAY_ENDED_TEXT)
 

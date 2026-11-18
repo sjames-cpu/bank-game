@@ -4,7 +4,7 @@ class_name ArmoredTruckSlot
 ## The armored truck on the time-slot day (decision 12): on a day with cash
 ## to move, the crew walks in when DaySchedule.ARMORED_TRUCK_SLOT (9 AM)
 ## starts (ArmoredTruckVisit.arrive_now()), instead of at 10:30 by the clock.
-## Placed in the room by SlotWiring; does nothing with slots off.
+## Placed in the room by SlotWiring.
 ##
 ## - Teller or Loan Officer day: the NPC branch manager receives them as
 ##   they arrive, as before, and nothing waits for them.
@@ -41,7 +41,7 @@ func is_holding() -> bool:
 
 func _on_slot_started(slot: DaySlot) -> void:
 	_holding = false
-	if not DayFlow.slots_enabled or slot.id != DaySchedule.ARMORED_TRUCK_SLOT:
+	if slot.id != DaySchedule.ARMORED_TRUCK_SLOT:
 		return
 	if not visit.arrive_now():
 		return

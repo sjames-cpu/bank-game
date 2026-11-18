@@ -5,8 +5,7 @@ class_name StaffSlotPacer
 ## staff teller window lets in at most DaySchedule.work_for(STAFF_TELLER_WINDOW)
 ## new customers and every staff loan desk at most work_for(STAFF_LOAN_DESK)
 ## new applicants (NpcCustomerLine.begin_slot(), NpcLoanDeskWorker.begin_slot()),
-## whatever role the player has today. Placed in the room by SlotWiring;
-## does nothing with slots off, when staff have no cap.
+## whatever role the player has today. Placed in the room by SlotWiring.
 ##
 ## Staff never claim or hold a slot, so they can't keep one from ending:
 ## only the player's work and events do. Customers and applicants still there
@@ -28,7 +27,7 @@ func _exit_tree() -> void:
 	DayFlow.slot_started.disconnect(_on_slot_started)
 
 func _on_slot_started(slot: DaySlot) -> void:
-	if not DayFlow.slots_enabled or not slot.is_work:
+	if not slot.is_work:
 		return
 	for line in lines:
 		line.begin_slot(DaySchedule.work_for(DaySchedule.WorkRole.STAFF_TELLER_WINDOW))

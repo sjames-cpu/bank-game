@@ -3,8 +3,7 @@ extends "res://tests/support/teller_room_suite.gd"
 ## Staff work per time slot (StaffSlotPacer): each work slot gives every
 ## staff teller window DaySchedule's 4 arrivals and every staff loan desk
 ## its 2, fresh at each slot; staff never keep a slot from ending; customers
-## left in staff lines carry over and never stick the day; with slots off
-## staff have no cap.
+## left in staff lines carry over and never stick the day.
 
 var pacer: StaffSlotPacer
 

@@ -3,8 +3,7 @@ class_name ManagerSlotAdapter
 
 ## The Branch Manager role's part of the time-slot day: the only place the
 ## Branch Manager talks to DayFlow (ROLE_BOUNDARIES.md: frozen on this
-## adapter until the role is redesigned). Placed in the room by SlotWiring;
-## does nothing with slots off.
+## adapter until the role is redesigned). Placed in the room by SlotWiring.
 ##
 ## On a Branch Manager day (PlayerShift.role_today, chosen at Opening by the
 ## shift's clock-in) each work slot is claimed while the player is clocked
@@ -87,7 +86,7 @@ func end_slot() -> bool:
 func _on_slot_started(slot: DaySlot) -> void:
 	_claimed = false
 	_tracking = null
-	if not DayFlow.slots_enabled or not slot.is_work or not is_manager_working():
+	if not slot.is_work or not is_manager_working():
 		return
 	_claimed = DayFlow.claim_work(self)
 	if _claimed:

@@ -3,7 +3,7 @@ class_name TellerSlotAdapter
 
 ## The Teller role's part of the time-slot day: the only place the Teller
 ## talks to DayFlow (ROLE_BOUNDARIES.md). Placed in the room by
-## teller_room.gd; does nothing with slots off.
+## teller_room.gd.
 ##
 ## On a Teller day (PlayerShift.role_today, chosen at Opening by the shift's
 ## clock-in, ShiftSlotAdapter) each work slot (9 AM, 11 AM, 1 PM, 3 PM) is
@@ -54,7 +54,7 @@ func customers_per_slot() -> int:
 
 func _on_slot_started(slot: DaySlot) -> void:
 	_claimed = false
-	if not DayFlow.slots_enabled or not slot.is_work or not is_teller_working():
+	if not slot.is_work or not is_teller_working():
 		return
 	_claimed = DayFlow.claim_work(self)
 	if _claimed:

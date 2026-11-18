@@ -5,7 +5,7 @@ extends "res://tests/support/teller_room_suite.gd"
 ## comes from whoever's slot it is (the shift at Opening and Closing, the
 ## Teller, Loan Officer or Branch Manager in a work slot), and the card
 ## reports on the slot just finished, per role, with a Branch Manager's
-## clean-slot +1. With slots off, nothing changes. The HUD column still fits.
+## clean-slot +1. The HUD column still fits.
 
 const Hint := HintManager.Hint
 

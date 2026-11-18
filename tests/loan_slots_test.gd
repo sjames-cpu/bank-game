@@ -4,8 +4,7 @@ extends "res://tests/support/teller_room_suite.gd"
 ## each work slot brings one application and waits until it's decided
 ## (closing the review without deciding doesn't count); a full day is four;
 ## a skipped slot drops its application with no penalty; clocking out before
-## Closing is refused; with slots off the old three per shift still holds;
-## and on a Teller day the adapter does nothing.
+## Closing is refused; and on a Teller day the adapter does nothing.
 
 var lo: LoanOfficerScreen
 var review: LoanReviewScreen

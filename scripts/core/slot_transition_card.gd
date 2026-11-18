@@ -1,7 +1,7 @@
 extends CanvasLayer
 class_name SlotTransitionCard
 
-## The card between two time slots (DayFlow.between_slots, slots on only):
+## The card between two time slots (DayFlow.between_slots):
 ## the next slot, big ("11 AM"), what happened in the slot just finished
 ## ("9 AM slot done", then each slot piece's own lines through SlotStatus:
 ## "Customers you served: 2", "+1 Reputation: a clean slot"), a note once
@@ -71,8 +71,6 @@ func _on_slot_started(_slot: DaySlot) -> void:
 	_on_day_moved_on()
 
 func _on_between_slots(ended: DaySlot, next: DaySlot) -> void:
-	if not DayFlow.slots_enabled:
-		return
 	_ended = ended
 	_next = next
 	_pending = true

@@ -4,8 +4,7 @@ extends "res://tests/support/teller_room_suite.gd"
 ## when the 9 AM slot starts; on a Teller or Loan Officer day the NPC branch
 ## manager receives them and nothing waits; on a Branch Manager day they hold
 ## 9 AM until received, even after "End this slot"; a skipped 9 AM lets them
-## go with no penalty; with nobody to witness they leave, missed; and with
-## slots off they still come at 10:30.
+## go with no penalty; and with nobody to witness they leave, missed.
 
 const STRAP := VaultManager.STRAP_CENTS
 const DAY := 4

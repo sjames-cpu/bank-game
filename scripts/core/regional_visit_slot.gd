@@ -7,7 +7,7 @@ class_name RegionalVisitSlot
 ## Manager's Office, and walk out when it ends or is skipped. They never
 ## hold the slot. The room's own 10:00-11:30 clock visit is off with slots
 ## on, and the review itself still runs at End of Day. Placed in the room by
-## SlotWiring; does nothing with slots off.
+## SlotWiring.
 
 var room: TellerRoom
 
@@ -23,11 +23,11 @@ func _exit_tree() -> void:
 	DayFlow.slot_skipped.disconnect(_on_slot_over)
 
 func _on_slot_started(slot: DaySlot) -> void:
-	if not DayFlow.slots_enabled or slot.id != DaySchedule.REGIONAL_VISIT_SLOT:
+	if slot.id != DaySchedule.REGIONAL_VISIT_SLOT:
 		return
 	if RegionalManager.is_review_day() and not room.regional_visit_done_today() and not is_instance_valid(room.regional_visitor):
 		room.start_regional_visit()
 
 func _on_slot_over(slot: DaySlot) -> void:
-	if DayFlow.slots_enabled and slot.id == DaySchedule.REGIONAL_VISIT_SLOT:
+	if slot.id == DaySchedule.REGIONAL_VISIT_SLOT:
 		room.send_regional_visitor_out()

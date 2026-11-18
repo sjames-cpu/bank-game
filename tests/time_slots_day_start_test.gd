@@ -1,6 +1,6 @@
 extends "res://tests/support/teller_room_suite.gd"
 
-## Starting the real day with time slots on (teller_room.start_slots_day()):
+## Starting the real day on a time-slot day (teller_room.start_slots_day()):
 ## when the room loads and at "Start Day N+1", never twice and never
 ## straight from an End of Day; a save made at End of Day shows that End of
 ## Day again (its day_ended flag); the doormat sends going home to the card; and a
@@ -46,7 +46,6 @@ func teller_day_to_end_of_day() -> void:
 # --- when the day starts -----------------------------------------------------------------
 
 func test_the_day_starts_when_the_room_loads() -> void:
-	use_slots_setting(true)
 	await reload_room()
 	assert_bool(DayFlow.is_running()).is_true()
 	assert_str(current_id()).is_equal(DaySchedule.OPENING)

@@ -12,7 +12,6 @@ var events: Array[String] = []
 var on_start: Dictionary[StringName, Callable] = {}
 
 func before_test() -> void:
-	DayFlow.slots_enabled = DayFlow.SLOTS_ENABLED
 	DayFlow.reset()
 	events.clear()
 	on_start.clear()
@@ -28,7 +27,6 @@ func after_test() -> void:
 	DayFlow.slot_skipped.disconnect(_on_slot_skipped)
 	DayFlow.day_ended.disconnect(_on_day_ended)
 	DayFlow.between_slots.disconnect(_on_between_slots)
-	DayFlow.slots_enabled = DayFlow.SLOTS_ENABLED
 	DayFlow.reset()
 
 func _on_slot_started(slot: DaySlot) -> void:
@@ -425,7 +423,6 @@ func test_continuing_from_a_between_slots_handler_keeps_the_order() -> void:
 	assert_int(events.count("day ended")).is_equal(1)
 
 func test_resuming_an_ended_day() -> void:
-	DayFlow.slots_enabled = true
 	DayFlow.resume_ended_day()
 	assert_bool(DayFlow.end_of_day_due).is_true()
 	assert_bool(DayFlow.is_running()).is_false()

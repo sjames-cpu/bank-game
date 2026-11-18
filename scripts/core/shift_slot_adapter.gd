@@ -3,7 +3,7 @@ class_name ShiftSlotAdapter
 
 ## The shift's part of the time-slot day, for every role (decisions 5 and
 ## 6): the player clocks in at Opening and out at Closing. Placed in the
-## room by teller_room.gd; does nothing with slots off.
+## room by teller_room.gd.
 ##
 ## - Opening: claimed (a new day, so PlayerShift.role_today is cleared), and
 ##   finished when the player clocks in at any desk (PlayerShift.clocked_in),
@@ -47,15 +47,13 @@ func _exit_tree() -> void:
 ## teller_room._describe_remaining_shift_work(), the Loan Officer's and the
 ## Branch Manager's in their own screens).
 static func clock_out_refusal() -> String:
-	if not DayFlow.slots_enabled or not DayFlow.is_running():
+	if not DayFlow.is_running():
 		return ""
 	if DayFlow.current_slot().id == DaySchedule.CLOSING:
 		return ""
 	return CLOCK_OUT_REFUSED_TEXT
 
 func _on_slot_started(slot: DaySlot) -> void:
-	if not DayFlow.slots_enabled:
-		return
 	if slot.id == DaySchedule.OPENING:
 		PlayerShift.new_day()
 		_claimed_closing = false

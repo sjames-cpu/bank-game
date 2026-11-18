@@ -91,7 +91,7 @@ const DEBUG_UNLOCK_KEY := KEY_F1
 const DEBUG_LOAN_OFFICER_KEY := KEY_F2
 ## The debug skip-slot key (F3, the `debug_skip_slot` action; decision 4):
 ## skips the current time slot (DayFlow.skip_slot()). Debug builds only
-## (debug_cheats_enabled), and only with time slots on.
+## (debug_cheats_enabled).
 const DEBUG_SKIP_SLOT_ACTION: StringName = &"debug_skip_slot"
 const DEBUG_LOAN_OFFICER_REPUTATION: int = 50
 
@@ -314,14 +314,14 @@ func _ready() -> void:
 	SlotWiring.install(self)
 	start_slots_day()
 
-## Time slots (slots on only): starts today at Opening, waiting between
+## Starts today's time slots at Opening, waiting between
 ## slots for the card. Never while a day is running or its End of Day is
 ## due, so a day never starts twice or straight from an End of Day: the
 ## next one starts from "Start Day N+1" (_on_next_day_requested()). A career
 ## loaded from a save whose day had ended has its End of Day due already
 ## (DayFlow.load_data()), so it comes back to that End of Day.
 func start_slots_day() -> void:
-	if not DayFlow.slots_enabled or DayFlow.is_running() or DayFlow.end_of_day_due:
+	if DayFlow.is_running() or DayFlow.end_of_day_due:
 		return
 	DayFlow.pause_between_slots = true
 	DayFlow.start_day()
@@ -533,8 +533,8 @@ func _on_exit_door_interacted() -> void:
 		return
 	_show_notice(GO_HOME_BETWEEN_SLOTS_TEXT)
 
-## "Start Day N+1": 8:30 AM the next morning, saved (with time slots, the
-## day starts at Opening).
+## "Start Day N+1": 8:30 AM the next business day, its slots starting at
+## Opening, saved.
 func _on_next_day_requested() -> void:
 	BusinessDay.start_next_day()
 	start_slots_day()
@@ -1252,10 +1252,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	apply_debug_key(key_event.keycode)
 
-## F3: skips the current time slot (debug builds, slots on). Returns whether
+## F3: skips the current time slot (debug builds). Returns whether
 ## it did.
 func debug_skip_slot() -> bool:
-	if not debug_cheats_enabled or not DayFlow.slots_enabled or not DayFlow.is_running() or DayFlow.is_between_slots():
+	if not debug_cheats_enabled or not DayFlow.is_running() or DayFlow.is_between_slots():
 		return false
 	return DayFlow.skip_slot()
 

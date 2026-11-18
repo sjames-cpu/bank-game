@@ -401,7 +401,7 @@ func _on_slot_skipped(_slot: Dictionary, _reason: String) -> void:
 
 ### Suggested commit order (each one leaves all tests green)
 1. **Add `DaySchedule` and `DayFlow` (not used yet)**, with reset, save and load wired into `CareerReset` and `SaveGame`, and their own unit tests. No behaviour change.
-2. **Add a temporary switch** `DayFlow.SLOTS_ENABLED = false` (like `INTERVIEW_ENABLED`). With it off, the old clock runs exactly as before.
+2. **Add a temporary switch** `DayFlow.SLOTS_ENABLED = false` (like `INTERVIEW_ENABLED`). With it off, the old clock runs exactly as before. (Done, then removed in Phase A session 3b: the slot system is the only way a day runs.)
 3. **`GameClock` and `BusinessDay` read slots when the switch is on:** no per-frame advance; `is_open`, `can_start_shift`, `is_day_over` and `go_home_early` go through `DayFlow`. Add the cutoff test (1 PM before, 3 PM after).
 4. **End of Day from `DayFlow.day_ended`**: replace the per-frame `_check_end_of_day` and `_check_branch_opening` in `teller_room.gd`.
 5. **Teller adapter** (per-slot quota, claim and finish, opening and closing counts in Opening and Closing).

@@ -3,9 +3,8 @@ class_name SlotWiring
 
 ## Places the time-slot pieces in the room (teller_room.gd calls install()
 ## once, at the end of its _ready()), so the room itself holds as little
-## slot code as possible. Every piece is a no-op with slots off. Each is a
-## child of the room named after its class, for tests and tools
-## (room.get_node("TellerSlotAdapter")).
+## slot code as possible. Each is a child of the room named after its
+## class, for tests and tools (room.get_node("TellerSlotAdapter")).
 ##
 ## - Every desk's clock-in and clock-out, reported to PlayerShift with its
 ##   role: one shared signal for the slot pieces.

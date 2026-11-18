@@ -1,6 +1,6 @@
 extends "res://tests/support/teller_room_suite.gd"
 
-## Saving with time slots on (SlotSavePolicy, DayFlow's day_ended flag):
+## Saving on a time-slot day (SlotSavePolicy, DayFlow's day_ended flag):
 ## a career is saved only at the start of a day (Start Day N+1, onboarding,
 ## the orientation letter) and once it has ended (End of Day), never inside
 ## the day (a clock-out at Closing, a promotion granted there, a save asked
@@ -65,7 +65,7 @@ func empty_lobby() -> void:
 # --- when it may save -----------------------------------------------------------------------
 
 func test_the_policy() -> void:
-	assert_bool(SlotSavePolicy.may_save()).is_true() # slots off
+	assert_bool(SlotSavePolicy.may_save()).is_true() # Opening, before the clock-in
 	start_slots_day()
 	assert_bool(SlotSavePolicy.may_save()).is_true() # Opening
 	clock_in()
@@ -116,7 +116,6 @@ func test_start_day_n_plus_1_saves_the_new_days_start() -> void:
 
 func test_onboarding_saves_its_steps_at_opening() -> void:
 	OnboardingManager.reset()
-	use_slots_setting(true)
 	SaveGame.delete()
 	room.save_career() # the career's first save, as a new game makes
 	await load_saved_career(true)
@@ -204,7 +203,6 @@ func test_a_replayed_promotion_day_gives_one_letter_and_one_promotion() -> void:
 	XPManager.is_loan_officer_unlocked = true
 	XPManager.total_xp = XPManager.XP_UNLOCK_THRESHOLD_BRANCH_MANAGER - 10
 	ReputationManager.reputation = XPManager.REPUTATION_UNLOCK_FLOOR_BRANCH_MANAGER
-	use_slots_setting(true)
 	room.save_career() # the start of the day's save
 	XPManager.branch_manager_unlocked.connect(_on_promoted)
 	assert_int(play_promotion_day()).is_equal(1)

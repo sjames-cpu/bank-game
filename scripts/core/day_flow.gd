@@ -38,14 +38,6 @@ extends Node
 ## (ROLE_BOUNDARIES.md). Misuse (finishing work never claimed, releasing an
 ## unknown hold, calls when no day is running) is a warning, never a crash.
 
-## The temporary switch for the time-slot redesign (Phase A): while it's
-## off, the game runs on the continuous clock as before and nothing reads
-## DayFlow. The game reads slots_enabled, whose default this is; tests turn
-## it on for one test (teller_room_suite.use_slots_setting()). Removed once
-## slots are switched on for good (Phase A, session 3).
-const SLOTS_ENABLED: bool = true
-var slots_enabled: bool = SLOTS_ENABLED
-
 signal slot_started(slot: DaySlot)
 signal slot_ended(slot: DaySlot)
 signal slot_skipped(slot: DaySlot)
@@ -57,12 +49,11 @@ signal between_slots(ended_slot: DaySlot, next_slot: DaySlot)
 ## Wait between slots (see the class doc). Off by default and after reset().
 var pause_between_slots: bool = false
 
-## With slots on: the day has ended (day_ended fired) and its End of Day is
-## due. BusinessDay.is_day_over() reads it, so the room's End of Day check
+## The day has ended (day_ended fired) and its End of Day is due.
+## BusinessDay.is_day_over() reads it, so the room's End of Day check
 ## (teller_room._check_end_of_day(), every frame the world runs) shows the
-## summary, after any review or demotion letters, exactly as at 5 PM on the
-## continuous clock. Cleared when a new day starts (start_day(),
-## BusinessDay.start_next_day()) and by reset(). Never set with slots off.
+## summary, after any review or demotion letters. Cleared when a new day
+## starts (start_day(), BusinessDay.start_next_day()) and by reset().
 var end_of_day_due: bool = false
 
 ## Whether a day is running: from start_day() until day_ended.
@@ -80,20 +71,17 @@ var _between: bool = false
 ## call from a listener waits instead of moving the flow on inside a signal.
 var _driving: bool = false
 
-## Saved with the career: whether its day had ended (BusinessDay.is_day_over():
-## with slots on DayFlow's own end_of_day_due, with slots off the clock).
-## Loaded last (SaveGame.restore()), after the clock and the business day.
-## With slots on, an ended day comes back as its End of Day
+## Saved with the career: whether its day had ended (BusinessDay.is_day_over(),
+## so end_of_day_due). Loaded last (SaveGame.restore()), after the clock and
+## the business day: an ended day comes back as its End of Day
 ## (resume_ended_day()); any other starts over from Opening when the room
 ## starts the day, so a day restarted from a save that had passed Opening
 ## (an old save made mid-day) starts its day-only counters again
-## (BusinessDay.restart_day()). With slots off nothing changes.
+## (BusinessDay.restart_day()).
 func save_data() -> Dictionary:
 	return {"day_ended": BusinessDay.is_day_over()}
 
 func load_data(data: Dictionary) -> void:
-	if not slots_enabled:
-		return
 	if SaveGame.day_ended_in(data):
 		resume_ended_day()
 	elif GameClock.minutes > DaySchedule.slot_at(0).start_minutes():
@@ -161,7 +149,7 @@ func _skip_to_closing() -> void:
 func resume_ended_day() -> void:
 	_clear_day()
 	_index = DaySchedule.count() - 1
-	end_of_day_due = slots_enabled
+	end_of_day_due = true
 
 ## Starts `claimant`'s work in the current slot; the slot can't end until
 ## they finish_work(). Any value works as the claimant (a node, a name), as
@@ -289,7 +277,7 @@ func _leave_slot() -> void:
 		return # a listener reset the day
 	if _index >= DaySchedule.count() - 1:
 		_running = false
-		end_of_day_due = slots_enabled
+		end_of_day_due = true
 		day_ended.emit()
 		return
 	if pause_between_slots:
@@ -310,12 +298,11 @@ func _step(action: Callable) -> void:
 	if not outer:
 		_drive()
 
-## With slots on, the clock shows the slot's start time (GameClock is only
-## a display then), set before anyone hears that the slot started.
+## The clock shows the slot's start time (GameClock is only a display),
+## set before anyone hears that the slot started.
 func _announce_slot() -> void:
 	var slot := current_slot()
-	if slots_enabled:
-		GameClock.minutes = slot.start_minutes()
+	GameClock.minutes = slot.start_minutes()
 	slot_started.emit(slot)
 
 func _check_running(action: String) -> bool:

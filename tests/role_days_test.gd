@@ -1,6 +1,6 @@
 extends "res://tests/support/teller_room_suite.gd"
 
-## Whole days with time slots on, played through the room as the player
+## Whole days on a time-slot day, played through the room as the player
 ## would, for the roles after the Teller (teller_day_test.gd has the
 ## Teller's): a Loan Officer's day (an application in each work slot, the
 ## clock-out at Closing, End of Day once), a Branch Manager's day (the

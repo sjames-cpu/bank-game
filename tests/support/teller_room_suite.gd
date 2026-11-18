@@ -32,7 +32,6 @@ func before_test() -> void:
 	LoanDeskManager.seed_source.seed = RNG_SEED
 	use_test_save_path()
 	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
-	use_slots_setting(DayFlow.SLOTS_ENABLED)
 	CareerReset.reset_all()
 	# Onboarding done unless a test asks (onboarding_test.gd).
 	OnboardingManager.skip()
@@ -111,7 +110,6 @@ func after_test() -> void:
 	CareerReset.reset_all()
 	use_test_save_path()
 	use_interview_setting(InterviewManager.INTERVIEW_ENABLED)
-	use_slots_setting(DayFlow.SLOTS_ENABLED)
 	# Let queue_free()'d nodes (rebuilt UI rows, re-placed staff) actually go
 	# before gdUnit's orphan check.
 	await get_tree().process_frame
@@ -141,16 +139,9 @@ func use_test_save_path() -> void:
 func use_interview_setting(enabled: bool) -> void:
 	InterviewManager.interview_enabled = enabled
 
-## Turns the time slots on or off for this test (the game reads
-## DayFlow.slots_enabled; the SLOTS_ENABLED switch is its default, restored
-## before and after every test, with any day DayFlow was running).
-func use_slots_setting(enabled: bool) -> void:
-	DayFlow.slots_enabled = enabled
-
-## Time slots on, and a day started at Opening that waits between slots
+## A day started at Opening that waits between slots
 ## (DayFlow.pause_between_slots), as the room runs it.
 func start_slots_day() -> void:
-	use_slots_setting(true)
 	room.start_slots_day()
 
 ## The room's time-slot pieces (placed by SlotWiring).
@@ -171,8 +162,6 @@ const TEST_HOLD: StringName = &"test keeps the branch open"
 ## timer stopped: tests bring their own customers). Does nothing with slots
 ## off.
 func open_work_slot() -> void:
-	if not DayFlow.slots_enabled:
-		return
 	if not DayFlow.is_running():
 		_holding_branch = false
 		room.start_slots_day()
@@ -191,11 +180,8 @@ var _holding_branch: bool = false
 ## Time slots: the day moved on to Closing, as a player done with their work
 ## would: a work slot running is skipped (customers still waiting in the
 ## player's line leave), the rest gone home from on the card. Customers
-## brought in before 9 AM stay in the line. Does nothing with slots off, or
-## at Opening (it waits for the clock-in).
+## brought in before 9 AM stay in the line. Does nothing at Opening (it waits for the clock-in).
 func to_closing() -> void:
-	if not DayFlow.slots_enabled:
-		return
 	if _holding_branch:
 		_holding_branch = false
 		DayFlow.release(TEST_HOLD)
@@ -343,7 +329,7 @@ func reconcile_vault() -> void:
 
 ## Presses Clock Out and, if the gate lets it through, counts the drawer.
 ## Returns false (and leaves the shift running) when clock-out was blocked.
-## With time slots, the day goes to Closing first (to_closing()), where the
+## The day goes to Closing first (to_closing()), where the
 ## shift ends.
 func clock_out(minor: bool = false) -> bool:
 	to_closing()

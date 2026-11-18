@@ -3,10 +3,9 @@ class_name LoanSlotAdapter
 
 ## The Loan Officer role's part of the time-slot day: the only place the
 ## Loan role talks to DayFlow (ROLE_BOUNDARIES.md). Placed in the room by
-## SlotWiring; does nothing with slots off, when the Loan Desk keeps its
-## own LoanOfficerScreen.APPLICATIONS_PER_SHIFT per shift.
+## SlotWiring.
 ##
-## With slots on, the loan shift is the whole day (decision 5), and its
+## The loan shift is the whole day (decision 5), and its
 ## applications come with the slots: at Opening the screen's allowance
 ## (LoanOfficerScreen.applications_per_shift) is 0; on a Loan Officer day
 ## (PlayerShift.role_today, chosen at Opening by the shift's clock-in) each
@@ -64,8 +63,6 @@ func is_claimed() -> bool:
 
 func _on_slot_started(slot: DaySlot) -> void:
 	_claimed = false
-	if not DayFlow.slots_enabled:
-		return
 	if slot.id == DaySchedule.OPENING:
 		screen.applications_per_shift = 0
 		return
