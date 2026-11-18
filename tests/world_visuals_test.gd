@@ -445,3 +445,65 @@ func test_no_node_is_left_behind_after_a_busy_day() -> void:
 	for node in fx_characters:
 		assert_bool(node is CustomerNPC).override_failure_message("a customer was left behind").is_false()
 	assert_int(get_tree().get_node_count()).override_failure_message("nodes left behind: " + census_difference(census_before, node_census(room))).is_less_equal(baseline)
+
+# --- time-slot days: the card, the HUD's slot line and the slots' events ----------------
+
+func test_the_teller_marker_follows_a_customer_in_a_work_slot() -> void:
+	start_slots_day()
+	clock_in()
+	open_work_slot()
+	room._process(0.0)
+	assert_bool(marker(&"teller").active).is_false() # nobody yet
+	var customer := spawn()
+	room._process(0.0)
+	assert_bool(marker(&"teller").active).is_true()
+	serve_correctly(customer)
+	room._process(0.0)
+	assert_bool(marker(&"teller").active).is_false()
+
+func test_the_effects_are_world_space_so_no_screen_layer_can_collide_with_them() -> void:
+	# The HUD (with its slot line) and the transition card are CanvasLayers,
+	# drawn over the whole world: nothing of the art pass is in one.
+	var effects: Array[Node] = [room.zones, room.feedback]
+	effects.append_array(room.attention_markers.values())
+	for desk in room._interactables():
+		effects.append(desk.highlight)
+	for effect in effects:
+		var node: Node = effect
+		while node != null and node != room:
+			assert_bool(node is CanvasLayer).override_failure_message("%s is inside a CanvasLayer" % effect.name).is_false()
+			node = node.get_parent()
+		assert_object(node).override_failure_message("%s isn't in the room" % effect.name).is_same(room)
+
+func test_a_highlight_hides_under_the_transition_card_and_returns_after() -> void:
+	# A teller day, clocked in: the card before 9 AM is up and pauses the room.
+	start_slots_day()
+	clock_in()
+	stand_at(room.atm)
+	await frames(2)
+	assert_bool(slot_card().visible).override_failure_message("the card isn't up").is_true()
+	assert_bool(get_tree().paused).is_true()
+	assert_bool(room.atm.highlight.visible).override_failure_message("the highlight glows through the card").is_false()
+	# The numbers still run under the card (world-space, beneath it).
+	ScoreManager.add_shift_score(5)
+	await frames(2)
+	assert_int(room.feedback.live_cluster_count()).is_greater(0)
+	slot_card().continue_button.pressed.emit()
+	await frames(2)
+	assert_bool(get_tree().paused).is_false()
+	stand_at(room.atm)
+	await frames(2)
+	assert_bool(room.atm.highlight.visible).is_true()
+
+func test_the_overview_still_hides_highlights_and_numbers_on_a_slot_day() -> void:
+	start_slots_day()
+	open_work_slot()
+	stand_at(room.atm)
+	assert_bool(highlight_shown(room.atm)).is_true()
+	room.camera.set_overview(true)
+	assert_bool(highlight_shown(room.atm)).is_false()
+	assert_bool(room.feedback.visible).is_false()
+	for sign_node in room.wall_signs:
+		assert_bool(sign_node.is_visible_in_tree()).is_true()
+	room.camera.set_overview(false)
+	assert_bool(highlight_shown(room.atm)).is_true()
