@@ -1,4 +1,4 @@
-extends "res://tests/support/teller_room_suite.gd"
+extends "res://tests/support/loan/loan_suite.gd"
 
 ## The Loan Officer's underwriting worksheet in the room: the screen before
 ## and after the credit check (and never naming the hidden verdict), a

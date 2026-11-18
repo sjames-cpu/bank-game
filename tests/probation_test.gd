@@ -15,6 +15,8 @@ var hud: Hud
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	letters = room.get_node("UI/DisciplineLetterScreen")
 	hud = room.get_node("HUD")
 
@@ -34,8 +36,11 @@ func acknowledge_letters() -> void:
 		letters.action_button.pressed.emit()
 
 ## A full teller shift: clock in, serve every customer, clock out, close.
-## `report_during` earns a report mid-shift.
+## `report_during` earns a report mid-shift. A shift is the whole day, so a
+## shift after one that's ended starts the next day.
 func play_teller_shift(report_during: bool = false) -> void:
+	if BusinessDay.is_day_over():
+		await go_to_next_day()
 	clock_in()
 	if report_during:
 		earn_report()
@@ -138,14 +143,14 @@ func test_normal_hire_keeps_three_reports() -> void:
 
 func test_three_clean_shifts_end_probation_with_a_letter() -> void:
 	start_probation()
-	play_teller_shift()
+	await play_teller_shift()
 	assert_int(InterviewManager.probation_clean_shifts).is_equal(1)
 	assert_str(hud_text(hud.probation_label)).is_equal("Probation — 1 of 3 clean shifts")
-	play_teller_shift()
+	await play_teller_shift()
 	assert_str(hud_text(hud.probation_label)).is_equal("Probation — 2 of 3 clean shifts")
 	assert_bool(letters.visible).is_false()
 
-	play_teller_shift()
+	await play_teller_shift()
 	assert_bool(InterviewManager.is_on_probation).is_false()
 	assert_bool(letters.visible).is_true()
 	assert_str(letters.title_label.text).is_equal("Probation Complete")
@@ -164,24 +169,24 @@ func test_three_clean_shifts_end_probation_with_a_letter() -> void:
 
 func test_a_report_resets_the_clean_shift_count() -> void:
 	start_probation()
-	play_teller_shift()
-	play_teller_shift()
+	await play_teller_shift()
+	await play_teller_shift()
 	assert_int(InterviewManager.probation_clean_shifts).is_equal(2)
 
 	# A report in the third shift: the count starts over and that shift
 	# doesn't count either.
-	play_teller_shift(true)
+	await play_teller_shift(true)
 	assert_bool(InterviewManager.is_on_probation).is_true()
 	assert_int(InterviewManager.probation_clean_shifts).is_equal(0)
 	assert_str(hud_text(hud.probation_label)).is_equal("Probation — 0 of 3 clean shifts")
 
-	play_teller_shift()
+	await play_teller_shift()
 	assert_int(InterviewManager.probation_clean_shifts).is_equal(1)
 	assert_bool(InterviewManager.is_on_probation).is_true()
 
 func test_career_reset_clears_probation() -> void:
 	start_probation()
-	play_teller_shift()
+	await play_teller_shift()
 	assert_int(InterviewManager.probation_clean_shifts).is_equal(1)
 	CareerReset.reset_all()
 	assert_bool(InterviewManager.is_on_probation).is_false()

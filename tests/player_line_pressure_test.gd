@@ -15,6 +15,8 @@ var w2: NpcCustomerLine
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	w1 = room.window1_npc_line
 	w2 = room.window2_line
 	# Staff-line arrivals are added by hand here.
@@ -100,9 +102,10 @@ func test_the_gap_stays_within_its_limits() -> void:
 func test_the_shift_cap_and_opening_hours_still_hold() -> void:
 	close_window(ScheduleManager.SLOT_TELLER_WINDOW_1)
 	close_window(ScheduleManager.SLOT_TELLER_WINDOW_2)
-	GameClock.minutes = 10 * 60.0
 	clock_in()
-	assert_int(cq.get_customers_left_to_spawn()).is_equal(CustomerQueue.CUSTOMERS_PER_SHIFT_CAP)
+	open_work_slot()
+	var per_slot := TellerConfig.CUSTOMERS_PER_SLOT
+	assert_int(cq.get_customers_left_to_spawn()).is_equal(per_slot)
 	var arrivals := 0
 	for tick in 12:
 		var waiting := cq.queue.size()
@@ -112,14 +115,15 @@ func test_the_shift_cap_and_opening_hours_still_hold() -> void:
 		# Served straight away, so the line always has room.
 		if not cq.queue.is_empty():
 			cq.send_customer_off(cq.serve_front_customer())
-	assert_int(arrivals).is_equal(CustomerQueue.CUSTOMERS_PER_SHIFT_CAP)
+	assert_int(arrivals).is_equal(per_slot)
 	assert_int(cq.get_customers_left_to_spawn()).is_equal(0)
 
-	# Closed hours: no arrivals at all, however busy the branch.
-	cq.start_shift()
+	# Outside a work slot (Closing here): no arrivals at all, however busy
+	# the branch.
+	to_closing()
+	cq.begin_batch(per_slot)
 	cq.spawn_timer.stop()
-	GameClock.minutes = 17 * 60.0 + 30.0
 	for tick in 3:
 		next_gap()
 	assert_bool(cq.queue.is_empty()).is_true()
-	assert_int(cq.get_customers_left_to_spawn()).is_equal(CustomerQueue.CUSTOMERS_PER_SHIFT_CAP)
+	assert_int(cq.get_customers_left_to_spawn()).is_equal(per_slot)

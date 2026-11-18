@@ -1,7 +1,8 @@
 extends "res://tests/support/teller_room_suite.gd"
 
 ## The armored truck visit (ArmoredTruckVisit, VaultManager's visits,
-## ArmoredTruckScreen): the crew's arrival and departure; the identity check
+## ArmoredTruckScreen) on a time-slot day: the crew's arrival at 9 AM and
+## departure; the identity check
 ## and an unscheduled crew; each delivery problem; accepting, refusing and
 ## re-delivery; pickups; the missed window; the NPC branch manager before
 ## promotion; each grading row; the Regional review's record; save and load.
@@ -16,6 +17,8 @@ var screen: ArmoredTruckScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	truck = room.armored_visit
 	screen = room.armored_truck_screen
 	for hint: int in HintManager.Hint.values():
@@ -33,19 +36,23 @@ func promote() -> void:
 	XPManager._grant_branch_manager()
 	acknowledge_letters()
 
-## Day `day` at `minutes`, today's stats on that day.
-func set_time(day: int, minutes: float) -> void:
+## Today is `day` (the room's day at Opening).
+func set_day(day: int) -> void:
 	GameClock.day = day
-	GameClock.minutes = minutes
 	BusinessDay.stats_day = day
 
 ## An order placed the day before `day`, so the truck comes on `day`.
 func order_for(day: int, cents: int) -> void:
 	assert_str(VaultManager.place_order(cents, day - 1)).is_empty()
 
-## The truck arrives at 10:30 on `day`; the crew's walk is skipped.
+## The truck arrives on `day`, at 9 AM; the crew's walk is skipped.
 func crew_arrives(day: int) -> void:
-	set_time(day, ArmoredTruckVisit.ARRIVAL_MINUTES)
+	set_day(day)
+	# The 9 AM slot brings them (ArmoredTruckSlot); with a slot already
+	# running they're called in straight away.
+	open_work_slot()
+	if truck.phase == ArmoredTruckVisit.Phase.IDLE:
+		truck.arrive_now()
 	await frames(2)
 	assert_int(truck.guards.size()).is_equal(2)
 	for guard: StaffNPC in truck.guards.duplicate():
@@ -82,12 +89,12 @@ func an_outcome(overrides: Dictionary) -> Dictionary:
 
 # --- arrival and departure -------------------------------------------------------------
 
-func test_the_crew_arrives_mid_morning_and_the_npc_manager_receives_them() -> void:
+func test_the_crew_arrives_at_9_am_and_the_npc_manager_receives_them() -> void:
 	order_for(4, 7 * STRAP)
-	set_time(4, ArmoredTruckVisit.ARRIVAL_MINUTES - 1)
+	set_day(4)
 	await frames(2)
-	assert_array(truck.guards).is_empty()
-	GameClock.minutes = ArmoredTruckVisit.ARRIVAL_MINUTES
+	assert_array(truck.guards).is_empty() # not at Opening
+	open_work_slot()
 	await frames(2)
 	# Two guards in their own uniforms walk in from the entrance.
 	assert_int(truck.guards.size()).is_equal(2)
@@ -111,12 +118,14 @@ func test_the_crew_arrives_mid_morning_and_the_npc_manager_receives_them() -> vo
 	# Done for the day: they don't come back.
 	await frames(2)
 	assert_array(truck.guards).is_empty()
+	assert_bool(truck.arrive_now()).is_false()
 
 func test_the_crew_really_walks_to_the_vault_door_and_out() -> void:
 	# No skipped walks here: the routes must be clear of every wall.
 	promote()
 	order_for(4, 5 * STRAP)
-	set_time(4, ArmoredTruckVisit.ARRIVAL_MINUTES)
+	set_day(4)
+	open_work_slot()
 	await frames(2)
 	var crew := truck.guards.duplicate()
 	Engine.time_scale = 4.0
@@ -137,7 +146,8 @@ func test_the_crew_really_walks_to_the_vault_door_and_out() -> void:
 	assert_array(truck.guards).override_failure_message("the crew never left").is_empty()
 
 func test_no_truck_without_cash_to_move() -> void:
-	set_time(4, ArmoredTruckVisit.ARRIVAL_MINUTES)
+	set_day(4)
+	open_work_slot()
 	await frames(2)
 	assert_array(truck.guards).is_empty()
 
@@ -266,40 +276,15 @@ func test_a_pickup_is_handed_over_after_the_crew_check() -> void:
 	assert_array(VaultManager.pending_orders).is_empty()
 	assert_int(screen.last_outcome["verdict"]).is_equal(Verdict.CORRECT)
 
-func test_the_crew_leaves_and_the_shipment_waits_if_nobody_comes() -> void:
-	promote()
-	order_for(4, 5 * STRAP)
-	await crew_arrives(4)
-	var start := totals()
-	GameClock.minutes = ArmoredTruckVisit.ARRIVAL_MINUTES + ArmoredTruckVisit.WAIT_MINUTES - 1
-	await frames(2)
-	assert_bool(truck.is_waiting()).is_true()
-	GameClock.minutes = ArmoredTruckVisit.ARRIVAL_MINUTES + ArmoredTruckVisit.WAIT_MINUTES
-	await frames(2)
-	assert_int(truck.phase).is_equal(ArmoredTruckVisit.Phase.LEAVING)
-	assert_int(VaultManager.expected_cents).is_equal(START)
-	assert_int(VaultManager.arriving_on(5)).is_equal(5 * STRAP)
-	assert_int((totals() - start).x).is_equal(ArmoredTruckVisit.MISSED_SCORE)
-	assert_array(RegionalManager.shipment_verdicts).is_equal([Verdict.DELAY])
-	assert_str(HistoryManager.records[-1].description).starts_with("Armored truck missed")
-
-func test_receiving_in_progress_isnt_missed() -> void:
-	promote()
-	order_for(4, 5 * STRAP)
-	await crew_arrives(4)
-	room.vault_door.player_in_range = true
-	room._on_vault_door_interacted()
-	GameClock.minutes = ArmoredTruckVisit.ARRIVAL_MINUTES + ArmoredTruckVisit.WAIT_MINUTES + 5
-	await frames(2)
-	assert_int(truck.phase).is_equal(ArmoredTruckVisit.Phase.BEING_RECEIVED)
-	assert_bool(VaultManager.has_visit_due(4)).is_true()
-
 func test_going_home_before_the_truck_reschedules_it_for_a_manager() -> void:
 	promote()
 	order_for(4, 5 * STRAP)
-	set_time(4, 9 * 60.0)
-	room._on_exit_door_interacted()
-	room.end_of_day_screen.go_home_button.pressed.emit()
+	set_day(4)
+	# Home from the card before 9 AM: the truck's slot never starts.
+	DayFlow.skip_slot()
+	assert_bool(DayFlow.go_home_early()).is_true()
+	await frames(2)
+	assert_bool(room.end_of_day_screen.is_summary_shown()).is_true()
 	assert_int(VaultManager.arriving_on(5)).is_equal(5 * STRAP)
 	assert_str(room.end_of_day_screen.summary_label.text).contains("Armored truck: missed; shipment rescheduled for Day 5.")
 	assert_array(RegionalManager.shipment_verdicts).is_equal([Verdict.DELAY])

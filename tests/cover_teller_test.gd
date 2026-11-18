@@ -14,12 +14,13 @@ var w3: NpcCustomerLine
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	lo = room.loan_officer_screen
 	w3 = room.window3_line
 	XPManager.is_loan_officer_unlocked = true
-	GameClock.minutes = 10 * 60.0
-	BusinessDay.stats_day = GameClock.day
-	# Arrivals are made by hand here.
+	# Arrivals are made by hand here (a stopped timer stays stopped when a
+	# work slot opens the branch).
 	for line: NpcCustomerLine in [room.window1_npc_line, room.window2_line, w3]:
 		line.spawn_timer.stop()
 
@@ -29,15 +30,18 @@ func frames(count: int) -> void:
 	for i in count:
 		await get_tree().process_frame
 
+## Clocked in at Loan Desk 1 at Opening, then into the 9 AM slot.
 func loan_clock_in() -> void:
 	room._on_loan_officer_desk_interacted()
 	lo.clock_in_button.pressed.emit()
 	lo.close_button.pressed.emit()
 	w3.spawn_timer.stop()
+	open_work_slot()
 
+## Clocked out at Closing (where the shift ends).
 func loan_clock_out() -> void:
+	to_closing()
 	room._on_loan_officer_desk_interacted()
-	lo.applications_reviewed = LoanOfficerScreen.APPLICATIONS_PER_SHIFT
 	lo.clock_out_button.pressed.emit()
 	lo.shift_summary_done_button.pressed.emit()
 	if lo.visible:
@@ -103,7 +107,7 @@ func test_clocking_in_at_a_loan_desk_brings_the_cover_teller() -> void:
 	for customer in w3.queue:
 		assert_object(customer.complaint).is_null()
 	w3.clear_lobby()
-	GameClock.minutes = 18 * 60.0
+	to_closing()
 	w3._on_spawn_timer_timeout()
 	assert_bool(w3.queue.is_empty()).is_true()
 
@@ -159,7 +163,8 @@ func test_clock_out_sends_the_cover_teller_back_and_frees_the_window() -> void:
 	await frames(1)
 	assert_object(room.cover_npc).is_null()
 	assert_bool(is_instance_valid(cover)).is_false()
-	# The next Loan Desk shift brings them again.
+	# The next Loan Desk shift (the next day's) brings them again.
+	await go_to_next_day()
 	loan_clock_in()
 	assert_str(room.cover_npc.staff.staff_name).is_equal("Nina Ortiz")
 
@@ -170,6 +175,39 @@ func test_an_empty_window_winds_down_at_once() -> void:
 	await frames(2)
 	assert_bool(room.is_window_covered()).is_false()
 	assert_int(room.cover_npc.state).is_equal(StaffNPC.State.WALKING)
+
+## End of Day waits for the cover teller: with a customer still at her
+## window when the player clocks out at Closing, she serves them first and
+## leaves the window, and only then does the summary appear, once.
+func test_end_of_day_waits_for_the_cover_teller() -> void:
+	var eod := room.end_of_day_screen
+	loan_clock_in()
+	cover_at_window()
+	customer_at_window(w3)
+	await frames(2)
+	assert_bool(w3.is_serving()).is_true()
+	loan_clock_out()
+	assert_bool(BusinessDay.is_day_over()).is_true()
+	await frames(3)
+	# Still serving: no summary yet.
+	assert_bool(room.is_window_covered()).is_true()
+	assert_bool(eod.visible).is_false()
+	# She finishes, leaves the window, and (the lobby empty) the summary comes.
+	w3._mistake_pending = false
+	w3._time_left = 0.0
+	await frames(3)
+	assert_bool(room.is_window_covered()).is_false()
+	assert_int(room.cover_npc.state).is_equal(StaffNPC.State.WALKING)
+	for line: CustomerQueue in [cq, room.window1_npc_line, room.window2_line, w3]:
+		line.clear_lobby()
+	await frames(2)
+	assert_bool(eod.is_summary_shown()).is_true()
+	assert_int(VaultManager.last_closed_day).is_equal(1)
+	# Once: nothing runs it again while the summary waits.
+	SaveGame.delete()
+	await frames(5)
+	assert_bool(eod.is_summary_shown()).is_true()
+	assert_bool(SaveGame.exists()).is_false()
 
 # --- who covers ---------------------------------------------------------------------------
 
@@ -187,6 +225,7 @@ func test_the_cover_falls_back_to_a_free_teller_or_nobody() -> void:
 	assert_str(room.cover_npc.staff.staff_name).is_equal("Walter Higgins")
 	loan_clock_out()
 	room._dismiss_cover()
+	await go_to_next_day()
 
 	# Nina dismissed and the other tellers at their windows: nobody covers.
 	ScheduleManager.reset()
@@ -198,6 +237,7 @@ func test_the_cover_falls_back_to_a_free_teller_or_nobody() -> void:
 	assert_bool(w3.active).is_false()
 	assert_str(room.interaction_prompt_text(room.teller_desk)).is_equal("E — Clock in (Player Teller Window)")
 	loan_clock_out()
+	await go_to_next_day()
 
 	# A hired teller off the floor covers instead.
 	var hire := StaffMember.new()
@@ -238,6 +278,7 @@ func test_promotion_hands_the_window_to_teller_window_3_and_demotion_brings_the_
 		room.letter_screen.action_button.pressed.emit()
 	assert_bool(w3.active).is_false()
 	assert_bool(room._staff_by_slot.has(ScheduleManager.SLOT_TELLER_WINDOW_3)).is_false()
+	await go_to_next_day()
 	loan_clock_in()
 	assert_str(room.cover_npc.staff.staff_name).is_equal("Nina Ortiz")
 	assert_bool(w3.active).is_true()

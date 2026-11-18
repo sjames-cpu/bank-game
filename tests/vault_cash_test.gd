@@ -10,6 +10,8 @@ const START := VaultReconciliationScreen.STARTING_VAULT_CENTS
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	for hint: int in HintManager.Hint.values():
 		HintManager.mark_shown(hint)
 
@@ -126,8 +128,9 @@ func test_the_days_close_moves_the_vault_exactly() -> void:
 	assert_bool(VaultManager.is_atm_restock_day(7)).is_false()
 
 func test_the_end_of_day_summary_shows_the_vaults_day() -> void:
-	set_day_and_time(3, 17, 0)
+	set_day(3)
 	BusinessDay.note_staff_cash(125050)
+	end_unworked_day()
 	await frames(3)
 	var eod := room.end_of_day_screen
 	assert_bool(eod.is_summary_shown()).is_true()
@@ -136,10 +139,16 @@ func test_the_end_of_day_summary_shows_the_vaults_day() -> void:
 	assert_str(text).contains("Vault now %s (limits $100000–$300000)" % MoneyMath.format(START + 125050 - VaultManager.ATM_RESTOCK_CENTS))
 	assert_int(VaultManager.expected_cents).is_equal(START + 125050 - VaultManager.ATM_RESTOCK_CENTS)
 
-func set_day_and_time(day: int, hour: int, minute: int) -> void:
+## Today is `day` (the room's day, at Opening).
+func set_day(day: int) -> void:
 	GameClock.day = day
-	GameClock.minutes = hour * 60.0 + minute
 	BusinessDay.stats_day = day
+
+## Nobody works today: Opening skipped, home from the card, so the day ends
+## at Closing and its End of Day comes.
+func end_unworked_day() -> void:
+	DayFlow.skip_slot()
+	assert_bool(DayFlow.go_home_early()).is_true()
 
 func test_a_close_out_of_range_is_recorded() -> void:
 	VaultManager.expected_cents = VaultManager.VAULT_MIN_CENTS + 1000
@@ -190,10 +199,10 @@ func test_orders_skip_weekends_and_holidays() -> void:
 	assert_int(VaultManager.expected_cents).is_equal(START + VaultManager.STRAP_CENTS - 2 * VaultManager.STRAP_CENTS)
 
 func test_the_truck_brings_an_order_after_a_weekend() -> void:
-	set_day_and_time(5, 10, 0) # Friday
+	set_day(5) # Friday
 	VaultManager.place_order(3 * VaultManager.STRAP_CENTS, 5)
-	room._on_exit_door_interacted()
-	room.end_of_day_screen.go_home_button.pressed.emit()
+	end_unworked_day()
+	await frames(2)
 	var eod := room.end_of_day_screen
 	assert_bool(eod.is_summary_shown()).is_true()
 	assert_int(VaultManager.expected_cents).is_equal(START) # not yet
@@ -203,11 +212,9 @@ func test_the_truck_brings_an_order_after_a_weekend() -> void:
 	assert_int(GameClock.day).is_equal(6)
 	assert_str(BankCalendar.short_text(GameClock.today_date())).is_equal("Mon 12 Jan")
 	await frames(2)
-	GameClock.minutes = BusinessDay.OPEN_MINUTES
-	await frames(2)
-	assert_int(VaultManager.expected_cents).is_equal(START) # not at opening
-	# Mid-morning the truck comes; the NPC branch manager receives it.
-	GameClock.minutes = ArmoredTruckVisit.ARRIVAL_MINUTES
+	assert_int(VaultManager.expected_cents).is_equal(START) # not at Opening
+	# The truck comes with the 9 AM slot; the NPC branch manager receives it.
+	open_work_slot()
 	await frames(2)
 	assert_int(room.armored_visit.guards.size()).is_equal(2)
 	for guard in room.armored_visit.guards:
@@ -344,7 +351,7 @@ func test_the_cash_orders_screen_fits_the_window() -> void:
 func test_the_end_of_day_summary_with_the_vault_fits() -> void:
 	var window_before := get_tree().root.size
 	get_tree().root.size = Vector2i(1152, 648)
-	set_day_and_time(3, 17, 0)
+	set_day(3)
 	# Every vault line: a delivery, a shipment, staff cash, the restock, out of
 	# range and the NPC's order; and a full cutoff list.
 	VaultManager.delivered_today_cents = 5 * VaultManager.STRAP_CENTS
@@ -353,6 +360,7 @@ func test_the_end_of_day_summary_with_the_vault_fits() -> void:
 	BusinessDay.note_staff_cash(-123456)
 	for i in EndOfDayScreen.MAX_CUTOFF_LINES + 2:
 		BusinessDay.after_cutoff.append({"time": "2:%02d PM" % i, "type": "Withdrawal", "amount_cents": 12345, "account": "Grace O'Connor", "posting_day": 4})
+	end_unworked_day()
 	await frames(3)
 	var eod := room.end_of_day_screen
 	assert_bool(eod.is_summary_shown()).is_true()

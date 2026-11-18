@@ -10,6 +10,8 @@ var control: VaultDualControl
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	control = room.vault_control
 	for hint: int in HintManager.Hint.values():
 		HintManager.mark_shown(hint)
@@ -258,13 +260,17 @@ func test_branch_manager_reconciliation_needs_a_witness() -> void:
 	# witness back; their time away goes into the Branch summary.
 	bm.vault_reconciliation_screen.close_button.pressed.emit()
 	assert_bool(bm.visible).is_false()
-	GameClock.minutes += 6.0
+	# 4 unpaused seconds away: 6 game minutes (the clock itself stands still
+	# inside a slot).
+	control._process(4.0)
 	witness.finish_route()
 	assert_float(bm.shift_vault_minutes[witness.staff.staff_name]).is_equal_approx(6.0, 0.01)
 	# Once a shift.
 	room._on_vault_door_interacted()
 	assert_int(control.phase).is_equal(VaultDualControl.Phase.IDLE)
 	assert_str(room.desk_notice_label.text).is_equal(TellerRoom.VAULT_RECONCILED_TEXT)
+	# Clocked out at Closing, the shift summary has the witness's time.
+	to_closing()
 	bm.show_screen()
 	bm.clock_out_button.pressed.emit()
 	assert_str(bm.shift_branch_label.text).contains("At the vault: %s 6 min" % witness.staff.staff_name)

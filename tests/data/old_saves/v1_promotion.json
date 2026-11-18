@@ -1,0 +1,336 @@
+{
+	"format_version": 1,
+	"saved_at": "2026-11-10T18:00:00",
+	"career": {
+		"score": {
+			"total_score": 0
+		},
+		"reputation": {
+			"reputation": 64,
+			"zero_armed": true
+		},
+		"xp": {
+			"total_xp": 1600,
+			"is_loan_officer_unlocked": true,
+			"is_branch_manager_unlocked": true,
+			"is_branch_manager_promotion_pending": false,
+			"has_seen_branch_orientation": false,
+			"repromotion_xp_target": 0
+		},
+		"interview": {
+			"is_on_probation": false,
+			"probation_clean_shifts": 0
+		},
+		"reports": {
+			"reports": [],
+			"pending_mistakes": {},
+			"is_exempt": true,
+			"reports_cleared_on_promotion": 0
+		},
+		"history": {
+			"records": [
+				{
+					"role": 3,
+					"description": "Disciplinary record cleared on promotion to Branch Manager (0 reports removed)",
+					"grade_label": "Cleared",
+					"timestamp": "Day 9, Thu 15 Jan, 1:00 PM",
+					"reviewed": false,
+					"staff_name": "",
+					"staff_slot": "",
+					"staff_id_check": 0,
+					"has_loan_context": false,
+					"risk_assessment": 1,
+					"original_decision_type": 0,
+					"applicant_name": "",
+					"decision_amount": 0.0,
+					"nothing_affordable": false,
+					"documents_problem": false
+				}
+			]
+		},
+		"accounts": {
+			"accounts": [
+				{
+					"customer_name": "Johnathan Jamestar",
+					"balance_cents": 100000,
+					"is_customer_account": false,
+					"is_staff_line_account": false
+				},
+				{
+					"customer_name": "Priya Shah",
+					"balance_cents": 125000,
+					"is_customer_account": false,
+					"is_staff_line_account": false
+				}
+			]
+		},
+		"vault": {
+			"expected_cents": 20000000,
+			"pending_orders": [],
+			"last_order_day": 0,
+			"out_of_range_days": [],
+			"last_closed_day": 0,
+			"delivered_today_cents": 0,
+			"shipped_today_cents": 0,
+			"last_close": {},
+			"today_visit": {},
+			"visit_note": ""
+		},
+		"schedule": {
+			"slots_version": 2,
+			"schedule": {
+				"Teller Window 1": "Derek Voss",
+				"Teller Window 2": "Walter Higgins",
+				"Loan Desk 1": "Priya Anand",
+				"Loan Desk 2": "Marcus Chen",
+				"Loan Desk 3": "Sana Malik",
+				"Teller Window 3": "Nina Ortiz"
+			},
+			"is_teller_window_3_open": true,
+			"dismissed_staff": [],
+			"hired_staff": []
+		},
+		"staff_review": {
+			"queue": [],
+			"staff_reports": {},
+			"staff_feedbacks": {}
+		},
+		"hiring": {
+			"candidates": {},
+			"rejected_slots": []
+		},
+		"hints": {
+			"shown": []
+		},
+		"onboarding": {
+			"step": 6
+		},
+		"loan_desk": {
+			"career_seed": 49104168,
+			"generated_count": 0,
+			"player_queue": [
+				{
+					"applicant_name": "Maria Chen",
+					"requested_amount": 15000.0,
+					"credit_score": 780,
+					"annual_income": 95000.0,
+					"existing_debt": 8000.0,
+					"monthly_debt_payments": 160.0,
+					"monthly_housing_payment": 1600.0,
+					"employment_months": 72,
+					"loan_purpose": "Auto",
+					"risk_tier": 0,
+					"applicant_look": 0,
+					"documents_issued": false,
+					"doc_problem": 0,
+					"id_problem": 0,
+					"id_presented": true,
+					"id_holder_name": "",
+					"id_number": "",
+					"id_expiry_date": 0,
+					"id_portrait_look": 0,
+					"has_pay_stub": true,
+					"stub_name": "",
+					"stub_employer": "",
+					"stub_monthly_gross": 0.0,
+					"stub_monthly_net": 0.0,
+					"has_statement": true,
+					"statement_name": "",
+					"statement_deposits": [],
+					"credit_report_issued": true,
+					"on_time_percent": 100,
+					"late_30_days": 0,
+					"late_60_days": 0,
+					"late_90_days": 0,
+					"utilization_percent": 12,
+					"open_accounts": 6,
+					"hard_inquiries": 1,
+					"collections": 0,
+					"months_since_collection": 0,
+					"months_since_bankruptcy": 0,
+					"collateral_issued": true,
+					"collateral_kind": 2,
+					"purchase_price": 20000.0,
+					"collateral_value": 20000.0,
+					"risk_assessment": 0,
+					"decision": 0,
+					"decision_amount": 0.0
+				},
+				{
+					"applicant_name": "Marcus Webb",
+					"requested_amount": 3000.0,
+					"credit_score": 480,
+					"annual_income": 22000.0,
+					"existing_debt": 15000.0,
+					"monthly_debt_payments": 450.0,
+					"monthly_housing_payment": 700.0,
+					"employment_months": 48,
+					"loan_purpose": "Personal",
+					"risk_tier": 2,
+					"applicant_look": 10,
+					"documents_issued": false,
+					"doc_problem": 0,
+					"id_problem": 0,
+					"id_presented": true,
+					"id_holder_name": "",
+					"id_number": "",
+					"id_expiry_date": 0,
+					"id_portrait_look": 0,
+					"has_pay_stub": true,
+					"stub_name": "",
+					"stub_employer": "",
+					"stub_monthly_gross": 0.0,
+					"stub_monthly_net": 0.0,
+					"has_statement": true,
+					"statement_name": "",
+					"statement_deposits": [],
+					"credit_report_issued": true,
+					"on_time_percent": 81,
+					"late_30_days": 5,
+					"late_60_days": 2,
+					"late_90_days": 0,
+					"utilization_percent": 74,
+					"open_accounts": 4,
+					"hard_inquiries": 3,
+					"collections": 0,
+					"months_since_collection": 0,
+					"months_since_bankruptcy": 40,
+					"collateral_issued": true,
+					"collateral_kind": 0,
+					"purchase_price": 0.0,
+					"collateral_value": 0.0,
+					"risk_assessment": 2,
+					"decision": 0,
+					"decision_amount": 0.0
+				},
+				{
+					"applicant_name": "Angela Reyes",
+					"requested_amount": 30000.0,
+					"credit_score": 710,
+					"annual_income": 48000.0,
+					"existing_debt": 10000.0,
+					"monthly_debt_payments": 250.0,
+					"monthly_housing_payment": 950.0,
+					"employment_months": 36,
+					"loan_purpose": "Auto",
+					"risk_tier": 1,
+					"applicant_look": 5,
+					"documents_issued": false,
+					"doc_problem": 0,
+					"id_problem": 0,
+					"id_presented": true,
+					"id_holder_name": "",
+					"id_number": "",
+					"id_expiry_date": 0,
+					"id_portrait_look": 0,
+					"has_pay_stub": true,
+					"stub_name": "",
+					"stub_employer": "",
+					"stub_monthly_gross": 0.0,
+					"stub_monthly_net": 0.0,
+					"has_statement": true,
+					"statement_name": "",
+					"statement_deposits": [],
+					"credit_report_issued": true,
+					"on_time_percent": 97,
+					"late_30_days": 1,
+					"late_60_days": 0,
+					"late_90_days": 0,
+					"utilization_percent": 41,
+					"open_accounts": 6,
+					"hard_inquiries": 2,
+					"collections": 0,
+					"months_since_collection": 0,
+					"months_since_bankruptcy": 0,
+					"collateral_issued": true,
+					"collateral_kind": 2,
+					"purchase_price": 34000.0,
+					"collateral_value": 34000.0,
+					"risk_assessment": 1,
+					"decision": 0,
+					"decision_amount": 0.0
+				}
+			],
+			"names_day": 0,
+			"names_today": []
+		},
+		"loan_book": {
+			"book": [],
+			"next_loan_id": 1,
+			"period_first_day": 1,
+			"period_stats": {
+				"player": {
+					"made": 0.0,
+					"lent": 0.0,
+					"on_time": 0.0,
+					"late": 0.0,
+					"defaulted": 0.0,
+					"defaulted_unverified": 0.0,
+					"losses": 0.0,
+					"settled_amount": 0.0,
+					"good_seen": 0.0,
+					"turned_away": 0.0,
+					"turned_away_amount": 0.0,
+					"secured_made": 0.0,
+					"secured_lent": 0.0,
+					"secured_value": 0.0
+				},
+				"branch": {
+					"made": 0.0,
+					"lent": 0.0,
+					"on_time": 0.0,
+					"late": 0.0,
+					"defaulted": 0.0,
+					"defaulted_unverified": 0.0,
+					"losses": 0.0,
+					"settled_amount": 0.0,
+					"good_seen": 0.0,
+					"turned_away": 0.0,
+					"turned_away_amount": 0.0,
+					"secured_made": 0.0,
+					"secured_lent": 0.0,
+					"secured_value": 0.0
+				}
+			},
+			"last_closed_day": 0,
+			"today_events": []
+		},
+		"clock": {
+			"day": 9,
+			"minutes": 780.0,
+			"start_date": "2026-01-05"
+		},
+		"business_day": {
+			"stats_day": 9,
+			"customers_served_by_player": 0,
+			"customers_served_by_staff": 0,
+			"shifts_completed": 0,
+			"score_at_start": 0,
+			"reputation_at_start": 50,
+			"xp_at_start": 0,
+			"after_cutoff": [],
+			"staff_net_cash_cents": 0
+		},
+		"regional": {
+			"warnings": 0,
+			"window_first_day": 10,
+			"counted_through_day": 8,
+			"window": {
+				"vault_by_day": {},
+				"serious_reviewed": 0,
+				"serious_ignored": 0,
+				"serious_excused": 0,
+				"reviews": 0,
+				"unfair_reports": 0,
+				"staff_work": 0,
+				"staff_mistakes": 0,
+				"staff_line_served": 0,
+				"staff_line_abandoned": 0,
+				"vacant_desk_minutes": 0.0,
+				"hire_verdicts": [],
+				"shipment_verdicts": [],
+				"lending": {}
+			}
+		}
+	}
+}

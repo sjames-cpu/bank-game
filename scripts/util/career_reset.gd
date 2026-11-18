@@ -28,6 +28,11 @@ static func reset_all() -> void:
 	LoanDeskManager.reset()
 	LoanBookManager.reset()
 	GameClock.reset()
+	DayFlow.reset()
+	PlayerShift.reset()
 	RegionalManager.reset()
+	TellerRole.reset()
+	LoanRole.reset()
+	ManagerRole.reset()
 	# Last: today's totals start from the fresh career and clock.
 	BusinessDay.reset()

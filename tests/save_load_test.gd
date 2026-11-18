@@ -16,6 +16,8 @@ var letters: DisciplineLetterScreen
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	letters = room.get_node("UI/DisciplineLetterScreen")
 
 # --- helpers -------------------------------------------------------------------
@@ -144,9 +146,13 @@ func build_full_career() -> void:
 	StaffReviewManager.staff_reports["Derek Voss"] = PackedStringArray(["late", "short"])
 	StaffReviewManager.staff_feedbacks["Nina Ortiz"] = 2
 
-	# Day 3, 10:42 AM and a bit (the clock keeps fractions of a minute).
+	# Day 3, 10:42 AM and a bit (the clock keeps fractions of a minute),
+	# saved at its End of Day (a career is saved at the end or start of a
+	# day: an ended day loads as it was saved).
 	GameClock.day = 3
+	BusinessDay.stats_day = 3
 	GameClock.minutes = 642.75
+	DayFlow.end_of_day_due = true
 	HintManager.mark_shown(HintManager.Hint.FIRST_CLOCK_OUT)
 	HintManager.mark_shown(HintManager.Hint.LOAN_OFFICER_UNLOCKED)
 	# Part-way through onboarding.
@@ -513,6 +519,8 @@ func test_scripts_keep_every_slot_to_their_own_files() -> void:
 
 # --- when the room saves -------------------------------------------------------------
 
+## A teller's day is saved at its End of Day, which follows the clock-out
+## at Closing (the clock-out itself saves nothing: SlotSavePolicy).
 func test_teller_clock_out_saves() -> void:
 	clock_in()
 	assert_bool(SaveGame.exists()).is_false()
@@ -520,6 +528,9 @@ func test_teller_clock_out_saves() -> void:
 	for i in CustomerQueue.CUSTOMERS_PER_SHIFT_CAP - 1:
 		abandon(spawn())
 	assert_bool(clock_out()).is_true()
+	assert_bool(SaveGame.exists()).is_false()
+	close_desk()
+	await run_end_of_day()
 	assert_bool(SaveGame.exists()).is_true()
 	var saved := SaveGame.read()
 	assert_int(SaveGame.int_of(SaveGame.dict_of(saved.career, "score"), "total_score", -999)).is_equal(ScoreManager.total_score)
@@ -529,10 +540,15 @@ func test_loan_desk_clock_out_saves() -> void:
 	var lo := room.loan_officer_screen
 	room._on_loan_officer_desk_interacted()
 	lo.clock_in_button.pressed.emit()
+	lo.hide_screen()
 	assert_bool(SaveGame.exists()).is_false()
-	lo.applications_reviewed = LoanOfficerScreen.APPLICATIONS_PER_SHIFT
+	to_closing()
+	room._on_loan_officer_desk_interacted()
 	lo.clock_out_button.pressed.emit()
 	assert_bool(lo.is_clocked_in()).is_false()
+	assert_bool(SaveGame.exists()).is_false()
+	lo.hide_screen()
+	await run_end_of_day()
 	assert_bool(SaveGame.exists()).is_true()
 
 func test_promotion_orientation_and_branch_manager_clock_out_save() -> void:
@@ -550,10 +566,13 @@ func test_promotion_orientation_and_branch_manager_clock_out_save() -> void:
 	acknowledge_letters()
 
 	SaveGame.delete()
+	to_closing()
 	reconcile_vault()
-	assert_bool(SaveGame.exists()).is_false() # nothing saved mid-shift
+	assert_bool(SaveGame.exists()).is_false() # nothing saved mid-day
 	bm.clock_out_button.pressed.emit()
 	assert_bool(bm.is_clocked_in()).is_false()
+	bm.hide_screen()
+	await run_end_of_day()
 	assert_bool(SaveGame.exists()).is_true()
 
 ## Replaces the room with the interview and ends it with `score` points.
@@ -691,12 +710,14 @@ func test_empty_slots_show_new_game() -> void:
 func test_a_filled_slot_shows_its_role_date_and_last_played() -> void:
 	XPManager.is_loan_officer_unlocked = true
 	GameClock.day = 3
+	BusinessDay.stats_day = 3
 	GameClock.minutes = 642.0 # 10:42 AM
 	save_in_slot(2)
 	var screen: StartScreen = await open_slots()
 	var text := screen.slot_buttons[1].text
 	assert_str(text).starts_with("Slot 2 — Loan Officer\n")
-	assert_str(text).contains("Day 3 · Wednesday 7 January 2026 · 10:42 AM")
+	# A day saved before it ended picks up at its start.
+	assert_str(text).contains("Day 3 · Wednesday 7 January 2026 · Start of day")
 	assert_str(text).contains("\nLast played ")
 	assert_str(StartScreen.last_played_text("2026-10-21T14:05:33")).is_equal("2026-10-21 14:05")
 	# The other slots are still empty.
@@ -783,9 +804,10 @@ func test_loading_slot_2_after_slot_1_leaves_no_leftover_state() -> void:
 	var fresh := fresh_career_without_clock()
 	save_in_slot(2) # a fresh career
 	build_full_career()
-	# The business day on the career's day (build_full_career() moves the
-	# clock only), so the loaded room doesn't end the day straight away.
+	# A day that hadn't ended (build_full_career() saves at its End of Day),
+	# so the loaded room starts it at Opening instead of ending it.
 	BusinessDay.stats_day = GameClock.day
+	DayFlow.end_of_day_due = false
 	save_in_slot(1)
 	CareerReset.reset_all()
 
@@ -910,7 +932,8 @@ func test_unreadable_saves_are_reported() -> void:
 		"{\"career\": {}}": SaveGame.Status.CORRUPT,
 		"{\"format_version\": \"1\", \"career\": {}}": SaveGame.Status.CORRUPT,
 		"{\"format_version\": 1, \"career\": []}": SaveGame.Status.CORRUPT,
-		"{\"format_version\": 2, \"career\": {}}": SaveGame.Status.WRONG_VERSION,
+		"{\"format_version\": 3, \"career\": {}}": SaveGame.Status.WRONG_VERSION,
+		"{\"format_version\": 2, \"career\": {}}": SaveGame.Status.OK,
 		"{\"format_version\": 0}": SaveGame.Status.WRONG_VERSION,
 		"{\"format_version\": 1, \"career\": {}}": SaveGame.Status.OK,
 	}

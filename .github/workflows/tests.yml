@@ -12,7 +12,7 @@ jobs:
       # Pinned engine: keep in step with the version used locally (CLAUDE.md).
       # The standard (non-.NET) build: the project enables .NET in
       # project.godot but has no C# scripts yet.
-      GODOT_VERSION: 4.7.1-stable
+      GODOT_VERSION: 4.7.2-stable
     steps:
       - uses: actions/checkout@v4
 

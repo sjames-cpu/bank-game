@@ -18,6 +18,8 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameClock="*res://scripts/autoload/game_clock.gd"
+DayFlow="*res://scripts/core/day_flow.gd"
+PlayerShift="*res://scripts/core/player_shift.gd"
 AccountManager="*res://scripts/autoload/account_manager.gd"
 VaultManager="*res://scripts/autoload/vault_manager.gd"
 ScoreManager="*res://scripts/autoload/score_manager.gd"
@@ -35,6 +37,10 @@ LoanBookManager="*res://scripts/autoload/loan_book_manager.gd"
 BusinessDay="*res://scripts/autoload/business_day.gd"
 RegionalManager="*res://scripts/autoload/regional_manager.gd"
 ReportManager="*res://scripts/autoload/report_manager.gd"
+TellerRole="*res://scripts/roles/teller/teller_role.gd"
+LoanRole="*res://scripts/roles/loan/loan_role.gd"
+ManagerRole="*res://scripts/roles/manager/manager_role.gd"
+Cutscenes="*res://scripts/core/cutscene_runner.gd"
 
 [debug]
 
@@ -92,6 +98,36 @@ pause_menu={
 toggle_overview={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":90,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+debug_skip_slot={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194334,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+skip_cutscene={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194305,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+debug_teller_1={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194336,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+debug_teller_2={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194337,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+debug_loan_1={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194340,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+debug_loan_2={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194341,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
 

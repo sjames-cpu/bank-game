@@ -1,0 +1,13 @@
+{
+	"steps": [
+		{"show": "staff_01", "side": "left"},
+		{"show": "player", "side": "right"},
+		{"say": "Good morning. Ready to open?", "speaker": "Walter"},
+		{"wait": 0.2},
+		{"choice": "ready", "prompt": "Are you ready?", "options": ["Yes", "Not yet"], "default": 1},
+		{"fade": "out", "seconds": 0.2},
+		{"fade": "in", "seconds": 0.2},
+		{"hide": "staff_01"},
+		{"say": "Let's begin."}
+	]
+}

@@ -11,6 +11,8 @@ const BAD_PROBLEMS: Array[IdCard.Problem] = [Problem.EXPIRED, Problem.NAME_MISMA
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	# Hints would sit over the screens; they have tests of their own.
 	for hint: int in HintManager.Hint.values():
 		HintManager.mark_shown(hint)
@@ -352,7 +354,11 @@ func test_an_account_opening_customer_is_served_end_to_end() -> void:
 	# The cash went into the drawer.
 	assert_int(ts.drawer_cash_cents()).is_equal(TellerScreen.STARTING_FLOAT_CENTS + 20000)
 	close_desk()
-	assert_bool(clock_out()).is_false() # three more customers to come
+	# The shift goes on until Closing.
+	open_desk()
+	ts.clock_out_button.pressed.emit()
+	assert_bool(ts.drawer_count_screen.visible).is_false()
+	close_desk()
 
 func test_a_starting_deposit_counts_as_the_first_deposit() -> void:
 	clock_in()
@@ -439,7 +445,7 @@ func test_the_teller_screen_and_id_card_fit_the_window() -> void:
 	# amount and an ID mistake at once, a serious one (bad ID) and a
 	# procedure one (valid ID, not checked first), each with the customer's
 	# correction line and the ID card up.
-	GameClock.minutes = BusinessDay.CUTOFF_MINUTES + 30
+	skip_to_slot(DaySchedule.FIRST_SLOT_AFTER_CUTOFF)
 	# The longest name a customer can have, paying by card (the longer
 	# status line).
 	var longest_name := ""

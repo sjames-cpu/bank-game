@@ -10,6 +10,8 @@ const FLOAT := TellerScreen.STARTING_FLOAT_CENTS
 
 func before_test() -> void:
 	await super()
+	# A time-slot day at Opening, as the room starts it.
+	start_slots_day()
 	# Hints would sit over the screens; the hint test resets them itself.
 	for hint: int in HintManager.Hint.values():
 		HintManager.mark_shown(hint)
@@ -152,8 +154,11 @@ func test_the_vaults_expected_total_follows_transfers() -> void:
 	assert_bool(clock_out()).is_true()
 	ts.shift_summary_done_button.pressed.emit()
 	close_desk()
-	# The Branch Manager's reconciliation is graded against it: counting the
-	# old fixed total is now off by the transfers; the tracked one is Perfect.
+	# The next day, the Branch Manager's reconciliation is graded against it:
+	# counting the old fixed total is now off by the transfers; the tracked
+	# one is Perfect. (The vault's own close at End of Day adds the staff
+	# windows' net, so it's measured after that.)
+	await go_to_next_day()
 	XPManager._grant_branch_manager()
 	while room.letter_screen.visible and room.letter_screen.action_button.text == "Acknowledge":
 		room.letter_screen.action_button.pressed.emit()
