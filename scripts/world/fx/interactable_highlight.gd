@@ -15,6 +15,8 @@ const FILL: Color = Color(1.0, 0.86, 0.35, 0.1)
 const OFFSETS: Array[Vector2] = [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]
 const PULSE_PER_SECOND: float = 0.9
 const MIN_ALPHA: float = 0.35
+## With effects off (EffectsSetting) it doesn't pulse: it holds this.
+const STEADY_ALPHA: float = 0.85
 
 var source: Sprite2D = null
 var box: Rect2 = Rect2()
@@ -67,6 +69,9 @@ func _refresh() -> void:
 func _process(_delta: float) -> void:
 	# Behind a desk screen the room is paused: don't glow through it.
 	visible = not get_tree().paused
+	if not EffectsSetting.is_on():
+		modulate.a = STEADY_ALPHA
+		return
 	var wave := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * TAU * PULSE_PER_SECOND)
 	modulate.a = lerpf(MIN_ALPHA, 1.0, wave)
 

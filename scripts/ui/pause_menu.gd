@@ -24,6 +24,7 @@ const MID_DAY_CONFIRM_TEXT: String = "Lose Today and Go to Main Menu"
 
 @onready var menu_panel: PanelContainer = $Root/MenuPanel
 @onready var resume_button: Button = $Root/MenuPanel/VBox/ResumeButton
+@onready var effects_button: Button = $Root/MenuPanel/VBox/EffectsButton
 @onready var main_menu_button: Button = $Root/MenuPanel/VBox/MainMenuButton
 @onready var confirm_panel: PanelContainer = $Root/ConfirmPanel
 @onready var confirm_label: Label = $Root/ConfirmPanel/VBox/ConfirmLabel
@@ -37,6 +38,7 @@ func _ready() -> void:
 	room = get_parent() as TellerRoom
 	visible = false
 	resume_button.pressed.connect(resume)
+	effects_button.pressed.connect(_on_effects_pressed)
 	main_menu_button.pressed.connect(_on_main_menu_pressed)
 	confirm_button.pressed.connect(go_to_main_menu.bind(false))
 	cancel_button.pressed.connect(_show_menu)
@@ -64,7 +66,17 @@ func resume() -> void:
 	visible = false
 	get_tree().paused = false
 
+## "Effects: On / Off" (EffectsSetting): the world's small motion. Saved in the
+## settings file, never in a career.
+func effects_text() -> String:
+	return "Effects: On" if EffectsSetting.is_on() else "Effects: Off"
+
+func _on_effects_pressed() -> void:
+	EffectsSetting.set_on(not EffectsSetting.is_on())
+	effects_button.text = effects_text()
+
 func _show_menu() -> void:
+	effects_button.text = effects_text()
 	menu_panel.visible = true
 	confirm_panel.visible = false
 	resume_button.grab_focus()

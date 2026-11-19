@@ -25,19 +25,80 @@ const IMPATIENT_MARK: Color = Color(0.11, 0.1, 0.1)
 const LEAVING_FILL: Color = Color(0.85, 0.28, 0.23)
 const LEAVING_MARK: Color = Color(0.98, 0.98, 0.98)
 
+## Motion (skipped with effects off, EffectsSetting): the bubble pops in when
+## it first shows, rising POP_PIXELS in whole-pixel steps over POP_SECONDS,
+## and every change of stage gives a brief colour pulse (PULSE_SECONDS)
+## instead of snapping.
+const POP_PIXELS: int = 2
+const POP_SECONDS: float = 0.15
+const PULSE_SECONDS: float = 0.25
+const PULSE_COLOUR: Color = Color(1.9, 1.9, 1.9, 1.0)
+
 var stage: Stage = Stage.HIDDEN
+
+var _rest_y: float = 0.0
+var _age: float = -1.0
+var _popping: bool = false
+var _pop_pixels: int = 0
 
 func _ready() -> void:
 	visible = false
+	_rest_y = position.y
+	set_process(false)
 
 ## Shows the stage for `urgency` (0 = just arrived, 1 = about to leave).
 func set_urgency(urgency: float) -> void:
 	var new_stage := stage_for(urgency)
 	if new_stage == stage:
 		return
+	var was_hidden := stage == Stage.HIDDEN
 	stage = new_stage
 	visible = stage != Stage.HIDDEN
 	queue_redraw()
+	if visible and EffectsSetting.is_on():
+		_start_motion(was_hidden)
+	else:
+		_finish_motion()
+
+## How far below its place the bubble is now, in whole art pixels.
+func pop_offset() -> int:
+	return _pop_pixels
+
+## Whether a pop or pulse is playing.
+func is_animating() -> bool:
+	return _age >= 0.0
+
+func _start_motion(pop_in: bool) -> void:
+	_age = 0.0
+	_popping = pop_in
+	_pop_pixels = POP_PIXELS if pop_in else 0
+	position.y = _rest_y + float(_pop_pixels)
+	modulate = PULSE_COLOUR
+	set_process(true)
+
+func _finish_motion() -> void:
+	_age = -1.0
+	_popping = false
+	_pop_pixels = 0
+	position.y = _rest_y
+	modulate = Color.WHITE
+	set_process(false)
+
+func _process(delta: float) -> void:
+	if _age < 0.0:
+		return
+	if not EffectsSetting.is_on():
+		_finish_motion()
+		return
+	_age += delta
+	if _age >= maxf(POP_SECONDS if _popping else 0.0, PULSE_SECONDS):
+		_finish_motion()
+		return
+	if _popping:
+		var step := POP_SECONDS / float(POP_PIXELS + 1)
+		_pop_pixels = maxi(0, POP_PIXELS - int(_age / step)) if _age < POP_SECONDS else 0
+		position.y = _rest_y + float(_pop_pixels)
+	modulate = Color.WHITE.lerp(PULSE_COLOUR, clampf(1.0 - _age / PULSE_SECONDS, 0.0, 1.0))
 
 static func stage_for(urgency: float) -> Stage:
 	if urgency >= LEAVING_FROM:
