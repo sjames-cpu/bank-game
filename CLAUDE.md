@@ -213,6 +213,10 @@ Run everything locally (Git Bash on Windows):
 GODOT_BIN="/c/Users/USER/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe" ./run_tests.sh
 ```
 
+That path is one machine's: **`GODOT_BIN` is just where your own Godot 4.7.x console executable is**, so set it to yours (a 4.7.1 install works; CI pins 4.7.2) and nothing in the repo needs editing.
+
+When a step fails, `run_tests.sh` prints `STEP FAILED: <name>` with that step's last 30 lines, and in CI also emits it as a GitHub annotation; a follow-up workflow step then adds up to 10 annotations for failing tests (name and the first 400 characters of the message) and one notice with the OS, Godot version and test counts. Annotations can be read on the run page without a GitHub login (the job logs can't). Nothing extra is printed when everything passes. CI uses Python 3.12 for the art check on purpose (see the comment in the workflow).
+
 `run_tests.sh`:
 1. Checks the generated character art is current (`tools/art/generate_characters.py --check`). The Python interpreter comes from `PYTHON_BIN`, or else the first of `python`/`python3` that runs.
 2. Imports the project.
