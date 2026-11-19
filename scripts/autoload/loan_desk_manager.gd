@@ -135,7 +135,8 @@ func _rng_for(stream: String, number: int) -> RandomNumberGenerator:
 	rng.seed = hash([career_seed, stream, number])
 	return rng
 
-## Names a new applicant can't have: today's, and those waiting in the pile.
+## Names a new applicant can't have: today's, those waiting in the pile and
+## those in open files waiting for documents (LoanRole.pipeline).
 func names_taken() -> Dictionary:
 	_roll_day()
 	var taken := {}
@@ -143,6 +144,8 @@ func names_taken() -> Dictionary:
 		taken[taken_name] = true
 	for application in player_queue:
 		taken[application.applicant_name] = true
+	for filed_name in LoanRole.pipeline.names(GameClock.day):
+		taken[filed_name] = true
 	return taken
 
 func _note_name(applicant_name: String) -> void:
