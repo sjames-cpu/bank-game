@@ -211,6 +211,9 @@ var armored_visit: ArmoredTruckVisit
 ## A new career's onboarding (OnboardingFlow).
 var onboarding_flow: OnboardingFlow
 
+## The interface motion driver (UiMotionDriver), added by _ready().
+var ui_motion: UiMotionDriver
+
 func _ready() -> void:
 	# The camera stays inside the room, walls and sidewalk included.
 	camera.set_room_bounds(room_bounds())
@@ -299,6 +302,10 @@ func _ready() -> void:
 		_apply_branch_manager_desks()
 
 	_build_world_visuals()
+	# Interface motion (stage 2b): one driver watches the UI layer, the
+	# pause menu, the slot card and every button; the hint card fades.
+	ui_motion = UiMotionDriver.install(self, $UI)
+	ui_motion.track_panel(hud.hint_panel)
 
 	# A new career's onboarding first (at once if it's done), then the
 	# first-run hints.
