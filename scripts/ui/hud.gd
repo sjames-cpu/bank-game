@@ -92,6 +92,19 @@ var _hint_queue: Array[HintManager.Hint] = []
 
 var _prompt_world_position: Vector2 = Vector2.ZERO
 
+## Score, Reputation and XP count to a new value with a brief green or red
+## flash (HudCounter; stage 2b interface motion), and the slot line
+## crossfades when its text changes. With Effects Off both happen at once.
+var score_counter := HudCounter.new()
+var reputation_counter := HudCounter.new()
+var xp_counter := HudCounter.new()
+const SLOT_FADE_SECONDS: float = 0.15
+var _slot_text: String = ""
+var _slot_seen: bool = false
+## 0 to 1: how far the slot line's crossfade has got (1: done).
+var _slot_fade: float = 1.0
+var _slot_ghost: Label
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	hint_dismiss_button.pressed.connect(dismiss_hint)
@@ -104,19 +117,41 @@ func _ready() -> void:
 	XPManager.branch_manager_unlocked.connect(show_unlock_notification.bind(branch_manager_unlocked_label))
 	refresh()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	step_motion(delta)
 	refresh()
+
+## Steps the counters and the slot line's crossfade by `delta` seconds
+## (also what tests call to step time by hand).
+func step_motion(delta: float) -> void:
+	if not EffectsSetting.is_on():
+		score_counter.finish()
+		reputation_counter.finish()
+		xp_counter.finish()
+		_slot_fade = 1.0
+	else:
+		score_counter.step(delta)
+		reputation_counter.step(delta)
+		xp_counter.step(delta)
+		_slot_fade = minf(_slot_fade + delta / SLOT_FADE_SECONDS, 1.0)
+	_show_counters()
+	_show_slot_fade()
 
 func refresh() -> void:
 	visible = letter_screen == null or not letter_screen.is_full_screen_letter_shown()
 	# "Wed, Day 3 · 11 AM slot" (SlotStatus).
 	clock_label.text = SlotStatus.clock_text()
-	slot_label.text = SlotStatus.status_text(get_tree())
-	slot_label.visible = slot_label.text != ""
+	var slot_text := SlotStatus.status_text(get_tree())
+	if slot_text != _slot_text:
+		_slot_text_changed(_slot_text, slot_text)
+	slot_label.text = slot_text
+	slot_label.visible = slot_text != ""
 	role_label.text = "Role: %s" % role_name()
-	score_label.text = "Score: %d" % ScoreManager.total_score
-	reputation_label.text = "Reputation: %d" % ReputationManager.reputation
-	xp_label.text = "XP: %d" % XPManager.total_xp
+	var animate := EffectsSetting.is_on()
+	score_counter.set_target(ScoreManager.total_score, animate)
+	reputation_counter.set_target(ReputationManager.reputation, animate)
+	xp_counter.set_target(XPManager.total_xp, animate)
+	_show_counters()
 	reports_label.text = ReportManager.status_text()
 	probation_label.text = InterviewManager.probation_status_text()
 	probation_label.visible = probation_label.text != ""
@@ -134,6 +169,51 @@ func refresh() -> void:
 		prompt_panel.visible = false
 	elif prompt_panel.visible:
 		_place_prompt()
+
+func _show_counters() -> void:
+	score_label.text = "Score: %d" % score_counter.value()
+	reputation_label.text = "Reputation: %d" % reputation_counter.value()
+	xp_label.text = "XP: %d" % xp_counter.value()
+	_tint(score_label, score_counter.tint())
+	_tint(reputation_label, reputation_counter.tint())
+	_tint(xp_label, xp_counter.tint())
+
+static func _tint(label: Label, color: Color) -> void:
+	if label.self_modulate != color:
+		label.self_modulate = color
+
+## The slot line's text changed from `old` to `new`: the old text fades out
+## over the new one fading in (a ghost label over the line), unless effects
+## are off or one of them is empty (the line then simply appears or goes).
+func _slot_text_changed(old: String, new: String) -> void:
+	_slot_text = new
+	var first := not _slot_seen
+	_slot_seen = true
+	if first or not EffectsSetting.is_on() or new == "":
+		_slot_fade = 1.0
+		return
+	_slot_fade = 0.0
+	if old != "":
+		if _slot_ghost == null:
+			_slot_ghost = Label.new()
+			_slot_ghost.name = "SlotGhost"
+			_slot_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_slot_ghost.autowrap_mode = slot_label.autowrap_mode
+			_slot_ghost.set_anchors_preset(Control.PRESET_FULL_RECT)
+			slot_label.add_child(_slot_ghost)
+		_slot_ghost.text = old
+		_slot_ghost.visible = true
+	_show_slot_fade()
+
+func _show_slot_fade() -> void:
+	var alpha := _slot_fade if _slot_fade < 1.0 else 1.0
+	if slot_label.self_modulate.a != alpha:
+		slot_label.self_modulate.a = alpha
+	if _slot_ghost != null and _slot_ghost.visible:
+		if _slot_fade >= 1.0:
+			_slot_ghost.visible = false
+		else:
+			_slot_ghost.modulate.a = 1.0 - _slot_fade
 
 ## The column keeps this far from the bottom of the window.
 const COLUMN_BOTTOM_MARGIN: float = 8.0
