@@ -194,6 +194,7 @@ The file is hand-editable, but prefer the editor for engine settings; when editi
 
 ## Version control notes
 
+- **Committing to `main`** (`ROLE_BOUNDARIES.md` section 4): Liam and James may commit directly to `main`, pull requests are optional and branch protection is off. Before a push to `main`: `git pull --ff-only`, then a passing `./run_tests.sh`; never force-push; check CI after every push and fix or revert at once if it is red. A shared file needs a heads-up to the other person before you edit it. **As an agent, work on a branch and commit to `main` only when the prompt explicitly says "commit to main"**; role-file ownership is unchanged.
 - `.gitattributes` normalizes text files to LF.
 - Gitignored: `.godot/` (cache), `reports/` (test reports), `scratch/` (local drafts, screenshot scripts), `override.cfg` (temporary, see Tests), `.summer/local/` (local state for a "Summer Engine" tooling layer, including a nested bare git repo; not project source).
 - `production/` and `.claude/agents/` belong to the Godot specialist agent tooling, not the game.

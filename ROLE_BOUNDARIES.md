@@ -2,6 +2,8 @@
 
 **Status:** Agreed by Liam (`lym221-not`) and James (`James2k8`) on 2026-11-16. Updated at the end of Phase A (session 4, 2026-11-18): the layout below is now the real one, and section 5 has the Phase B rules.
 
+**Update (2026-11-20):** Liam and James may now commit directly to `main` without pull requests; branches and CI stay in use. See section 4, "Committing to `main`", and the changed rules in sections 3 and 6. Ownership of files (sections 1 and 2) is unchanged.
+
 **Why this file exists:** Liam and James build different roles at the same time, each with their own AI agent. Git only has trouble when two people change the **same lines of the same file**. So each role lives in its own files, and the few shared files are changed carefully, one at a time.
 
 **Paste this whole file into every AI agent prompt** (Claude Code or any other agent), so the agent follows the same rules.
@@ -75,18 +77,20 @@ These files are touched by both roles. Changing them on a role branch is how con
 - `.github/workflows/` (CI)
 - `TIME_SLOTS_DECISIONS.md` and this file
 
-**To change a shared file:**
-1. Make a small, separate branch named `shared/<what-it-does>`.
-2. Change only the shared file(s) there, run the tests, open a pull request.
-3. The other person approves it. Merge it into `main`.
-4. Tell the other person to pull `main` into their branch.
+**To change a shared file** (there is no review any more, so the heads-up is the safeguard):
+1. **Message the other person first** and say which shared file(s) you are about to change and why. Wait for a "go ahead" if they might be editing the same file.
+2. Make the change in its own small commit, on a small `shared/<what-it-does>` branch or directly on `main` (section 4), touching only the shared file(s).
+3. Run the tests, push (section 4 says how), and check CI.
+4. Tell the other person it is in `main`, so they merge `main` into their branch.
 5. Then continue your role work on top of it.
+
+A pull request is still welcome for a shared change you want a second pair of eyes on, but it is optional.
 
 If an AI agent thinks it needs to change a shared file while working on a role branch, it must **stop and report** instead of changing it.
 
 ## 4. Git workflow
 
-**Idea:** `main` is the official copy of the game and must always work. A branch is a photocopy you change freely. A pull request (PR) asks to copy your changes back into `main`.
+**Idea:** `main` is the official copy of the game and must always work. A branch is a photocopy you change freely. A pull request (PR) asks to copy your changes back into `main`; since 2026-11-20 it is optional, because both of you may also commit to `main` directly (see "Committing to `main`" below).
 
 ### Branches
 - **One branch per small piece of work**, merged within a few days. No long-lived personal branches.
@@ -95,7 +99,7 @@ If an AI agent thinks it needs to change a shared file while working on a role b
   - `loan/...` (e.g. `loan/application-redesign`)
   - `shared/...` (e.g. `shared/cutscene-runner`)
   - `fix/...` (e.g. `fix/vault-count-twenties`)
-- **Never commit directly to `main`.**
+- **Liam and James may commit directly to `main`** (rules under "Committing to `main`" below). Never force-push it.
 - A `shared/...` branch is worked on by **one person at a time**.
 
 ### Starting a piece of work
@@ -122,13 +126,14 @@ git checkout -b teller/opening-cutscenes
   ```
 
 ### Finishing
+Either commit to `main` directly (next section), or push the branch and open a pull request:
 ```bash
 git push -u origin <your-branch>
 ```
 Then on GitHub:
 1. Open a pull request into `main`.
 2. Wait for CI to pass. If it fails, fix it on the same branch and push again.
-3. The other person takes a quick look, mainly: "Does this touch my files or a shared file?" Then approves.
+3. The other person takes a quick look, mainly: "Does this touch my files or a shared file?" Then approves. (Optional: you can skip the review and merge yourself.)
 4. Merge, and delete the branch.
 
 Back on your computer:
@@ -141,8 +146,19 @@ git branch -d <your-branch>
 ### If there's a merge conflict
 It means both of you changed the same lines. Git marks both versions in the file. Either fix it by hand, or ask the AI agent to resolve it **and explain in plain English what it kept and why**. If it touches the other person's area, check with them first.
 
+### Committing to `main`
+Both of you may commit directly to `main`. Pull requests are optional. Because nothing reviews a direct commit, follow these rules:
+
+1. **Before every push to `main`:** bring in the latest (`git pull --ff-only`, or `git pull --rebase` if `main` moved), then run the full `./run_tests.sh` (success ends with `== ALL PASSED`). Push only if it passes.
+2. **Never force-push**, to `main` or to anyone else's branch.
+3. **After every push, check CI** (the Actions tab, or the public check-runs API). If it is red, **fix it in the same session or revert the commit** (`git revert`, then push). Don't leave `main` red and walk away.
+4. **Shared files** (section 3) need a heads-up message to the other person *before* you edit them. This replaces the review.
+5. **Small commits**, one thing each, so a bad one is easy to revert.
+6. **Ownership stays as it is** (sections 1 and 2): committing directly to `main` doesn't let you edit the other person's role files.
+7. **AI agents** go through section 6: a branch by default, `main` only when the prompt says so in words.
+
 ### Protecting `main`
-On GitHub, `main` has a rule that requires a pull request and passing CI checks before merging. This stops anyone (including an AI agent) from pushing straight to `main` by accident.
+GitHub's branch protection on `main` is **off** (it used to require a pull request and passing checks), so nothing stops a direct push: the rules above and CI are the safeguard. Don't turn it back on without agreeing first.
 
 ---
 
@@ -163,9 +179,9 @@ Phase B is Liam (Teller) and James (Loan Officer) working at the same time. Ever
 ## 6. Rules for AI agents (summary)
 
 When you work in this repo:
-1. Work only on the branch named in the prompt. Never commit to `main`.
+1. Work only on the branch named in the prompt. **Don't commit to `main` unless the prompt explicitly says "commit to main"**; then follow "Committing to `main`" (section 4): pull `--ff-only`, run `./run_tests.sh`, never force-push, check CI after the push, and fix or revert if it is red. "Push" or "merge" alone is not permission.
 2. Only change files in the owner's area named in the prompt. Put new files in the right folder (section 2).
-3. **Do not change shared files** (section 3) unless the prompt is a `shared/...` task. If you think you need to, stop and report.
+3. **Do not change shared files** (section 3) unless the prompt is a `shared/...` task. If you think you need to, stop and report. (The person who gave the prompt sends the other person the heads-up; the agent can't.)
 4. Use the existing shared systems (DayFlow, the cutscene player, save sections, configs, reserved debug keys). Don't build duplicates, and follow section 5.
 5. Put numbers in the role's config file, not in code.
 6. Commit in small steps and run the full test suite before each commit.
