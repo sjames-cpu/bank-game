@@ -28,16 +28,16 @@ static func apply(file: LoanFile, career_seed: int, today: int) -> void:
 		if item == file.short_item:
 			continue
 		if item == file.wrong_item:
-			_hand_over_wrong(application, item, rng, today)
+			_hand_over_wrong(file, application, item, rng, today)
 		else:
-			_hand_over(application, item, rng, today)
+			_hand_over(file, application, item, rng, today)
 	# A stub and a statement that both show the stated income clear an
 	# overstated one.
 	var delivered := file.all_delivered_items(today)
 	if application.doc_problem == LoanApplication.DocProblem.OVERSTATED_INCOME \
 			and delivered.has(LoanRequirements.Item.PAY_STUB) and delivered.has(LoanRequirements.Item.BANK_STATEMENT):
-		_hand_over(application, LoanRequirements.Item.PAY_STUB, rng, today)
-		_hand_over(application, LoanRequirements.Item.BANK_STATEMENT, rng, today)
+		_hand_over(file, application, LoanRequirements.Item.PAY_STUB, rng, today)
+		_hand_over(file, application, LoanRequirements.Item.BANK_STATEMENT, rng, today)
 		application.doc_problem = LoanApplication.DocProblem.NONE
 	_settle_missing_problem(application)
 
@@ -61,7 +61,7 @@ static func _pay(application: LoanApplication, rng: RandomNumberGenerator) -> Ve
 	var net := roundf(gross * rng.randf_range(LoanApplicantGenerator.NET_SHARE_RANGE[0], LoanApplicantGenerator.NET_SHARE_RANGE[1]))
 	return Vector2(gross, net)
 
-static func _hand_over(application: LoanApplication, item: int, rng: RandomNumberGenerator, today: int) -> void:
+static func _hand_over(file: LoanFile, application: LoanApplication, item: int, rng: RandomNumberGenerator, today: int) -> void:
 	match item:
 		LoanRequirements.Item.PAY_STUB:
 			var pay := _pay(application, rng)
@@ -83,19 +83,19 @@ static func _hand_over(application: LoanApplication, item: int, rng: RandomNumbe
 		LoanRequirements.Item.PHOTO_ID:
 			_give_id(application, IdCard.Problem.NONE, rng, today)
 		_:
-			_give_paper(application, item)
-			if application.paper_mismatch_item == item:
-				application.paper_mismatch_item = -1
+			_give_paper(file, item)
+			if file.mismatched_paper == item:
+				file.mismatched_paper = -1
 				if application.doc_problem == LoanApplication.DocProblem.PAPER_MISMATCH:
 					application.doc_problem = LoanApplication.DocProblem.NONE
 
 ## A document that doesn't match: the stub in someone else's name, a statement
 ## showing less than the income stated, an ID with another name or photo, or
 ## a paper that belongs to something else.
-static func _hand_over_wrong(application: LoanApplication, item: int, rng: RandomNumberGenerator, today: int) -> void:
+static func _hand_over_wrong(file: LoanFile, application: LoanApplication, item: int, rng: RandomNumberGenerator, today: int) -> void:
 	match item:
 		LoanRequirements.Item.PAY_STUB:
-			_hand_over(application, item, rng, today)
+			_hand_over(file, application, item, rng, today)
 			application.stub_name = KycPolicy.mismatched_name(rng, application.applicant_name)
 			application.doc_problem = LoanApplication.DocProblem.STUB_NAME
 		LoanRequirements.Item.BANK_STATEMENT:
@@ -108,8 +108,8 @@ static func _hand_over_wrong(application: LoanApplication, item: int, rng: Rando
 			var problem := IdCard.Problem.NAME_MISMATCH if rng.randf() < 0.5 else IdCard.Problem.WRONG_PORTRAIT
 			_give_id(application, problem, rng, today)
 		_:
-			_give_paper(application, item)
-			application.paper_mismatch_item = item
+			_give_paper(file, item)
+			file.mismatched_paper = item
 			application.doc_problem = LoanApplication.DocProblem.PAPER_MISMATCH
 
 ## Paid twice a month: `net` in two deposits.
@@ -126,17 +126,20 @@ static func _give_id(application: LoanApplication, problem: IdCard.Problem, rng:
 	application.id_expiry_date = card.expiry_date
 	application.id_portrait_look = card.portrait_look
 
-static func _give_paper(application: LoanApplication, item: int) -> void:
-	if not application.papers_received.has(item):
-		application.papers_received.append(item)
+static func _give_paper(file: LoanFile, item: int) -> void:
+	if not file.papers.has(item):
+		file.papers.append(item)
 
 ## What a paper brought back says, for Verify Documents: one short line each
 ## (so each stays on one line in the narrow column and the review screen gets
 ## no taller), saying only what the paper shows when it doesn't match.
 static func papers_lines(application: LoanApplication) -> PackedStringArray:
 	var lines := PackedStringArray()
-	for item in application.papers_received:
-		var matches := item != application.paper_mismatch_item
+	var file := LoanRole.pipeline.file_for(application)
+	if file == null:
+		return lines
+	for item in file.papers:
+		var matches := item != file.mismatched_paper
 		match item:
 			LoanRequirements.Item.APPRAISAL:
 				lines.append("Appraisal: %s (this property)" % LoanApplication.dollars(application.collateral_value) if matches else "Appraisal: not this property")

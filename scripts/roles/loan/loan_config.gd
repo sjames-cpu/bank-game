@@ -78,3 +78,9 @@ const DECIDE_WITHIN_DAYS: int = 3
 ## What a withdrawn file costs (once per file; nothing if it is decided in time).
 const WITHDRAWN_SCORE: int = -2
 const WITHDRAWN_REPUTATION: int = -1
+
+## A returned file still undecided this many business days after its return
+## day is closed quietly at Opening (no penalty, whatever role the player has
+## chosen): an applicant doesn't wait for ever. The Loan Officer day rule
+## above still comes first.
+const ABANDONED_AFTER_DAYS: int = 15

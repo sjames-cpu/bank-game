@@ -33,6 +33,33 @@ var role_days: Dictionary = {}
 
 const ROLES_KEY: String = "file_roles"
 
+func _ready() -> void:
+	# A promotion passes every open file to the staff; a demotion starts clean.
+	XPManager.branch_manager_unlocked.connect(_on_promoted)
+	XPManager.branch_manager_demoted.connect(_on_demoted)
+
+## The autoloads outlive the room, and tests reset them: let go with the node.
+func _exit_tree() -> void:
+	if XPManager.branch_manager_unlocked.is_connected(_on_promoted):
+		XPManager.branch_manager_unlocked.disconnect(_on_promoted)
+	if XPManager.branch_manager_demoted.is_connected(_on_demoted):
+		XPManager.branch_manager_demoted.disconnect(_on_demoted)
+
+## Promoted to Branch Manager: the Loan Desk is staffed from now on, so every
+## open file (waiting or returned) is closed quietly, with no penalty, no
+## history record and no booking, and the day's End of Day says so. The role
+## days go with them.
+func _on_promoted() -> void:
+	pipeline.pass_to_staff(GameClock.day)
+	role_days.clear()
+
+## Demoted back to Loan Officer: the pipeline was emptied at the promotion,
+## and nothing can bring an old file or role day back, so the player starts
+## clean and the clock starts from the day they are back.
+func _on_demoted() -> void:
+	pipeline.close_all()
+	role_days.clear()
+
 func reset() -> void:
 	section = {}
 	pipeline = LoanPipeline.new()
@@ -94,18 +121,21 @@ func request_documents(application: LoanApplication, items: Array[int]) -> LoanF
 ## the day's file log starts. Whatever role the player has today. Returns the
 ## files withdrawn now.
 func start_of_day() -> Array[LoanFile]:
+	# Nothing from the pipeline runs for a Branch Manager: any file left
+	# (a save from before the promotion handler) is passed to the staff.
+	if XPManager.is_branch_manager_unlocked:
+		pipeline.pass_to_staff(GameClock.day)
+		role_days.clear()
+		return []
 	var withdrawn := pipeline.start_of_day(GameClock.day, role_days, withdrawal_cost)
 	_prune_roles()
 	return withdrawn
 
 ## What a withdrawn file costs the player, applied now: LoanConfig.WITHDRAWN_*,
-## but never for a Branch Manager (their files are closed quietly, part 4), and
-## never so much Reputation that it reaches 0 (that would write a report,
+## but never so much Reputation that it reaches 0 (that would write a report,
 ## and a withdrawal comes at Opening, before today's role is even chosen).
 ## Returns {"score", "reputation"} as applied.
 func withdrawal_cost(_file: LoanFile) -> Dictionary:
-	if XPManager.is_branch_manager_unlocked:
-		return {"score": 0, "reputation": 0}
 	var reputation := maxi(LoanConfig.WITHDRAWN_REPUTATION, 1 - ReputationManager.reputation)
 	ScoreManager.add_shift_score(LoanConfig.WITHDRAWN_SCORE)
 	XPManager.add_shift_xp(LoanConfig.WITHDRAWN_SCORE)

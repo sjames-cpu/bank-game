@@ -58,7 +58,7 @@ enum Collateral { NONE, HOUSE, VEHICLE, EQUIPMENT, PROPERTY }
 ## stub or bank statement is missing. Rolled by LoanApplicantGenerator.
 # PAPER_MISMATCH (appended: saved values stay the same): an appraisal, proof of
 # down payment or explanation letter an applicant brought back that doesn't
-# match the application (paper_mismatch_item).
+# match the application (which one: LoanFile.mismatched_paper).
 enum DocProblem { NONE, OVERSTATED_INCOME, STUB_NAME, MISSING_STUB, MISSING_STATEMENT, PAPER_MISMATCH }
 
 ## --- Document checks (bank policy) ---
@@ -243,11 +243,6 @@ const BAND_RANGES: Array[String] = ["800+", "740-799", "670-739", "580-669", "un
 @export var has_statement: bool = true
 @export var statement_name: String = ""
 @export var statement_deposits: PackedInt32Array = PackedInt32Array()
-## Papers an applicant brought back on request that the form has no place for
-## (LoanRequirements.Item values: the appraisal, the proof of the down payment,
-## the explanation letter), and the one of them that doesn't match (-1: none).
-@export var papers_received: PackedInt32Array = PackedInt32Array()
-@export var paper_mismatch_item: int = -1
 
 ## --- The credit report (CreditReport.issue(), from the finance generator
 ## and the credit score alone; see CreditReport for the policy). Late
@@ -846,7 +841,7 @@ func documents_problem_text() -> String:
 		DocProblem.MISSING_STATEMENT:
 			problems.append("there was no bank statement")
 		DocProblem.PAPER_MISMATCH:
-			problems.append("the %s didn't match the application" % LoanRequirements.label(paper_mismatch_item).to_lower())
+			problems.append("a paper they brought back didn't match the application")
 	return " and ".join(problems) if not problems.is_empty() else "the documents checked out"
 
 # --- grading -----------------------------------------------------------------

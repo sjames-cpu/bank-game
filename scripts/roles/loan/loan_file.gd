@@ -38,6 +38,12 @@ var short_item: int = -1
 var wrong_item: int = -1
 ## Items handed over properly by earlier requests.
 var delivered_before: Array[int] = []
+## The papers handed over so far that the application form has no place for
+## (the appraisal, the proof of the down payment, the explanation letter), and
+## the one of them that doesn't match (-1: none). They live with the file, not
+## on the application, so no other saved application changes by a byte.
+var papers: Array[int] = []
+var mismatched_paper: int = -1
 ## The request whose return is already on the application (LoanReturn): 0
 ## until a return has been applied, then request_count of that request. A
 ## further request (request_count + 1) is not applied until it comes back.
@@ -122,6 +128,12 @@ func loan_officer_days_since_return(today: int, role_days: Dictionary) -> int:
 func decide_days_left(today: int, role_days: Dictionary) -> int:
 	return maxi(0, LoanConfig.DECIDE_WITHIN_DAYS - loan_officer_days_since_return(today, role_days))
 
+## Back, and left undecided LoanConfig.ABANDONED_AFTER_DAYS business days or
+## more after its return day: closed quietly at Opening, whatever the
+## player's role. A pure function of the day number.
+func is_abandoned(today: int) -> bool:
+	return has_returned(today) and today - return_day >= LoanConfig.ABANDONED_AFTER_DAYS
+
 ## Back, and its LoanConfig.DECIDE_WITHIN_DAYS Loan Officer days are used up:
 ## withdrawn at the start of `today`. A pure function of the day numbers and
 ## the recorded roles.
@@ -187,6 +199,8 @@ func save_data() -> Dictionary:
 		"wrong_item": wrong_item,
 		"delivered_before": Array(delivered_before),
 		"return_applied": return_applied,
+		"papers": Array(papers),
+		"mismatched_paper": mismatched_paper,
 	}
 
 ## A file from saved data, or null if it can't be read (no application, or a
@@ -215,6 +229,8 @@ static func from_data(data: Dictionary) -> LoanFile:
 	file.wrong_item = SaveGame.int_of(data, "wrong_item", -1)
 	file.delivered_before = _items_of(data, "delivered_before")
 	file.return_applied = SaveGame.int_of(data, "return_applied", 0)
+	file.papers = _items_of(data, "papers")
+	file.mismatched_paper = SaveGame.int_of(data, "mismatched_paper", -1)
 	return file
 
 ## The checklist items in saved `key`, any unknown ones dropped.

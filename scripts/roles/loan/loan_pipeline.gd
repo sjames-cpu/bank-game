@@ -29,6 +29,10 @@ var log_returned: Array[String] = []
 ## {"name", "score", "reputation"} for each file withdrawn that day.
 var log_withdrawn: Array[Dictionary] = []
 var log_expired: Array[String] = []
+## Returned files left so long they were closed quietly, and how many open
+## files were passed to the staff at a promotion that day.
+var log_abandoned: Array[String] = []
+var log_passed: int = 0
 
 func reset() -> void:
 	files.clear()
@@ -124,7 +128,35 @@ func start_of_day(today: int, role_days: Dictionary, cost: Callable) -> Array[Lo
 		log_day = today
 		var applied: Dictionary = cost.call(file)
 		log_withdrawn.append({"name": file.application.applicant_name, "score": SaveGame.int_of(applied, "score", 0), "reputation": SaveGame.int_of(applied, "reputation", 0)})
+	# A returned file that has sat there for LoanConfig.ABANDONED_AFTER_DAYS
+	# days (the player working as a Teller all the while, say) goes quietly:
+	# only after the Loan Officer day rule above had its turn.
+	var snapshot: Array[LoanFile] = files.duplicate()
+	for file in snapshot:
+		if file.is_abandoned(today):
+			files.erase(file)
+			log_day = today
+			log_abandoned.append(file.application.applicant_name)
 	return withdrawn
+
+## The player was promoted: every open file, waiting or returned, is closed
+## quietly (no penalty, no history record, no booking) and noted for that
+## day's End of Day. Returns how many.
+func pass_to_staff(today: int) -> int:
+	var count := files.size()
+	if count == 0:
+		return 0
+	if log_day != today:
+		_clear_log(0)
+	files.clear()
+	log_day = today
+	log_passed += count
+	return count
+
+## Every open file closed with nothing noted (a demotion starts clean).
+func close_all() -> void:
+	files.clear()
+
 
 ## "Ben Hart (-2 Score, -1 Reputation)": a file's name and what its withdrawal
 ## cost (just the name when it cost nothing).
@@ -144,6 +176,8 @@ func _clear_log(day: int) -> void:
 	log_returned.clear()
 	log_withdrawn.clear()
 	log_expired.clear()
+	log_abandoned.clear()
+	log_passed = 0
 
 ## The End of Day lines for `today`: files that came back, files withdrawn
 ## with what it cost, files that never came back. Nothing when none did.
@@ -158,8 +192,12 @@ func summary_lines(today: int) -> PackedStringArray:
 		for entry in log_withdrawn:
 			withdrawn_entries.append(_withdrawn_text(entry))
 		lines.append("Files withdrawn, not decided in time: %s" % ", ".join(withdrawn_entries))
+	if not log_abandoned.is_empty():
+		lines.append("Files left undecided too long were closed: %s" % ", ".join(log_abandoned))
 	if not log_expired.is_empty():
 		lines.append("Files that never came back: %s" % ", ".join(log_expired))
+	if log_passed > 0:
+		lines.append("Open loan files were passed to your staff")
 	return lines
 
 # --- requests --------------------------------------------------------------------------
@@ -222,7 +260,7 @@ func save_data() -> Dictionary:
 		saved.append(file.save_data())
 	var data := {"next_file_number": next_file_number, "files": saved}
 	if log_day > 0:
-		data["log"] = {"day": log_day, "returned": Array(log_returned), "withdrawn": log_withdrawn.duplicate(true), "expired": Array(log_expired)}
+		data["log"] = {"day": log_day, "returned": Array(log_returned), "withdrawn": log_withdrawn.duplicate(true), "expired": Array(log_expired), "abandoned": Array(log_abandoned), "passed": log_passed}
 	return data
 
 func load_data(data: Dictionary) -> void:
@@ -238,6 +276,8 @@ func load_data(data: Dictionary) -> void:
 		log_day = SaveGame.int_of(logged, "day", 0)
 		log_returned.assign(SaveGame.strings_of(SaveGame.array_of(logged, "returned")))
 		log_expired.assign(SaveGame.strings_of(SaveGame.array_of(logged, "expired")))
+		log_abandoned.assign(SaveGame.strings_of(SaveGame.array_of(logged, "abandoned")))
+		log_passed = maxi(0, SaveGame.int_of(logged, "passed", 0))
 		for entry in SaveGame.dicts_of(SaveGame.array_of(logged, "withdrawn")):
 			log_withdrawn.append({
 				"name": SaveGame.string_of(entry, "name", ""),
