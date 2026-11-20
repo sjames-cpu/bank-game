@@ -359,7 +359,7 @@ func test_no_protected_characteristic_is_stored() -> void:
 		"id_expiry_date", "id_holder_name", "id_number", "id_portrait_look", "id_presented", "id_problem",
 		"late_30_days", "late_60_days", "late_90_days",
 		"loan_purpose", "monthly_debt_payments", "monthly_housing_payment", "months_since_bankruptcy", "months_since_collection",
-		"on_time_percent", "open_accounts", "purchase_price",
+		"on_time_percent", "open_accounts", "paper_mismatch_item", "papers_received", "purchase_price",
 		"requested_amount", "risk_assessment", "risk_tier",
 		"statement_deposits", "statement_name", "stub_employer", "stub_monthly_gross", "stub_monthly_net", "stub_name",
 		"utilization_percent",
