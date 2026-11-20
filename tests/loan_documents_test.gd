@@ -215,17 +215,43 @@ func test_each_row_of_the_grading_table() -> void:
 	# ...and without verifying first, the procedure mistake on top.
 	assert_int(decide(overstated, Decision.APPROVE, [], false)["score"]).is_equal(LoanApplication.WORST_DECISION_SCORE + skipped)
 
-	# Every kind of problem is caught the same way.
-	for problem: Array in [[DocProblem.STUB_NAME, IdCard.Problem.NONE], [DocProblem.MISSING_STUB, IdCard.Problem.NONE], [DocProblem.MISSING_STATEMENT, IdCard.Problem.NONE],
-			[DocProblem.NONE, IdCard.Problem.EXPIRED], [DocProblem.NONE, IdCard.Problem.NAME_MISMATCH], [DocProblem.NONE, IdCard.Problem.WRONG_PORTRAIT], [DocProblem.NONE, IdCard.Problem.NO_ID]]:
+	# Every kind of problem makes Unverified the only weak point and Reject the
+	# right call by type; what the call is worth differs. A forged or wrong
+	# document (a stub in another name, an ID whose name or photo doesn't
+	# match) is caught by rejecting it as unverifiable.
+	for problem: Array in [[DocProblem.STUB_NAME, IdCard.Problem.NONE], [DocProblem.NONE, IdCard.Problem.NAME_MISMATCH], [DocProblem.NONE, IdCard.Problem.WRONG_PORTRAIT]]:
 		var doc_problem: LoanApplication.DocProblem = problem[0]
 		var id_problem: IdCard.Problem = problem[1]
 		var application := with_problem("Maria Chen", doc_problem, id_problem)
 		assert_object(application).override_failure_message(str(problem)).is_not_null()
 		assert_bool(application.documents_check_out()).is_false()
+		assert_bool(application.has_forged_document()).is_true()
+		assert_bool(application.is_missing_documents_only()).is_false()
 		assert_array(application.weak_points()).is_equal([Reason.UNVERIFIED])
 		assert_int(application.correct_decision()).is_equal(Decision.REJECT)
 		assert_bool(decide(application, Decision.REJECT, [Reason.UNVERIFIED])["caught"]).is_true()
+		assert_int(decide(application, Decision.REJECT, [Reason.UNVERIFIED])["grade"]).is_equal(Grade.BEST)
+	# Documents that are simply missing (no stub, no statement, no ID, an
+	# expired one) can be asked for: that is the best call (a request), so
+	# rejecting them, even naming the reason, is only partial credit: the
+	# partial grade and the reason's points, no "good catch". Approving or
+	# countering is still WORST.
+	for problem: Array in [[DocProblem.MISSING_STUB, IdCard.Problem.NONE], [DocProblem.MISSING_STATEMENT, IdCard.Problem.NONE],
+			[DocProblem.NONE, IdCard.Problem.EXPIRED], [DocProblem.NONE, IdCard.Problem.NO_ID]]:
+		var doc_problem: LoanApplication.DocProblem = problem[0]
+		var id_problem: IdCard.Problem = problem[1]
+		var application := with_problem("Maria Chen", doc_problem, id_problem)
+		assert_object(application).override_failure_message(str(problem)).is_not_null()
+		assert_bool(application.documents_check_out()).is_false()
+		assert_bool(application.has_forged_document()).is_false()
+		assert_bool(application.is_missing_documents_only()).is_true()
+		assert_array(application.weak_points()).is_equal([Reason.UNVERIFIED])
+		assert_int(application.correct_decision()).is_equal(Decision.REJECT)
+		var rejected := decide(application, Decision.REJECT, [Reason.UNVERIFIED])
+		assert_dict(slim(rejected)).override_failure_message(str(problem)).is_equal({"grade": Grade.PARTIAL, "score": LoanApplication.PARTIAL_CREDIT_SCORE + right, "reputation": 0, "caught": false, "false_unverified": false, "skipped": false})
+		assert_int(decide(application, Decision.REJECT, [Reason.TOTAL_DTI])["grade"]).is_equal(Grade.PARTIAL)
+		assert_int(decide(application, Decision.APPROVE)["grade"]).is_equal(Grade.WORST)
+		assert_int(decide(application, Decision.COUNTER_OFFER)["grade"]).is_equal(Grade.WORST)
 
 	# Documents fine: graded as before when verified, -3 when not.
 	var maria := clean("Maria Chen")

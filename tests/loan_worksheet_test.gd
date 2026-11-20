@@ -142,8 +142,8 @@ func test_a_home_loans_mortgage_replaces_the_rent_on_the_worksheet() -> void:
 	await assert_fits()
 
 ## Every sample's worksheet and a run of generated ones, with the screen at
-## its tallest (the denial reasons open), and after a decision, fits the
-## window.
+## its tallest (the denial reasons open, or the request checklist with every
+## item ticked), and after a decision, fits the window.
 func test_every_applicants_worksheet_fits() -> void:
 	clock_in_at_loan_desk()
 	var cases := LoanApplicationsData.get_applications()
@@ -153,6 +153,19 @@ func test_every_applicants_worksheet_fits() -> void:
 		open_next(application)
 		review.run_credit_check_button.pressed.emit()
 		assert_str(review.run_credit_check_button.text).is_equal(LoanReviewScreen.SHOW_WORKSHEET_TEXT)
+		# The request checklist (not offered on the teaching cases), every item
+		# ticked, is one of the screen's tall states too.
+		if review.request_button.visible and not review.request_button.disabled:
+			review.request_button.pressed.emit()
+			for check: CheckBox in review.request_checks.values():
+				check.button_pressed = true
+			await frames(4)
+			var request_problems := layout_problems(review.main_panel)
+			request_problems.append_array(controls_line_problems(review.main_panel))
+			assert_array(request_problems).override_failure_message("%s request:
+%s" % [application.applicant_name, "
+".join(request_problems)]).is_empty()
+			review.cancel_request_button.pressed.emit()
 		review.reject_button.pressed.emit()
 		await frames(4)
 		var problems := layout_problems(review.main_panel)
