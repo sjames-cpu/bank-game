@@ -116,6 +116,11 @@ static func teaching_cases() -> Array[LoanApplication]:
 				cases.append(application)
 	return cases
 
+## One of the first Loan Officer shift's three teaching cases (the review
+## screen offers no request for more documents on these).
+static func is_teaching_case(applicant_name: String) -> bool:
+	return TEACHING_CASE_NAMES.has(applicant_name)
+
 static func is_sample_name(applicant_name: String) -> bool:
 	for application in _samples():
 		if application.applicant_name == applicant_name:

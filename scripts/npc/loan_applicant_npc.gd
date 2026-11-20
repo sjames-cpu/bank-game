@@ -21,6 +21,8 @@ const APPROVED_LINES: Array[String] = ["Wonderful, thank you!", "That's great ne
 const COUNTER_LINES: Array[String] = ["Hmm, I'll think about that offer.", "Less than I hoped. I'll consider it."]
 const REJECTED_LINES: Array[String] = ["Oh. That's disappointing.", "I see. Thanks anyway."]
 const UNVERIFIED_LINES: Array[String] = ["I'll come back with the right papers.", "Fine. I'll sort my documents out."]
+## Asked to bring more documents (a request, not yet a decision).
+const REQUEST_LINES: Array[String] = ["I'll bring those in as soon as I can.", "Okay, I'll get those papers together."]
 ## Sent away before being seen (the desk changed hands).
 const SENT_AWAY_LINE: String = "I'll come back another time."
 
@@ -50,6 +52,8 @@ static func purpose_line(purpose: String, pick: int) -> String:
 static func reaction_line(application: LoanApplication, pick: int) -> String:
 	var lines: Array[String] = REJECTED_LINES
 	match application.decision:
+		LoanApplication.DecisionType.NONE:
+			lines = REQUEST_LINES
 		LoanApplication.DecisionType.APPROVE:
 			lines = APPROVED_LINES
 		LoanApplication.DecisionType.COUNTER_OFFER:

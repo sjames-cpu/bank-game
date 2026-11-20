@@ -47,3 +47,25 @@ const QUALITY_WRONG: float = 0.05
 ## pay stub, the statement and the photo ID are missing when the
 ## application's own documents say so.
 const NEW_ITEM_MISSING_CHANCE: float = 0.08
+
+# --- grading a request for more documents (LoanRequirements.grade_request) ---
+
+## A request whose checklist is exactly right (every truly missing item
+## ticked and nothing else): the request's own reward, well under a correct
+## final decision (LoanApplication.BEST_DECISION_SCORE, 10), so a request
+## followed by that decision (two slots) earns less per slot than deciding a
+## good file at once.
+const REQUEST_RIGHT_SCORE: int = 3
+## Each ticked item that is not missing, and each missing item left unticked.
+const REQUEST_WRONG_TICK_SCORE: int = -1
+const REQUEST_MISSED_ITEM_SCORE: int = -1
+## A request on a file with nothing missing (the whole request, however many
+## items were ticked).
+const REQUEST_COMPLETE_FILE_SCORE: int = -2
+## A request on a file whose problem is a forged or wrong document (the stub
+## or statement doesn't show the stated income, the stub is in another
+## name, the ID's name or photo doesn't match): more documents can't fix
+## that, and Reject naming "could not be verified" is the best answer.
+const REQUEST_FORGED_SCORE: int = -3
+## Reputation never moves for a request.
+const REQUEST_REPUTATION: int = 0

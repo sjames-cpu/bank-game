@@ -784,6 +784,17 @@ func weak_points() -> Array[DenialReason]:
 func documents_check_out() -> bool:
 	return doc_problem == DocProblem.NONE and id_problem == IdCard.Problem.NONE
 
+## A document that is there but wrong, which asking for more documents can't
+## fix: the pay stub and statement show less than the stated income, the stub
+## is in another name, or the ID's name or photo doesn't match.
+func has_forged_document() -> bool:
+	return doc_problem == DocProblem.OVERSTATED_INCOME or doc_problem == DocProblem.STUB_NAME 		or id_problem == IdCard.Problem.NAME_MISMATCH or id_problem == IdCard.Problem.WRONG_PORTRAIT
+
+## Documents that are simply not there (or an expired ID), with nothing
+## forged: the applicant can bring them, so asking is the best call.
+func is_missing_documents_only() -> bool:
+	return not documents_check_out() and not has_forged_document()
+
 ## The payroll deposits on the statement, added up (whole dollars).
 func statement_total() -> int:
 	var total := 0
@@ -991,7 +1002,10 @@ func grade_documents(reasons: Array[DenialReason], verified: bool) -> Dictionary
 	var ok := documents_check_out()
 	var rejected := decision == DecisionType.REJECT
 	var grade_value := grade_decision()
-	var caught := not ok and rejected and reasons.has(DenialReason.UNVERIFIED)
+	# Missing (not forged) documents: asking for them is the best call, so a
+	# rejection, whatever its reasons, is only partial credit.
+	var missing_only := is_missing_documents_only()
+	var caught := not ok and rejected and reasons.has(DenialReason.UNVERIFIED) and not missing_only
 	if not ok and rejected and not caught:
 		grade_value = Grade.PARTIAL
 	var score := score_for_grade(grade_value)

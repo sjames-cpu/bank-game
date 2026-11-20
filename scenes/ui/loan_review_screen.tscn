@@ -152,6 +152,21 @@ layout_mode = 2
 theme_type_variation = &"PrimaryButton"
 text = "Counter-Offer"
 
+[node name="RequestRow" type="VBoxContainer" parent="Panel/VBox/Columns/LeftVBox"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="RequestButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/RequestRow"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Request More Documents"
+
+[node name="RequestNoteLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/RequestRow"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+horizontal_alignment = 1
+autowrap_mode = 2
+
 [node name="CounterOfferVBox" type="VBoxContainer" parent="Panel/VBox/Columns/LeftVBox"]
 visible = false
 layout_mode = 2
@@ -211,6 +226,33 @@ theme_type_variation = &"PrimaryButton"
 text = "Reject Application"
 
 [node name="CancelDenialButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/ReasonsVBox/ReasonsHBox"]
+layout_mode = 2
+text = "Cancel"
+
+[node name="RequestVBox" type="VBoxContainer" parent="Panel/VBox/Columns/LeftVBox"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="RequestLabel" type="Label" parent="Panel/VBox/Columns/LeftVBox/RequestVBox"]
+layout_mode = 2
+text = "Ask the applicant to bring (tick what is missing):"
+autowrap_mode = 2
+
+[node name="RequestChecks" type="VBoxContainer" parent="Panel/VBox/Columns/LeftVBox/RequestVBox"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="RequestButtonsHBox" type="HBoxContainer" parent="Panel/VBox/Columns/LeftVBox/RequestVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="ConfirmRequestButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/RequestVBox/RequestButtonsHBox"]
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Send Request"
+
+[node name="CancelRequestButton" type="Button" parent="Panel/VBox/Columns/LeftVBox/RequestVBox/RequestButtonsHBox"]
 layout_mode = 2
 text = "Cancel"
 

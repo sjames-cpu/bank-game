@@ -64,6 +64,16 @@ class_name LoanReviewScreen
 @onready var submit_denial_button: Button = $Panel/VBox/Columns/LeftVBox/ReasonsVBox/ReasonsHBox/SubmitDenialButton
 @onready var cancel_denial_button: Button = $Panel/VBox/Columns/LeftVBox/ReasonsVBox/ReasonsHBox/CancelDenialButton
 @onready var decision_status_label: Label = $Panel/VBox/Columns/LeftVBox/DecisionStatusLabel
+## Request more documents (LoanRequirements, LoanPipeline): the button and its
+## one-line note (why it is off, or why there is none) sit under the decisions;
+## the checklist takes the decisions' place while it is open.
+@onready var request_row: VBoxContainer = $Panel/VBox/Columns/LeftVBox/RequestRow
+@onready var request_button: Button = $Panel/VBox/Columns/LeftVBox/RequestRow/RequestButton
+@onready var request_note_label: Label = $Panel/VBox/Columns/LeftVBox/RequestRow/RequestNoteLabel
+@onready var request_vbox: VBoxContainer = $Panel/VBox/Columns/LeftVBox/RequestVBox
+@onready var request_checks_vbox: VBoxContainer = $Panel/VBox/Columns/LeftVBox/RequestVBox/RequestChecks
+@onready var confirm_request_button: Button = $Panel/VBox/Columns/LeftVBox/RequestVBox/RequestButtonsHBox/ConfirmRequestButton
+@onready var cancel_request_button: Button = $Panel/VBox/Columns/LeftVBox/RequestVBox/RequestButtonsHBox/CancelRequestButton
 @onready var worksheet_placeholder_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetPlaceholderLabel
 @onready var worksheet_rows_vbox: VBoxContainer = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetRows
 @onready var worksheet_title_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/WorksheetTitleLabel
@@ -98,6 +108,17 @@ const SHOW_DOCUMENTS_TEXT: String = "Show Documents"
 const VERIFY_TEXT: String = "Verify Documents"
 const CREDIT_CHECK_TEXT: String = "Run Credit Check"
 
+## Why Request More Documents is off, or not offered (one line each).
+const REQUEST_VERIFY_FIRST_TEXT: String = "Verify the documents first."
+const REQUEST_FULL_TEXT: String = "Three files are already waiting for documents."
+const REQUEST_TWICE_TEXT: String = "This file has already asked for documents twice."
+const REQUEST_STILL_OUT_TEXT: String = "This applicant is still bringing documents."
+const REQUEST_TEACHING_TEXT: String = "Asking for more documents starts after these practice applications."
+## Shown when a request is refused at the moment it is confirmed (something
+## changed since the checklist opened).
+const REQUEST_REFUSED_TEXT: String = "Request not sent: %s"
+const REQUEST_NO_ITEMS_TEXT: String = "Tick at least one document."
+
 enum WorksheetTab { PAYMENTS, COLLATERAL }
 const TAB_TITLES: Array[String] = ["Payments", "Collateral"]
 
@@ -119,6 +140,10 @@ var _current_application: LoanApplication = null
 ## value (listed on screen in LoanApplication.DENIAL_REASON_ORDER).
 var reason_checks: Array[CheckBox] = []
 
+## One CheckBox per item of the request checklist shown now (only the items
+## that apply to this application), by LoanRequirements.Item.
+var request_checks: Dictionary[int, CheckBox] = {}
+
 ## Whether _record_decision() has run for _current_application yet — reset
 ## each time a new application is displayed, set once a decision is
 ## recorded. Read by hide_screen() so closed can tell the shift loop
@@ -136,6 +161,13 @@ func _ready() -> void:
 	submit_counter_offer_button.pressed.connect(_on_submit_counter_offer_button_pressed)
 	cancel_counter_offer_button.pressed.connect(_on_cancel_counter_offer_button_pressed)
 	submit_denial_button.pressed.connect(_on_submit_denial_button_pressed)
+	request_button.pressed.connect(_on_request_button_pressed)
+	confirm_request_button.pressed.connect(_on_confirm_request_button_pressed)
+	cancel_request_button.pressed.connect(_on_cancel_request_button_pressed)
+	request_note_label.add_theme_font_size_override("font_size", EXPLANATION_FONT_SIZE)
+	# The request row follows what else is open in the decision area.
+	for watched: Control in [counter_offer_vbox, reasons_vbox, request_vbox]:
+		watched.visibility_changed.connect(_refresh_request)
 	cancel_denial_button.pressed.connect(_on_cancel_denial_button_pressed)
 	decision_status_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	terms_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
@@ -146,21 +178,26 @@ func _ready() -> void:
 	counter_offer_down_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	reason_checks.resize(LoanApplication.DenialReason.size())
 	for reason: LoanApplication.DenialReason in LoanApplication.DENIAL_REASON_ORDER:
-		var check := CheckBox.new()
-		check.text = LoanApplication.denial_reason_label(reason)
-		# Compact rows: the theme's button panel makes each twice as tall.
-		var compact := StyleBoxEmpty.new()
-		compact.content_margin_left = 4.0
-		compact.content_margin_top = 0.0
-		compact.content_margin_bottom = 0.0
-		for style: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-			check.add_theme_stylebox_override(style, compact)
-		# Seven reasons in the left column: a size smaller than body text keeps
-		# the screen clear of the controls line at its tallest.
-		check.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
+		var check := _compact_check(LoanApplication.denial_reason_label(reason))
 		check.toggled.connect(_on_reason_toggled.bind(check))
 		reason_checks_vbox.add_child(check)
 		reason_checks[reason] = check
+
+## A checkbox in the compact style the denial reasons and the request
+## checklist share: the theme's button panel would make each row twice as
+## tall, and a size below body text keeps the screen clear of the controls
+## line at its tallest.
+func _compact_check(text: String) -> CheckBox:
+	var check := CheckBox.new()
+	check.text = text
+	var compact := StyleBoxEmpty.new()
+	compact.content_margin_left = 4.0
+	compact.content_margin_top = 0.0
+	compact.content_margin_bottom = 0.0
+	for style: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		check.add_theme_stylebox_override(style, compact)
+	check.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
+	return check
 
 func show_screen() -> void:
 	_display_next_application()
@@ -226,6 +263,8 @@ func _display_next_application() -> void:
 	counter_offer_vbox.visible = false
 	reasons_vbox.visible = false
 	decision_status_label.visible = false
+	request_vbox.visible = false
+	_refresh_request()
 	application_shown.emit(application)
 
 ## The application form's income: "Stated income: $72,000 a year ($6,000/mo)".
@@ -278,6 +317,7 @@ func _on_verify_documents_button_pressed() -> void:
 	documents_verified = true
 	_fill_documents(_current_application)
 	_show_documents_view(true)
+	_refresh_request()
 
 func _show_documents_view(show_documents: bool) -> void:
 	documents_vbox.visible = show_documents
@@ -530,6 +570,148 @@ func _on_cancel_denial_button_pressed() -> void:
 	reasons_vbox.visible = false
 	decision_hbox.visible = true
 
+# --- request more documents ---------------------------------------------------------
+
+## Why a request can't be made on `application` now, one line, or "" if it
+## can: the documents not looked at yet, three files already open, or this
+## file's own limit (twice) or wait (the applicant is still out).
+static func request_block_reason(application: LoanApplication, verified: bool, today: int) -> String:
+	if not verified:
+		return REQUEST_VERIFY_FIRST_TEXT
+	var probe: Array[int] = [LoanRequirements.Item.PAY_STUB]
+	var refusal := LoanRole.pipeline.refusal_for(application, probe, today)
+	return "" if refusal == LoanPipeline.Refusal.NONE else request_refusal_text(refusal)
+
+## Why `refusal` (LoanPipeline.refusal_for()) stops a request, one line.
+static func request_refusal_text(refusal: LoanPipeline.Refusal) -> String:
+	match refusal:
+		LoanPipeline.Refusal.FULL:
+			return REQUEST_FULL_TEXT
+		LoanPipeline.Refusal.TOO_MANY_REQUESTS:
+			return REQUEST_TWICE_TEXT
+		LoanPipeline.Refusal.STILL_OUT:
+			return REQUEST_STILL_OUT_TEXT
+	return REQUEST_NO_ITEMS_TEXT
+
+## The request row: shown while nothing else is open in the decision area
+## and the application isn't decided; the button off with its reason, or, on
+## a teaching case, not offered at all and a line saying why.
+func _refresh_request() -> void:
+	var application := _current_application
+	var other_open := counter_offer_vbox.visible or reasons_vbox.visible or request_vbox.visible
+	request_row.visible = application != null and not _decision_made_for_current and not other_open
+	if application == null:
+		return
+	var teaching := LoanApplicationsData.is_teaching_case(application.applicant_name)
+	var reason := REQUEST_TEACHING_TEXT if teaching else request_block_reason(application, documents_verified, GameClock.day)
+	request_button.visible = not teaching
+	request_button.disabled = reason != ""
+	request_note_label.text = reason
+	request_note_label.visible = reason != ""
+
+func _on_request_button_pressed() -> void:
+	if _current_application == null or request_button.disabled:
+		return
+	for child in request_checks_vbox.get_children():
+		request_checks_vbox.remove_child(child)
+		child.queue_free()
+	request_checks.clear()
+	# Only the documents that matter for this application.
+	for item in LoanRequirements.all_items():
+		if LoanRequirements.applies(_current_application, item):
+			var check := _compact_check(LoanRequirements.label(item))
+			check.toggled.connect(_on_request_item_toggled)
+			request_checks_vbox.add_child(check)
+			request_checks[item] = check
+	confirm_request_button.disabled = true
+	decision_hbox.visible = false
+	# A refusal's message from an earlier try goes.
+	decision_status_label.visible = false
+	request_vbox.visible = true
+
+func _on_request_item_toggled(_pressed: bool) -> void:
+	confirm_request_button.disabled = request_ticked_items().is_empty()
+
+## The ticked items, in checklist order.
+func request_ticked_items() -> Array[int]:
+	var ticked: Array[int] = []
+	for item in LoanRequirements.all_items():
+		if request_checks.has(item) and request_checks[item].button_pressed:
+			ticked.append(item)
+	return ticked
+
+func _on_cancel_request_button_pressed() -> void:
+	request_vbox.visible = false
+	decision_hbox.visible = credit_checked
+
+## Sends the file into the pipeline (LoanRole), off the pile (the next
+## applicant joins it) and counts it as this slot's application like a
+## decision (decision_graded). The application's `decision` stays NONE, no
+## history record is written (Approvals never sees a request) and nothing is
+## booked.
+func _on_confirm_request_button_pressed() -> void:
+	var application := _current_application
+	var ticked := request_ticked_items()
+	if application == null or ticked.is_empty():
+		return
+	var missing := LoanRequirements.missing_now(application, LoanDeskManager.career_seed, GameClock.day)
+	var result := LoanRequirements.grade_request(application, ticked, missing)
+	var refusal := LoanRole.pipeline.refusal_for(application, ticked, GameClock.day)
+	var file: LoanFile = null
+	if refusal == LoanPipeline.Refusal.NONE:
+		file = LoanRole.request_documents(application, ticked)
+	if file == null:
+		# Refused at the last moment (a file went in since this opened): say
+		# why, back to the decisions, and the application stays on the desk.
+		request_vbox.visible = false
+		decision_hbox.visible = credit_checked
+		decision_status_label.visible = true
+		decision_status_label.text = REQUEST_REFUSED_TEXT % request_refusal_text(refusal)
+		_refresh_request()
+		return
+	_decision_made_for_current = true
+	LoanDeskManager.player_decided(application)
+	var score: int = result["score"]
+	var reputation_delta: int = result["reputation"]
+	var xp := score * XPManager.XP_PER_SCORE_POINT
+	ScoreManager.add_shift_score(score)
+	ReputationManager.add_reputation(reputation_delta)
+	XPManager.add_shift_xp(score)
+
+	request_vbox.visible = false
+	decision_hbox.visible = false
+	decision_status_label.visible = true
+	decision_status_label.text = request_feedback(file, result, xp)
+	decision_graded.emit(score, reputation_delta, xp)
+	decision_recorded.emit(application)
+	_refresh_request()
+
+## The feedback after a request: what was asked for and when it is due, how
+## it was graded, and what was right and what was missed (never more of the
+## file's hidden values than that).
+static func request_feedback(file: LoanFile, result: Dictionary, xp: int) -> String:
+	var kind: LoanRequirements.RequestKind = result["kind"]
+	var right: Array[int] = result["right"]
+	var wrong: Array[int] = result["wrong"]
+	var missed: Array[int] = result["missed"]
+	var lines: PackedStringArray = []
+	lines.append("Request sent: %s. Due %s." % [LoanRequirements.labels(file.items), BankCalendar.short_text(file.due_date())])
+	lines.append("%s (%+d Score, %+d Reputation, %+d XP)" % [LoanRequirements.request_description(kind), result["score"], result["reputation"], xp])
+	match kind:
+		LoanRequirements.RequestKind.COMPLETE_FILE:
+			lines.append("Nothing was missing from this file.")
+		LoanRequirements.RequestKind.FORGED:
+			lines.append("The problem was a document that doesn't match: asking for more can't fix that. Reject it as unverifiable.")
+		_:
+			if not right.is_empty():
+				lines.append("Right: %s." % LoanRequirements.labels(right))
+			if not wrong.is_empty():
+				lines.append("Not missing: %s." % LoanRequirements.labels(wrong))
+			if not missed.is_empty():
+				lines.append("Missed: %s." % LoanRequirements.labels(missed))
+	return "
+".join(lines)
+
 ## Stores the decision on the current application, grades it against
 ## risk_assessment (a counter-offer on its amount, a denial's stated reasons
 ## on top), and applies the resulting Score/Reputation/XP — the same
@@ -590,6 +772,7 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 
 	decision_graded.emit(score, reputation_delta, xp)
 	decision_recorded.emit(application)
+	_refresh_request()
 
 ## What the documents meant for this decision, one line each (revealing,
 ## after the fact, what was wrong with them).
@@ -600,7 +783,10 @@ static func documents_feedback(application: LoanApplication, result: Dictionary)
 		lines.append("Good catch: %s." % problem)
 	elif not application.documents_check_out():
 		if application.decision == LoanApplication.DecisionType.REJECT:
-			lines.append("The documents didn't check out (%s): that was the reason to give." % problem)
+			if application.is_missing_documents_only():
+				lines.append("Rejecting works, but asking the applicant to bring the missing documents (%s) is the better call." % problem)
+			else:
+				lines.append("The documents didn't check out (%s): that was the reason to give." % problem)
 		else:
 			lines.append("Serious: the income or identity was never verified (%s)." % problem)
 	if result["false_unverified"]:

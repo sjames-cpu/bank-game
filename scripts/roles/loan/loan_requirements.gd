@@ -81,3 +81,66 @@ static func missing_items(application: LoanApplication, career_seed: int) -> Arr
 ## one, one more for each further item, at most 5.
 static func due_days(item_count: int) -> int:
 	return clampi(LoanConfig.DUE_DAYS_MIN + maxi(0, item_count - 1), LoanConfig.DUE_DAYS_MIN, LoanConfig.DUE_DAYS_MAX)
+
+# --- grading a request -----------------------------------------------------------------
+
+## How a request on a file turned out.
+enum RequestKind { EXACT, OFF, COMPLETE_FILE, FORGED }
+
+## The items truly missing from `application` now: what its file still lacks
+## after earlier requests, or, with no file yet, everything it is missing.
+static func missing_now(application: LoanApplication, career_seed: int, today: int) -> Array[int]:
+	var file := LoanRole.pipeline.file_for(application)
+	if file != null:
+		return file.still_missing(career_seed, today)
+	return missing_items(application, career_seed)
+
+## Grades a request for `ticked` on `application` against what is truly
+## missing (`missing`): {"kind", "score", "reputation", "right" (ticked and
+## missing), "wrong" (ticked, not missing), "missed" (missing, not ticked)}.
+## A forged or wrong document makes any request wrong (FORGED); a file with
+## nothing missing costs REQUEST_COMPLETE_FILE_SCORE however much was ticked;
+## otherwise an exactly right checklist earns REQUEST_RIGHT_SCORE and every
+## wrong tick or missed item costs one point.
+static func grade_request(application: LoanApplication, ticked: Array[int], missing: Array[int]) -> Dictionary:
+	var right: Array[int] = []
+	var wrong: Array[int] = []
+	var missed: Array[int] = []
+	for item in ticked:
+		if missing.has(item):
+			right.append(item)
+		else:
+			wrong.append(item)
+	for item in missing:
+		if not ticked.has(item):
+			missed.append(item)
+	var kind := RequestKind.OFF
+	var score := wrong.size() * LoanConfig.REQUEST_WRONG_TICK_SCORE + missed.size() * LoanConfig.REQUEST_MISSED_ITEM_SCORE
+	if application.has_forged_document():
+		kind = RequestKind.FORGED
+		score = LoanConfig.REQUEST_FORGED_SCORE
+	elif missing.is_empty():
+		kind = RequestKind.COMPLETE_FILE
+		score = LoanConfig.REQUEST_COMPLETE_FILE_SCORE
+	elif wrong.is_empty() and missed.is_empty():
+		kind = RequestKind.EXACT
+		score = LoanConfig.REQUEST_RIGHT_SCORE
+	return {"kind": kind, "score": score, "reputation": LoanConfig.REQUEST_REPUTATION, "right": right, "wrong": wrong, "missed": missed}
+
+## What the request amounted to, in a few words.
+static func request_description(kind: RequestKind) -> String:
+	match kind:
+		RequestKind.EXACT:
+			return "Right documents asked for"
+		RequestKind.COMPLETE_FILE:
+			return "No documents were needed"
+		RequestKind.FORGED:
+			return "A request can't fix a forged document"
+	return "The checklist was partly off"
+
+## "Pay stub, Bank statement" for a list of items.
+static func labels(items: Array[int]) -> String:
+	var names: PackedStringArray = []
+	for item in items:
+		names.append(label(item))
+	return ", ".join(names)
