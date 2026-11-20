@@ -289,9 +289,11 @@ func _resolve(loan: BookedLoan) -> void:
 func _event(text: String, by_player: bool) -> void:
 	today_events.append({"text": text, "by_player": by_player})
 
-## Today's loan events for the End of Day summary: the player's own loans
-## always, the staff's too for a Branch Manager (`whole_branch`). At most
-## MAX_EVENT_LINES, then "… and N more".
+## Today's loan events for the End of Day summary: first what happened to the
+## files waiting for documents (back, withdrawn, never came back:
+## LoanPipeline.summary_lines(), at most three lines), then the player's own
+## loans always, the staff's too for a Branch Manager (`whole_branch`). At
+## most MAX_EVENT_LINES of those, then "… and N more".
 func summary_lines(whole_branch: bool) -> PackedStringArray:
 	var shown: Array[String] = []
 	for event in today_events:
@@ -299,7 +301,7 @@ func summary_lines(whole_branch: bool) -> PackedStringArray:
 		if by_player or whole_branch:
 			var text: String = event["text"]
 			shown.append(text + (" (yours)" if by_player and whole_branch else ""))
-	var lines: PackedStringArray = []
+	var lines: PackedStringArray = LoanRole.pipeline.summary_lines(GameClock.day)
 	for i in mini(shown.size(), MAX_EVENT_LINES):
 		lines.append(shown[i])
 	if shown.size() > MAX_EVENT_LINES:
