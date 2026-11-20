@@ -410,7 +410,7 @@ func test_papers_brought_back_are_shown_with_verify_documents() -> void:
 	review.verify_documents_button.pressed.emit()
 	assert_str(review.papers_label.text).contains("not this property")
 	assert_int(other.doc_problem).is_equal(LoanApplication.DocProblem.PAPER_MISMATCH)
-	assert_str(other.documents_problem_text()).contains("appraisal didn't match")
+	assert_str(other.documents_problem_text()).contains("a paper they brought back didn't match")
 
 func test_nothing_is_shown_for_papers_when_none_came() -> void:
 	loan_day_at_9am()
@@ -627,10 +627,14 @@ func test_a_branch_manager_is_never_penalised() -> void:
 	var start := score_and_reputation()
 	var xp := XPManager.total_xp
 	GameClock.day = 9
-	assert_array(LoanRole.start_of_day()).is_equal([file])
+	assert_bool(file != null).is_true()
+	# Nothing from the pipeline runs for a Branch Manager: the file goes to
+	# the staff quietly, not withdrawn with a penalty.
+	assert_array(LoanRole.start_of_day()).is_empty()
+	assert_bool(LoanRole.pipeline.is_empty()).is_true()
 	assert_vector(score_and_reputation()).is_equal(start)
 	assert_int(XPManager.total_xp).is_equal(xp)
-	assert_array(Array(LoanBookManager.summary_lines(false))).is_equal(["Files withdrawn, not decided in time: " + file.application.applicant_name])
+	assert_array(Array(LoanBookManager.summary_lines(false))).is_equal(["Open loan files were passed to your staff"])
 	# And Branch Manager days never count towards the clock.
 	GameClock.day = 10
 	var other := request_file(filed_application([STATEMENT]), [STATEMENT] as Array[int], 10)
@@ -1046,14 +1050,14 @@ func test_a_returned_file_and_what_it_brought_survive_a_save_and_a_load() -> voi
 	var application := home_application()
 	var file := request_file(application, [APPRAISAL, STATEMENT] as Array[int], GameClock.day, LoanFile.Quality.INCOMPLETE, STATEMENT)
 	LoanReturn.apply(file, LoanDeskManager.career_seed, GameClock.day)
-	assert_array(Array(application.papers_received)).is_equal([APPRAISAL])
+	assert_array(file.papers).is_equal([APPRAISAL])
 	var career := through_json(SaveGame.capture())
 	CareerReset.reset_all()
 	SaveGame.restore(career)
 	var loaded := LoanRole.pipeline.files[0]
 	assert_int(loaded.return_applied).is_equal(1)
-	assert_array(Array(loaded.application.papers_received)).is_equal([APPRAISAL])
-	assert_int(loaded.application.paper_mismatch_item).is_equal(-1)
+	assert_array(loaded.papers).is_equal([APPRAISAL])
+	assert_int(loaded.mismatched_paper).is_equal(-1)
 	# Applying again after a load changes nothing.
 	var saved := SaveGame.resource_to_dict(loaded.application)
 	LoanReturn.apply(loaded, LoanDeskManager.career_seed, GameClock.day)
