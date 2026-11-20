@@ -346,6 +346,13 @@ layout_mode = 2
 text = "Bank statement"
 autowrap_mode = 2
 
+[node name="PapersLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox"]
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Papers"
+autowrap_mode = 2
+
 [node name="DocumentsPolicyLabel" type="Label" parent="Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox"]
 layout_mode = 2
 theme_type_variation = &"MutedLabel"

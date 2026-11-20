@@ -87,6 +87,9 @@ class_name LoanReviewScreen
 @onready var id_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/IdHBox/IdLabel
 @onready var stub_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/StubLabel
 @onready var statement_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/StatementLabel
+## Papers brought back on request (the appraisal, the proof of the down
+## payment, the letter): hidden until there are any.
+@onready var papers_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/PapersLabel
 @onready var documents_policy_label: Label = $Panel/VBox/Columns/WorksheetSection/WorksheetVBox/DocumentsVBox/DocumentsPolicyLabel
 @onready var credit_report_placeholder_label: Label = $Panel/VBox/Columns/CreditReportSection/CreditReportVBox/CreditReportPlaceholderLabel
 @onready var credit_report_rows_vbox: VBoxContainer = $Panel/VBox/Columns/CreditReportSection/CreditReportVBox/CreditReportRows
@@ -303,10 +306,21 @@ func _fill_documents(application: LoanApplication) -> void:
 	stub_label.text = rows[1]
 	statement_label.text = rows[2]
 	documents_policy_label.text = rows[3]
+	var papers := LoanReturn.papers_lines(application)
+	papers_label.text = "\n".join(papers)
+	papers_label.visible = not papers.is_empty()
+	# Papers brought back take the policy paragraph's place (the date stays,
+	# for checking an ID's expiry), so the screen is no taller than without them.
+	if not papers.is_empty():
+		documents_policy_label.text = "Today: %s." % IdCard.date_text(GameClock.today_date())
 
 ## The documents as shown (for tests).
 func documents_text() -> String:
-	return "\n".join([id_label.text, stub_label.text, statement_label.text, documents_policy_label.text])
+	var parts: Array[String] = [id_label.text, stub_label.text, statement_label.text]
+	if papers_label.visible:
+		parts.append(papers_label.text)
+	parts.append(documents_policy_label.text)
+	return "\n".join(parts)
 
 ## Verify Documents: the right column shows the documents, beside the
 ## application form's stated income on the left. Looking at them is what
@@ -725,8 +739,10 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 	application.decision = decision_type
 	application.decision_amount = amount
 	_decision_made_for_current = true
-	# Off the pile; the next one joins it.
+	# Off the pile; the next one joins it. A returned file's applicant has no
+	# more business here: the file closes.
 	LoanDeskManager.player_decided(application)
+	LoanRole.pipeline.close(application)
 	# Into the loan book (an approval or counter-offer), or counted as a good
 	# applicant turned away.
 	LoanBookManager.note_decision(application, true, LoanBookManager.PLAYER_MAKER)

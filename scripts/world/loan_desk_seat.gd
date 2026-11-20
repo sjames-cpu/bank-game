@@ -127,7 +127,7 @@ func _on_arrived() -> void:
 	if phase != Phase.WALKING_IN:
 		return
 	phase = Phase.SEATED
-	applicant.say(LoanApplicantNPC.purpose_line(application.loan_purpose, line_rng.randi()), LINE_SECONDS)
+	applicant.say(LoanApplicantNPC.arrival_line(application, line_rng.randi()), LINE_SECONDS)
 	seated.emit(application)
 
 ## The applicant says `line` and walks out; the seat is empty once they've

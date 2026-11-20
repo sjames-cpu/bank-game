@@ -38,6 +38,10 @@ var short_item: int = -1
 var wrong_item: int = -1
 ## Items handed over properly by earlier requests.
 var delivered_before: Array[int] = []
+## The request whose return is already on the application (LoanReturn): 0
+## until a return has been applied, then request_count of that request. A
+## further request (request_count + 1) is not applied until it comes back.
+var return_applied: int = 0
 
 ## Asks for `asked` on business day `today`: sets the due day and rolls the
 ## answer. A further request (the applicant has come back, and still needed
@@ -101,6 +105,39 @@ func is_expired(today: int) -> bool:
 func is_waiting(today: int) -> bool:
 	return not has_returned(today) and not is_expired(today)
 
+## The clock on a returned file runs only on days when the player's chosen
+## role was Loan Officer: a Teller's day (or any other role's, or a day with no
+## role recorded) doesn't count, and the file waits. `role_days` is the
+## recorded role of each business day (LoanRole.role_days: day number to
+## PlayerShift.Role). This counts the Loan Officer days after the file came
+## back and before `today`: whole days that are over.
+func loan_officer_days_since_return(today: int, role_days: Dictionary) -> int:
+	var count := 0
+	for day in range(return_day + 1, today):
+		if role_days.get(day, PlayerShift.Role.NONE) == PlayerShift.Role.LOAN_OFFICER:
+			count += 1
+	return count
+
+## Loan Officer days still left to decide it in (0: overdue).
+func decide_days_left(today: int, role_days: Dictionary) -> int:
+	return maxi(0, LoanConfig.DECIDE_WITHIN_DAYS - loan_officer_days_since_return(today, role_days))
+
+## Back, and its LoanConfig.DECIDE_WITHIN_DAYS Loan Officer days are used up:
+## withdrawn at the start of `today`. A pure function of the day numbers and
+## the recorded roles.
+func is_overdue(today: int, role_days: Dictionary) -> bool:
+	return has_returned(today) and decide_days_left(today, role_days) == 0
+
+## The day a returned file is decided by if the player works as a Loan Officer
+## from `today` on (each Teller day pushes it back). Only meaningful while it
+## isn't overdue.
+func decide_by_day(today: int, role_days: Dictionary) -> int:
+	return today + maxi(1, decide_days_left(today, role_days)) - 1
+
+## decide_by_day() as a date (an epoch day).
+func decide_by_date(today: int, role_days: Dictionary) -> int:
+	return GameClock.date_of_day(decide_by_day(today, role_days))
+
 ## The due day's date (an epoch day: BankCalendar.short_text() and friends
 ## show it).
 func due_date() -> int:
@@ -149,6 +186,7 @@ func save_data() -> Dictionary:
 		"short_item": short_item,
 		"wrong_item": wrong_item,
 		"delivered_before": Array(delivered_before),
+		"return_applied": return_applied,
 	}
 
 ## A file from saved data, or null if it can't be read (no application, or a
@@ -176,6 +214,7 @@ static func from_data(data: Dictionary) -> LoanFile:
 	file.short_item = SaveGame.int_of(data, "short_item", -1)
 	file.wrong_item = SaveGame.int_of(data, "wrong_item", -1)
 	file.delivered_before = _items_of(data, "delivered_before")
+	file.return_applied = SaveGame.int_of(data, "return_applied", 0)
 	return file
 
 ## The checklist items in saved `key`, any unknown ones dropped.

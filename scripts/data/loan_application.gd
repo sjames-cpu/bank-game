@@ -56,7 +56,10 @@ enum Collateral { NONE, HOUSE, VEHICLE, EQUIPMENT, PROPERTY }
 ## its own IdCard.Problem): the income stated on the form is more than the pay
 ## stub and statement show; the pay stub is in someone else's name; or the pay
 ## stub or bank statement is missing. Rolled by LoanApplicantGenerator.
-enum DocProblem { NONE, OVERSTATED_INCOME, STUB_NAME, MISSING_STUB, MISSING_STATEMENT }
+# PAPER_MISMATCH (appended: saved values stay the same): an appraisal, proof of
+# down payment or explanation letter an applicant brought back that doesn't
+# match the application (paper_mismatch_item).
+enum DocProblem { NONE, OVERSTATED_INCOME, STUB_NAME, MISSING_STUB, MISSING_STATEMENT, PAPER_MISMATCH }
 
 ## --- Document checks (bank policy) ---
 ## Verified and caught: the decision's grade (BEST for a rejection naming
@@ -240,6 +243,11 @@ const BAND_RANGES: Array[String] = ["800+", "740-799", "670-739", "580-669", "un
 @export var has_statement: bool = true
 @export var statement_name: String = ""
 @export var statement_deposits: PackedInt32Array = PackedInt32Array()
+## Papers an applicant brought back on request that the form has no place for
+## (LoanRequirements.Item values: the appraisal, the proof of the down payment,
+## the explanation letter), and the one of them that doesn't match (-1: none).
+@export var papers_received: PackedInt32Array = PackedInt32Array()
+@export var paper_mismatch_item: int = -1
 
 ## --- The credit report (CreditReport.issue(), from the finance generator
 ## and the credit score alone; see CreditReport for the policy). Late
@@ -788,7 +796,7 @@ func documents_check_out() -> bool:
 ## fix: the pay stub and statement show less than the stated income, the stub
 ## is in another name, or the ID's name or photo doesn't match.
 func has_forged_document() -> bool:
-	return doc_problem == DocProblem.OVERSTATED_INCOME or doc_problem == DocProblem.STUB_NAME 		or id_problem == IdCard.Problem.NAME_MISMATCH or id_problem == IdCard.Problem.WRONG_PORTRAIT
+	return doc_problem == DocProblem.OVERSTATED_INCOME or doc_problem == DocProblem.STUB_NAME or doc_problem == DocProblem.PAPER_MISMATCH or id_problem == IdCard.Problem.NAME_MISMATCH or id_problem == IdCard.Problem.WRONG_PORTRAIT
 
 ## Documents that are simply not there (or an expired ID), with nothing
 ## forged: the applicant can bring them, so asking is the best call.
@@ -837,6 +845,8 @@ func documents_problem_text() -> String:
 			problems.append("there was no pay stub")
 		DocProblem.MISSING_STATEMENT:
 			problems.append("there was no bank statement")
+		DocProblem.PAPER_MISMATCH:
+			problems.append("the %s didn't match the application" % LoanRequirements.label(paper_mismatch_item).to_lower())
 	return " and ".join(problems) if not problems.is_empty() else "the documents checked out"
 
 # --- grading -----------------------------------------------------------------

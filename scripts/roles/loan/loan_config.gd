@@ -69,3 +69,12 @@ const REQUEST_COMPLETE_FILE_SCORE: int = -2
 const REQUEST_FORGED_SCORE: int = -3
 ## Reputation never moves for a request.
 const REQUEST_REPUTATION: int = 0
+
+# --- a returned file waiting for a decision (LoanFile, LoanPipeline) -----------
+
+## A returned file not decided within this many business days of the day it
+## came back is withdrawn at the start of the next work day.
+const DECIDE_WITHIN_DAYS: int = 3
+## What a withdrawn file costs (once per file; nothing if it is decided in time).
+const WITHDRAWN_SCORE: int = -2
+const WITHDRAWN_REPUTATION: int = -1

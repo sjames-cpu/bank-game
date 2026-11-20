@@ -55,10 +55,19 @@ func queue_size() -> int:
 
 # --- the player's pile -----------------------------------------------------------------
 
-## The application on the player's desk (the pile's first), noted as seen
-## today.
+## The application on the player's desk, noted as seen today: a file whose
+## applicant has come back with documents first (LoanRole.pipeline, the one
+## back longest first), which stays there until it is decided or sent off
+## with another request, then the pile's first. A returned file isn't in the
+## pile, which stays full.
 func current_player_application() -> LoanApplication:
 	_top_up()
+	var returned := LoanRole.pipeline.returned_files(GameClock.day)
+	if not returned.is_empty():
+		var file := returned[0]
+		LoanReturn.apply(file, career_seed, GameClock.day)
+		_note_name(file.application.applicant_name)
+		return file.application
 	var application := player_queue[0]
 	ensure_documents(application)
 	ensure_credit_report(application)

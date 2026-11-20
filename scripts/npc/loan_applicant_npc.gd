@@ -23,6 +23,11 @@ const REJECTED_LINES: Array[String] = ["Oh. That's disappointing.", "I see. Than
 const UNVERIFIED_LINES: Array[String] = ["I'll come back with the right papers.", "Fine. I'll sort my documents out."]
 ## Asked to bring more documents (a request, not yet a decision).
 const REQUEST_LINES: Array[String] = ["I'll bring those in as soon as I can.", "Okay, I'll get those papers together."]
+## On sitting down with the documents they were asked for: as asked, with
+## something still missing, and late.
+const RETURN_LINES: Array[String] = ["Here are the documents you asked for.", "I've brought the papers you asked for."]
+const RETURN_INCOMPLETE_LINES: Array[String] = ["I couldn't find everything, but this is what I have.", "This is most of it. I'm still looking for the rest."]
+const RETURN_LATE_LINES: Array[String] = ["Sorry I'm late. Here are the documents.", "Sorry for the wait. Here are your documents."]
 ## Sent away before being seen (the desk changed hands).
 const SENT_AWAY_LINE: String = "I'll come back another time."
 
@@ -42,6 +47,19 @@ func set_look(index: int) -> void:
 func _apply_look() -> void:
 	_sprite.sprite_frames = CustomerNPC.CUSTOMER_FRAME_SETS[look]
 	_sprite.play(&"idle_down")
+
+## What they say on sitting down: what the loan is for, or, for a file
+## whose documents are back (LoanRole.pipeline), that they have brought them.
+static func arrival_line(application: LoanApplication, pick: int) -> String:
+	var file := LoanRole.pipeline.file_for(application)
+	if file != null and file.has_returned(GameClock.day):
+		var lines := RETURN_LINES
+		if file.quality == LoanFile.Quality.INCOMPLETE:
+			lines = RETURN_INCOMPLETE_LINES
+		elif file.timing == LoanFile.Timing.LATE:
+			lines = RETURN_LATE_LINES
+		return lines[absi(pick) % lines.size()]
+	return purpose_line(application.loan_purpose, pick)
 
 static func purpose_line(purpose: String, pick: int) -> String:
 	var lines: Array = PURPOSE_LINES.get(purpose, ["I'd like to apply for a loan."])

@@ -23,6 +23,10 @@ class_name LoanOfficerScreen
 @onready var clock_out_button: Button = $Panel/VBox/ClockOutButton
 @onready var error_label: Label = $Panel/VBox/ErrorLabel
 @onready var close_button: Button = $Panel/VBox/CloseButton
+## The files waiting for documents (LoanRole.pipeline), shown only while there
+## are any.
+@onready var files_vbox: VBoxContainer = $Panel/VBox/FilesVBox
+@onready var files_label: Label = $Panel/VBox/FilesVBox/FilesLabel
 
 @onready var loan_review_screen: LoanReviewScreen = $LoanReviewScreen
 
@@ -94,6 +98,36 @@ func _on_close_button_pressed() -> void:
 func _show_main_panel() -> void:
 	shift_summary_panel.visible = false
 	main_panel.visible = true
+	_refresh_files()
+
+## The waiting list, one entry per file open today (LoanPipeline.open_files()):
+## files whose applicant is back first, marked, the one back longest first,
+## then the others by due day. Only what the Loan Officer knows: who, for
+## what loan, what was asked for, and the day it is due (or, for a file that
+## is back, the day to decide it by). Nothing about whether, or how well, a
+## file will come back.
+static func files_rows(today: int) -> PackedStringArray:
+	var rows := PackedStringArray()
+	var pipeline := LoanRole.pipeline
+	var waiting: Array[LoanFile] = []
+	for file in pipeline.open_files(today):
+		if not file.has_returned(today):
+			waiting.append(file)
+	waiting.sort_custom(func(a: LoanFile, b: LoanFile) -> bool: return a.due_day < b.due_day or (a.due_day == b.due_day and a.number < b.number))
+	for file in pipeline.returned_files(today):
+		rows.append("%s · %s loan: back\nAsked for: %s\nDecide by %s (Loan Officer days)" % [
+			file.application.applicant_name, file.application.loan_purpose.to_lower(),
+			LoanRequirements.labels(file.items), BankCalendar.short_text(file.decide_by_date(today, LoanRole.role_days))])
+	for file in waiting:
+		rows.append("%s · %s loan\nAsked for: %s\nDue %s" % [
+			file.application.applicant_name, file.application.loan_purpose.to_lower(),
+			LoanRequirements.labels(file.items), BankCalendar.short_text(file.due_date())])
+	return rows
+
+func _refresh_files() -> void:
+	var rows := files_rows(GameClock.day)
+	files_vbox.visible = not rows.is_empty()
+	files_label.text = "\n\n".join(rows)
 
 ## No new shifts from Closing (BusinessDay.can_start_shift()).
 func _on_clock_in_button_pressed() -> void:

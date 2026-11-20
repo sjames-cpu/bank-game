@@ -73,6 +73,24 @@ text = "Shift just started — come back later."
 horizontal_alignment = 1
 autowrap_mode = 2
 
+[node name="FilesVBox" type="VBoxContainer" parent="Panel/VBox"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="FilesTitleLabel" type="Label" parent="Panel/VBox/FilesVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Files waiting for documents"
+horizontal_alignment = 1
+
+[node name="FilesLabel" type="Label" parent="Panel/VBox/FilesVBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 13
+text = ""
+autowrap_mode = 2
+
 [node name="CloseButton" type="Button" parent="Panel/VBox"]
 layout_mode = 2
 text = "Close"

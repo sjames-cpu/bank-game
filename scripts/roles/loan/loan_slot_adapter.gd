@@ -65,7 +65,14 @@ func _on_slot_started(slot: DaySlot) -> void:
 	_claimed = false
 	if slot.id == DaySchedule.OPENING:
 		screen.applications_per_shift = 0
+		# The start of a work day, whatever the player's role: files returned
+		# and not decided in time are withdrawn (once: LoanPipeline.start_of_day()).
+		LoanRole.start_of_day()
 		return
+	# The role the player chose today (their first clock-in) is known once the
+	# day's work slots start: the clock on a returned file counts the days
+	# recorded as Loan Officer.
+	LoanRole.note_role(GameClock.day, PlayerShift.role_today)
 	if not slot.is_work or not is_loan_officer_working():
 		return
 	_claimed = DayFlow.claim_work(self)
