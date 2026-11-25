@@ -52,6 +52,14 @@ var due_day: int = 0
 ## changes how a loan turns out). 0: none reserved.
 var loan_id: int = 0
 
+## What the loan will be booked as, frozen at the approval: its risk tier,
+## whether its documents checked out, and its collateral (the kind, or
+## LoanBookManager.COLLATERAL_UNKNOWN, and the value its LTV is measured on).
+var risk_tier: LoanApplication.RiskTier = LoanApplication.RiskTier.LOW
+var documents_ok: bool = true
+var collateral_kind: int = -1
+var collateral_value: float = 0.0
+
 var problem: Problem = Problem.NONE
 var terms_field: TermsField = TermsField.NONE
 
@@ -95,6 +103,12 @@ static func create(approved_loan: LoanApplication, day_approved: int, closing_nu
 	closing.approved_rate = approved_loan.annual_rate()
 	closing.approved_term = approved_loan.term_months()
 	closing.approved_payment = _cents(approved_loan.new_loan_payment(closing.approved_amount))
+	closing.risk_tier = approved_loan.calculate_risk_assessment()
+	closing.documents_ok = approved_loan.documents_check_out()
+	closing.collateral_kind = LoanBookManager.COLLATERAL_UNKNOWN
+	if approved_loan.collateral_issued:
+		closing.collateral_kind = approved_loan.collateral_kind if approved_loan.is_secured() else LoanApplication.Collateral.NONE
+	closing.collateral_value = approved_loan.value_for_ltv()
 	closing._roll(career_seed)
 	return closing
 
@@ -310,6 +324,10 @@ func save_data() -> Dictionary:
 		"approval_day": approval_day,
 		"due_day": due_day,
 		"loan_id": loan_id,
+		"risk_tier": risk_tier,
+		"documents_ok": documents_ok,
+		"collateral_kind": collateral_kind,
+		"collateral_value": collateral_value,
 		"problem": problem,
 		"terms_field": terms_field,
 		"paper_amount": paper_amount,
@@ -344,6 +362,10 @@ static func from_data(data: Dictionary) -> LoanClosing:
 	closing.approval_day = SaveGame.int_of(data, "approval_day", 0)
 	closing.due_day = SaveGame.int_of(data, "due_day", closing.approval_day + due_days_for(loaded.loan_purpose))
 	closing.loan_id = SaveGame.int_of(data, "loan_id", 0)
+	closing.risk_tier = clampi(SaveGame.int_of(data, "risk_tier", loaded.risk_assessment), LoanApplication.RiskTier.LOW, LoanApplication.RiskTier.HIGH) as LoanApplication.RiskTier
+	closing.documents_ok = SaveGame.bool_of(data, "documents_ok", loaded.documents_check_out())
+	closing.collateral_kind = SaveGame.int_of(data, "collateral_kind", LoanBookManager.COLLATERAL_UNKNOWN)
+	closing.collateral_value = SaveGame.float_of(data, "collateral_value", 0.0)
 	closing.problem = clampi(SaveGame.int_of(data, "problem", Problem.NONE), Problem.NONE, Problem.NEW_DEBT) as Problem
 	closing.terms_field = clampi(SaveGame.int_of(data, "terms_field", TermsField.NONE), TermsField.NONE, TermsField.PAYMENT) as TermsField
 	closing.paper_amount = SaveGame.float_of(data, "paper_amount", closing.approved_amount)

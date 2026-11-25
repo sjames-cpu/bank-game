@@ -744,8 +744,11 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 	LoanDeskManager.player_decided(application)
 	LoanRole.pipeline.close(application)
 	# Into the loan book (an approval or counter-offer), or counted as a good
-	# applicant turned away.
-	LoanBookManager.note_decision(application, true, LoanBookManager.PLAYER_MAKER)
+	# applicant turned away. With closings on, an approval or counter-offer
+	# opens a closing instead and is booked when it is funded; the first
+	# shift's three teaching cases are always booked at once.
+	var book_now := not LoanConfig.closings_enabled or LoanApplicationsData.is_teaching_case(application.applicant_name)
+	LoanBookManager.note_decision(application, true, LoanBookManager.PLAYER_MAKER, book_now)
 
 	# The documents (verified first or not) and the decision, together.
 	var result := application.grade_documents(reasons, documents_verified)

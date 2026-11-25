@@ -28,6 +28,13 @@ var log_lapsed: Array[Dictionary] = []
 ## Names of closings left open so long that they were closed quietly that day
 ## (no penalty, no booking, not a good applicant turned away).
 var log_abandoned: Array[String] = []
+## Names of the closings funded and stopped that day (LoanBookManager.fund(),
+## stop()), and how many open closings were funded and stopped by the staff at
+## a promotion that day.
+var log_funded: Array[String] = []
+var log_stopped: Array[String] = []
+var log_passed_funded: int = 0
+var log_passed_stopped: int = 0
 
 func reset() -> void:
 	closings.clear()
@@ -139,6 +146,73 @@ func _clear_log(day: int) -> void:
 	log_day = day
 	log_lapsed.clear()
 	log_abandoned.clear()
+	log_funded.clear()
+	log_stopped.clear()
+	log_passed_funded = 0
+	log_passed_stopped = 0
+
+# --- the day's log -----------------------------------------------------------------------
+
+## Starts (or goes on with) the log for `today`.
+func _log_for(today: int) -> void:
+	if log_day != today:
+		_clear_log(0)
+	log_day = today
+
+## `closing` was funded on `today` (it leaves the list).
+func note_funded(closing: LoanClosing, today: int) -> void:
+	closings.erase(closing)
+	_log_for(today)
+	log_funded.append(closing.application.applicant_name)
+
+## `closing` was stopped on `today` (it leaves the list).
+func note_stopped(closing: LoanClosing, today: int) -> void:
+	closings.erase(closing)
+	_log_for(today)
+	log_stopped.append(closing.application.applicant_name)
+
+## The staff dealt with the open closings at a promotion on `today`.
+func note_passed(funded: int, stopped: int, today: int) -> void:
+	if funded + stopped == 0:
+		return
+	_log_for(today)
+	log_passed_funded += funded
+	log_passed_stopped += stopped
+
+## The End of Day lines for `today` (nothing when nothing happened): closings
+## funded and stopped, closings that lapsed with what each cost, closings left
+## open so long they were closed quietly, closings the staff took over.
+func summary_lines(today: int) -> PackedStringArray:
+	var lines := PackedStringArray()
+	if log_day != today:
+		return lines
+	if not log_funded.is_empty():
+		lines.append("Closings funded: %s" % ", ".join(log_funded))
+	if not log_stopped.is_empty():
+		lines.append("Closings stopped: %s" % ", ".join(log_stopped))
+	if not log_lapsed.is_empty():
+		var entries := PackedStringArray()
+		for entry in log_lapsed:
+			entries.append(_lapsed_text(entry))
+		lines.append("Closings not completed in time: %s" % ", ".join(entries))
+	if not log_abandoned.is_empty():
+		lines.append("Closings left open too long were closed: %s" % ", ".join(log_abandoned))
+	if log_passed_funded + log_passed_stopped > 0:
+		lines.append("Closings passed to your staff: %d funded, %d stopped" % [log_passed_funded, log_passed_stopped])
+	return lines
+
+## "Ben Hart (-2 Score, -1 Reputation)": a lapsed closing's name and cost (just
+## the name when it cost nothing).
+func _lapsed_text(entry: Dictionary) -> String:
+	var costs := PackedStringArray()
+	var score := SaveGame.int_of(entry, "score", 0)
+	var reputation := SaveGame.int_of(entry, "reputation", 0)
+	if score != 0:
+		costs.append("%+d Score" % score)
+	if reputation != 0:
+		costs.append("%+d Reputation" % reputation)
+	var who := str(entry.get("name", ""))
+	return who if costs.is_empty() else "%s (%s)" % [who, ", ".join(costs)]
 
 # --- promotion and demotion ---------------------------------------------------------------
 
@@ -171,7 +245,7 @@ func save_data() -> Dictionary:
 		saved.append(closing.save_data())
 	var data := {"next_number": next_number, "closings": saved}
 	if log_day > 0:
-		data["log"] = {"day": log_day, "lapsed": log_lapsed.duplicate(true), "abandoned": Array(log_abandoned)}
+		data["log"] = {"day": log_day, "lapsed": log_lapsed.duplicate(true), "abandoned": Array(log_abandoned), "funded": Array(log_funded), "stopped": Array(log_stopped), "passed_funded": log_passed_funded, "passed_stopped": log_passed_stopped}
 	return data
 
 func load_data(data: Dictionary) -> void:
@@ -186,6 +260,10 @@ func load_data(data: Dictionary) -> void:
 	if not logged.is_empty():
 		log_day = SaveGame.int_of(logged, "day", 0)
 		log_abandoned.assign(SaveGame.strings_of(SaveGame.array_of(logged, "abandoned")))
+		log_funded.assign(SaveGame.strings_of(SaveGame.array_of(logged, "funded")))
+		log_stopped.assign(SaveGame.strings_of(SaveGame.array_of(logged, "stopped")))
+		log_passed_funded = maxi(0, SaveGame.int_of(logged, "passed_funded", 0))
+		log_passed_stopped = maxi(0, SaveGame.int_of(logged, "passed_stopped", 0))
 		for entry in SaveGame.dicts_of(SaveGame.array_of(logged, "lapsed")):
 			log_lapsed.append({
 				"name": SaveGame.string_of(entry, "name", ""),

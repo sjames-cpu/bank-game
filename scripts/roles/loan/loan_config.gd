@@ -88,9 +88,11 @@ const ABANDONED_AFTER_DAYS: int = 15
 # --- the closing step (LoanClosings, LoanClosing) -----------------------------
 
 ## Whether an approval or an accepted counter-offer goes through a closing
-## before the loan is booked. Off while the feature is built (nothing but tests
-## reads it so far).
-const CLOSINGS_ENABLED: bool = false
+## before the loan is booked. Off while the feature is built; a static
+## variable, not a constant, so tests can turn it on (the loan suite turns it
+## back off after every test). Read by the review screen's decision, nothing
+## else: a closing that exists is always dealt with, whatever this says.
+static var closings_enabled: bool = false
 
 ## Business days from the approval to the closing, by purpose (the loan's
 ## bigger the longer the paperwork takes). A purpose not listed uses
@@ -139,3 +141,19 @@ const CLOSING_LAPSE_DAYS: int = 3
 ## Whether a closing that lapses for a good applicant (low risk, documents
 ## fine) counts as a good applicant turned away (the loan book applies it).
 const LAPSED_GOOD_APPLICANT_TURNED_AWAY: bool = true
+
+# --- what a closing is worth (LoanBookManager.fund() and stop()) -------------------
+
+## Funding a closing with nothing wrong with it: the work done, well under a
+## correct decision (LoanApplication.BEST_DECISION_SCORE, 10).
+const CLOSING_FUND_CLEAN_SCORE: int = 5
+## Stopping a closing with a real problem: a good catch.
+const CLOSING_STOP_PROBLEM_SCORE: int = 8
+const CLOSING_STOP_PROBLEM_REPUTATION: int = 1
+## Stopping a closing with nothing wrong with it (a good applicant lost is also
+## counted as turned away).
+const CLOSING_STOP_CLEAN_SCORE: int = -3
+## Funding a closing with a problem: a serious mistake (the loan is booked on
+## the unverified odds).
+const CLOSING_FUND_PROBLEM_SCORE: int = -10
+const CLOSING_FUND_PROBLEM_REPUTATION: int = -2

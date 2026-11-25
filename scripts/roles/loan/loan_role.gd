@@ -58,13 +58,13 @@ func _exit_tree() -> void:
 ## history record and no booking, and the day's End of Day says so. The role
 ## days go with them.
 ##
-## Open closings are left for whoever applies the promotion (closings
-## .promotion_plan(): staff stop the ones with a problem and fund the rest), so
-## their role days stay until then.
+## Open closings go to the staff too (LoanBookManager.pass_closings_to_staff():
+## they stop the ones with a problem and fund the rest, with no Score or
+## Reputation change), so no closing is left open.
 func _on_promoted() -> void:
 	pipeline.pass_to_staff(GameClock.day)
-	if closings.is_empty():
-		role_days.clear()
+	LoanBookManager.pass_closings_to_staff()
+	role_days.clear()
 
 ## Demoted back to Loan Officer: the pipeline was emptied at the promotion,
 ## and nothing can bring an old file or role day back, so the player starts
@@ -145,13 +145,19 @@ func start_of_day() -> Array[LoanFile]:
 	# (a save from before the promotion handler) is passed to the staff.
 	if XPManager.is_branch_manager_unlocked:
 		pipeline.pass_to_staff(GameClock.day)
-		if closings.is_empty():
-			role_days.clear()
+		# A closing left over (a save from before the promotion handler) goes the
+		# same way.
+		LoanBookManager.pass_closings_to_staff()
+		role_days.clear()
 		return []
 	var withdrawn := pipeline.start_of_day(GameClock.day, role_days, withdrawal_cost)
 	# Closings past their Loan Officer days lapse (before the role days they
 	# need are pruned).
-	closings.start_of_day(GameClock.day, role_days, closing_lapse_cost)
+	for lapsed in closings.start_of_day(GameClock.day, role_days, closing_lapse_cost):
+		# A good applicant lost to a lapse counts as turned away (the quiet
+		# expiry counts nothing).
+		if lapsed.counts_as_turned_away_if_lapsed():
+			LoanBookManager.count_turned_away(lapsed.approved_amount, true)
 	_prune_roles()
 	return withdrawn
 
