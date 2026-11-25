@@ -145,7 +145,8 @@ func _rng_for(stream: String, number: int) -> RandomNumberGenerator:
 	return rng
 
 ## Names a new applicant can't have: today's, those waiting in the pile and
-## those in open files waiting for documents (LoanRole.pipeline).
+## those in open files waiting for documents (LoanRole.pipeline) and with open
+## closings (LoanRole.closings).
 func names_taken() -> Dictionary:
 	_roll_day()
 	var taken := {}
@@ -155,6 +156,8 @@ func names_taken() -> Dictionary:
 		taken[application.applicant_name] = true
 	for filed_name in LoanRole.pipeline.names(GameClock.day):
 		taken[filed_name] = true
+	for closing_name in LoanRole.closings.names():
+		taken[closing_name] = true
 	return taken
 
 func _note_name(applicant_name: String) -> void:

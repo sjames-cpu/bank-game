@@ -84,3 +84,58 @@ const WITHDRAWN_REPUTATION: int = -1
 ## chosen): an applicant doesn't wait for ever. The Loan Officer day rule
 ## above still comes first.
 const ABANDONED_AFTER_DAYS: int = 15
+
+# --- the closing step (LoanClosings, LoanClosing) -----------------------------
+
+## Whether an approval or an accepted counter-offer goes through a closing
+## before the loan is booked. Off while the feature is built (nothing but tests
+## reads it so far).
+const CLOSINGS_ENABLED: bool = false
+
+## Business days from the approval to the closing, by purpose (the loan's
+## bigger the longer the paperwork takes). A purpose not listed uses
+## CLOSING_DAYS_DEFAULT.
+const CLOSING_DAYS: Dictionary[String, int] = {"Auto": 1, "Personal": 1, "Business": 2, "Home": 3}
+const CLOSING_DAYS_DEFAULT: int = 1
+
+## The chance a closing has a problem (the same for every closing), and which
+## problem (the four shares add up to 1). The career's first closing is always
+## clean.
+const CLOSING_PROBLEM_CHANCE: float = 1.0 / 7.0
+const CLOSING_MIX_TERMS: float = 0.30
+const CLOSING_MIX_EXPIRED_ID: float = 0.25
+const CLOSING_MIX_NO_SIGNATURE: float = 0.25
+const CLOSING_MIX_NEW_DEBT: float = 0.20
+
+## A terms mismatch changes one figure on the final paperwork. These are how
+## far: the amount by this share of it (rounded to $100, at least $100), the
+## rate by this many percentage points (in quarter points), the payment by
+## this share, the term to this share of the approved term (rounded to whole
+## years, at least a year).
+const MISMATCH_AMOUNT_SHARE: Array[float] = [0.05, 0.15]
+const MISMATCH_RATE_POINTS: Array[float] = [0.5, 2.0]
+const MISMATCH_PAYMENT_SHARE: Array[float] = [0.08, 0.20]
+const MISMATCH_TERM_SHARES: Array[float] = [0.5, 0.75, 1.25]
+
+## An expired ID on closing day expired this many days before it.
+const EXPIRED_ID_DAYS: Array[int] = [1, 400]
+## A good ID on closing day expires this many days after it.
+const VALID_ID_DAYS: Array[int] = [200, 2000]
+
+## New debt: the total debt-to-income with it lands between these (both over
+## LoanApplication.STRETCHED_DTI, 43%), but the new payment is never less than
+## NEW_DEBT_MIN_SHARE of monthly income (a debt that was already over 43% still
+## gets visibly worse). Whole $10 payments, at least NEW_DEBT_MIN_PAYMENT.
+const NEW_DEBT_DTI_RANGE: Array[float] = [0.44, 0.50]
+const NEW_DEBT_MIN_SHARE: float = 0.03
+const NEW_DEBT_MIN_PAYMENT: float = 50.0
+
+## A closing not handled within this many Loan Officer days after its due day
+## lapses at the start of the next work day (only days whose recorded role was
+## Loan Officer count). It costs what a withdrawn file does
+## (WITHDRAWN_SCORE and WITHDRAWN_REPUTATION, never so much Reputation that it
+## reaches 0).
+const CLOSING_LAPSE_DAYS: int = 3
+## Whether a closing that lapses for a good applicant (low risk, documents
+## fine) counts as a good applicant turned away (the loan book applies it).
+const LAPSED_GOOD_APPLICANT_TURNED_AWAY: bool = true
