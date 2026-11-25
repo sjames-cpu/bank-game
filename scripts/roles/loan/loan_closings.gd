@@ -16,6 +16,11 @@ class_name LoanClosings
 enum StaffAction { FUND, STOP }
 
 var closings: Array[LoanClosing] = []
+## What became of the closings dealt with at the desk since the day began, by
+## application (Outcome): the applicant's reaction on leaving reads it. Not
+## saved: it only outlives the applicant's walk out.
+enum Outcome { NONE, FUNDED, STOPPED }
+var settled: Dictionary = {}
 ## The number the next closing gets (the career's first is 1).
 var next_number: int = 1
 
@@ -38,6 +43,7 @@ var log_passed_stopped: int = 0
 
 func reset() -> void:
 	closings.clear()
+	settled.clear()
 	next_number = 1
 	_clear_log(0)
 
@@ -68,6 +74,11 @@ func closing_for(application: LoanApplication) -> LoanClosing:
 		if closing.application == application:
 			return closing
 	return null
+
+## How the closing of `application` ended at the desk (Outcome.NONE when it
+## hasn't, or isn't one).
+func outcome_for(application: LoanApplication) -> Outcome:
+	return settled.get(application, Outcome.NONE)
 
 ## A closing is over (funded, stopped or lapsed): it leaves the list.
 func close(closing: LoanClosing) -> void:
@@ -120,6 +131,7 @@ func start_of_day(today: int, role_days: Dictionary, cost: Callable) -> Array[Lo
 	# A day with nothing to note leaves no log (and nothing to save).
 	if log_day != today:
 		_clear_log(0)
+		settled.clear()
 	var lapsed := overdue_closings(today, role_days)
 	for closing in lapsed:
 		closings.erase(closing)
@@ -162,12 +174,14 @@ func _log_for(today: int) -> void:
 ## `closing` was funded on `today` (it leaves the list).
 func note_funded(closing: LoanClosing, today: int) -> void:
 	closings.erase(closing)
+	settled[closing.application] = Outcome.FUNDED
 	_log_for(today)
 	log_funded.append(closing.application.applicant_name)
 
 ## `closing` was stopped on `today` (it leaves the list).
 func note_stopped(closing: LoanClosing, today: int) -> void:
 	closings.erase(closing)
+	settled[closing.application] = Outcome.STOPPED
 	_log_for(today)
 	log_stopped.append(closing.application.applicant_name)
 
