@@ -404,7 +404,7 @@ func test_the_portfolio_report_for_a_loan_officer() -> void:
 		"Losses: $18,000 written off",
 		"Good applicants turned away: 2 of 6 ($45,000 of sound lending)",
 		"Too lenient: 2 loans defaulted, writing off $18,000.",
-		"1 of the defaults was on documents that didn't check out.",
+		"1 of the defaults was on documents that were unverified or mismatched.",
 		"Too strict: 2 good applicants were turned away, $45,000 of sound lending lost to other banks.",
 		"Both count:",
 	]:

@@ -106,7 +106,7 @@ func go_home_from_the_loan_desk() -> void:
 # --- the switch and the numbers ------------------------------------------------------
 
 func test_the_switch_is_off_and_the_numbers_are_in_the_config() -> void:
-	assert_bool(LoanConfig.CLOSINGS_ENABLED).is_false()
+	assert_bool(LoanConfig.closings_enabled).is_false()
 	assert_float(LoanConfig.CLOSING_PROBLEM_CHANCE).is_equal_approx(1.0 / 7.0, 0.0000001)
 	var mix := LoanConfig.CLOSING_MIX_TERMS + LoanConfig.CLOSING_MIX_EXPIRED_ID + LoanConfig.CLOSING_MIX_NO_SIGNATURE + LoanConfig.CLOSING_MIX_NEW_DEBT
 	assert_float(mix).is_equal_approx(1.0, 0.0000001)
@@ -474,17 +474,18 @@ func test_a_lapsed_good_applicant_can_count_as_turned_away() -> void:
 		flags[entry["name"]] = entry["turned_away"]
 	assert_dict(flags).is_equal({"Good Test": true, "Risky Test": false})
 
-func test_the_lapse_does_not_run_for_a_branch_manager() -> void:
+func test_the_lapse_does_not_run_for_a_branch_manager_whose_closing_goes_to_the_staff() -> void:
 	LoanRole.closings.open(approved("Boss Test"), 6, SEED)
 	note_roles(LOAN, [8, 9, 10])
 	XPManager.is_branch_manager_unlocked = true
 	GameClock.day = 12
 	var score_before := score_and_reputation()
 	LoanRole.start_of_day()
-	assert_int(LoanRole.closings.count()).is_equal(1)
+	# No penalty: a closing left over is passed to the staff (part 2), never lapsed.
+	assert_int(LoanRole.closings.count()).is_equal(0)
+	assert_array(LoanRole.closings.log_lapsed).is_empty()
 	assert_vector(score_and_reputation()).is_equal(score_before)
-	# Their role days stay too: the promotion's own step still needs them.
-	assert_bool(LoanRole.role_days.is_empty()).is_false()
+	assert_dict(LoanRole.role_days).is_empty()
 
 # --- role days -----------------------------------------------------------------------
 
@@ -546,15 +547,9 @@ func test_the_promotion_plan_stops_problem_closings_and_funds_clean_ones_and_app
 	# Nothing was applied: no booking, no penalty, nothing removed.
 	assert_int(LoanBookManager.book.size()).is_equal(0)
 	assert_int(LoanRole.closings.count()).is_equal(2)
-	# A promotion leaves the closings (and their role days) for whoever applies
-	# the plan; it never charges anything for them.
-	note_roles(LOAN, [3])
-	GameClock.day = 8
-	var score_before := score_and_reputation()
-	LoanRole._on_promoted()
-	assert_int(LoanRole.closings.count()).is_equal(2)
-	assert_vector(score_and_reputation()).is_equal(score_before)
-	assert_int(LoanBookManager.book.size()).is_equal(0)
+	# Planning twice gives the same plan (applying it is part 2:
+	# loan_closing_booking_test.gd).
+	assert_int(LoanRole.closings.promotion_plan().size()).is_equal(2)
 	assert_array(LoanClosings.new().promotion_plan()).is_empty()
 
 func test_a_demotion_starts_clean_with_no_old_closings_or_role_days() -> void:
