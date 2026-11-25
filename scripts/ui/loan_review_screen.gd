@@ -96,6 +96,8 @@ class_name LoanReviewScreen
 @onready var credit_report_policy_label: Label = $Panel/VBox/Columns/CreditReportSection/CreditReportVBox/CreditReportPolicyLabel
 ## Beside the title, so three columns fit the window's height.
 @onready var close_button: Button = $Panel/VBox/TitleHBox/CloseButton
+## The three columns, which a closing replaces with its own panel.
+@onready var columns_box: HBoxContainer = $Panel/VBox/Columns
 
 signal decision_graded(score_delta: int, reputation_delta: int, xp_delta: int)
 signal closed(was_decided: bool)
@@ -139,6 +141,13 @@ const COMPACT_FONT_SIZE: int = 13
 var _paused_by_self: bool = false
 var _current_application: LoanApplication = null
 
+## An approved loan waiting to be closed (LoanClosing) takes the desk before a
+## returned file or the pile: while the application on screen is one, this
+## panel replaces the three columns (closings are on only with
+## LoanConfig.closings_enabled, and a closing that exists is always dealt with).
+var closing_panel: LoanClosingPanel = null
+var _current_closing: LoanClosing = null
+
 ## One CheckBox per LoanApplication.DenialReason, indexed by the reason's
 ## value (listed on screen in LoanApplication.DENIAL_REASON_ORDER).
 var reason_checks: Array[CheckBox] = []
@@ -179,6 +188,10 @@ func _ready() -> void:
 	worksheet_tabs.tab_changed.connect(_on_worksheet_tab_changed)
 	counter_offer_amount_spinbox.value_changed.connect(_on_counter_offer_amount_changed)
 	counter_offer_down_label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
+	closing_panel = LoanClosingPanel.new()
+	$Panel/VBox.add_child(closing_panel)
+	closing_panel.fund_requested.connect(_on_closing_fund_requested)
+	closing_panel.stop_requested.connect(_on_closing_stop_requested)
 	reason_checks.resize(LoanApplication.DenialReason.size())
 	for reason: LoanApplication.DenialReason in LoanApplication.DENIAL_REASON_ORDER:
 		var check := _compact_check(LoanApplication.denial_reason_label(reason))
@@ -232,6 +245,16 @@ func _display_next_application() -> void:
 	var application := LoanDeskManager.current_player_application()
 	_current_application = application
 	_decision_made_for_current = false
+	_current_closing = LoanRole.closings.closing_for(application)
+	if _current_closing != null:
+		# A closing: its own panel, no worksheet, no credit check, no documents.
+		columns_box.visible = false
+		closing_panel.show_closing(_current_closing)
+		closing_panel.visible = true
+		application_shown.emit(application)
+		return
+	columns_box.visible = true
+	closing_panel.visible = false
 
 	# Computed here (not shown) so it's available as soon as this applicant
 	# is current — see risk_assessment on LoanApplication.
@@ -666,7 +689,7 @@ func _on_cancel_request_button_pressed() -> void:
 func _on_confirm_request_button_pressed() -> void:
 	var application := _current_application
 	var ticked := request_ticked_items()
-	if application == null or ticked.is_empty():
+	if application == null or _current_closing != null or ticked.is_empty():
 		return
 	var missing := LoanRequirements.missing_now(application, LoanDeskManager.career_seed, GameClock.day)
 	var result := LoanRequirements.grade_request(application, ticked, missing)
@@ -732,7 +755,7 @@ static func request_feedback(file: LoanFile, result: Dictionary, xp: int) -> Str
 ## add_shift_score()/add_reputation()/add_shift_xp() pattern teller_screen.gd
 ## uses for its shift summary.
 func _record_decision(decision_type: LoanApplication.DecisionType, amount: float, action_text: String, reasons: Array[LoanApplication.DenialReason] = []) -> void:
-	if _current_application == null:
+	if _current_application == null or _current_closing != null:
 		return
 
 	var application := _current_application
@@ -744,8 +767,11 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 	LoanDeskManager.player_decided(application)
 	LoanRole.pipeline.close(application)
 	# Into the loan book (an approval or counter-offer), or counted as a good
-	# applicant turned away.
-	LoanBookManager.note_decision(application, true, LoanBookManager.PLAYER_MAKER)
+	# applicant turned away. With closings on, an approval or counter-offer
+	# opens a closing instead and is booked when it is funded; the first
+	# shift's three teaching cases are always booked at once.
+	var book_now := not LoanConfig.closings_enabled or LoanApplicationsData.is_teaching_case(application.applicant_name)
+	LoanBookManager.note_decision(application, true, LoanBookManager.PLAYER_MAKER, book_now)
 
 	# The documents (verified first or not) and the decision, together.
 	var result := application.grade_documents(reasons, documents_verified)
@@ -789,6 +815,43 @@ func _record_decision(decision_type: LoanApplication.DecisionType, amount: float
 	decision_graded.emit(score, reputation_delta, xp)
 	decision_recorded.emit(application)
 	_refresh_request()
+
+# --- closings -------------------------------------------------------------------------------
+
+## The application on screen is a closing.
+func is_closing() -> bool:
+	return _current_closing != null
+
+## Fund the loan: refused if the closing isn't due; the loan is booked and the
+## closing's points applied (LoanBookManager.fund()). Counts as the slot's one
+## application, like a decision.
+func _on_closing_fund_requested() -> void:
+	_finish_closing(true)
+
+func _on_closing_stop_requested() -> void:
+	_finish_closing(false)
+
+func _finish_closing(funded: bool) -> void:
+	var closing := _current_closing
+	if closing == null or _decision_made_for_current:
+		return
+	var today := GameClock.day
+	if not closing.is_due(today):
+		closing_panel.show_message(LoanClosingPanel.NOT_COMPLETED_TEXT % (LoanClosingPanel.NOT_DUE_TEXT % BankCalendar.short_text(closing.closing_date())))
+		return
+	var was_checked := closing_panel.checked
+	var result := LoanBookManager.fund(closing) if funded else LoanBookManager.stop(closing)
+	if result.is_empty():
+		# It vanished (funded, stopped or lapsed elsewhere): nothing changed.
+		closing_panel.show_message(LoanClosingPanel.NOT_COMPLETED_TEXT % LoanClosingPanel.NOT_OPEN_TEXT)
+		return
+	_decision_made_for_current = true
+	closing_panel.show_result(LoanClosingPanel.feedback(closing, funded, result, was_checked, GameClock.today_date()))
+	var score: int = result["score"]
+	var reputation: int = result["reputation"]
+	var xp: int = result["xp"]
+	decision_graded.emit(score, reputation, xp)
+	decision_recorded.emit(closing.application)
 
 ## What the documents meant for this decision, one line each (revealing,
 ## after the fact, what was wrong with them).

@@ -55,13 +55,20 @@ func queue_size() -> int:
 
 # --- the player's pile -----------------------------------------------------------------
 
-## The application on the player's desk, noted as seen today: a file whose
-## applicant has come back with documents first (LoanRole.pipeline, the one
-## back longest first), which stays there until it is decided or sent off
-## with another request, then the pile's first. A returned file isn't in the
-## pile, which stays full.
+## The application on the player's desk, noted as seen today: an approved
+## loan whose closing is due first (LoanRole.closings, the one due longest
+## first), which stays there until it is funded or stopped; then a file whose
+## applicant has come back with documents (LoanRole.pipeline, the one back
+## longest first), which stays there until it is decided or sent off with
+## another request; then the pile's first. A closing or a returned file isn't
+## in the pile, which stays full, and a closing never counts against the open
+## files.
 func current_player_application() -> LoanApplication:
 	_top_up()
+	var due := LoanRole.closings.due_closings(GameClock.day)
+	if not due.is_empty():
+		_note_name(due[0].application.applicant_name)
+		return due[0].application
 	var returned := LoanRole.pipeline.returned_files(GameClock.day)
 	if not returned.is_empty():
 		var file := returned[0]
@@ -145,7 +152,8 @@ func _rng_for(stream: String, number: int) -> RandomNumberGenerator:
 	return rng
 
 ## Names a new applicant can't have: today's, those waiting in the pile and
-## those in open files waiting for documents (LoanRole.pipeline).
+## those in open files waiting for documents (LoanRole.pipeline) and with open
+## closings (LoanRole.closings).
 func names_taken() -> Dictionary:
 	_roll_day()
 	var taken := {}
@@ -155,6 +163,8 @@ func names_taken() -> Dictionary:
 		taken[application.applicant_name] = true
 	for filed_name in LoanRole.pipeline.names(GameClock.day):
 		taken[filed_name] = true
+	for closing_name in LoanRole.closings.names():
+		taken[closing_name] = true
 	return taken
 
 func _note_name(applicant_name: String) -> void:

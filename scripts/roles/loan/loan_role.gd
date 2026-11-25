@@ -18,17 +18,25 @@ extends Node
 
 const PIPELINE_KEY: String = "file_pipeline"
 
+## The open closings (`closings`, LoanClosings) are saved under CLOSINGS_KEY,
+## only once a closing has existed, in the same way.
+const CLOSINGS_KEY: String = "closings"
+
 ## Free-form saved data for the Loan Officer role.
 var section: Dictionary = {}
 
 ## The files waiting for documents.
 var pipeline: LoanPipeline = LoanPipeline.new()
 
+## The approved loans waiting for their closing day.
+var closings: LoanClosings = LoanClosings.new()
+
 ## The role the player chose on each business day (day number to
 ## PlayerShift.Role), noted as the day's slots start (LoanSlotAdapter). The
-## clock on a returned file counts only the days recorded as Loan Officer
-## (LoanFile.is_overdue()). Kept small: only while a file is open, from the
-## oldest open request on, and saved only then.
+## clock on a returned file, and on a closing, counts only the days recorded
+## as Loan Officer (LoanFile.is_overdue(), LoanClosing.is_overdue()). Kept
+## small: only while a file or a closing is open, from the oldest open request
+## or due day on, and saved only then.
 var role_days: Dictionary = {}
 
 const ROLES_KEY: String = "file_roles"
@@ -49,8 +57,13 @@ func _exit_tree() -> void:
 ## open file (waiting or returned) is closed quietly, with no penalty, no
 ## history record and no booking, and the day's End of Day says so. The role
 ## days go with them.
+##
+## Open closings go to the staff too (LoanBookManager.pass_closings_to_staff():
+## they stop the ones with a problem and fund the rest, with no Score or
+## Reputation change), so no closing is left open.
 func _on_promoted() -> void:
 	pipeline.pass_to_staff(GameClock.day)
+	LoanBookManager.pass_closings_to_staff()
 	role_days.clear()
 
 ## Demoted back to Loan Officer: the pipeline was emptied at the promotion,
@@ -58,11 +71,13 @@ func _on_promoted() -> void:
 ## clean and the clock starts from the day they are back.
 func _on_demoted() -> void:
 	pipeline.close_all()
+	closings.close_all()
 	role_days.clear()
 
 func reset() -> void:
 	section = {}
 	pipeline = LoanPipeline.new()
+	closings = LoanClosings.new()
 	role_days = {}
 
 ## Notes that the player's role on `day` is `role` (NONE is ignored: nothing
@@ -74,10 +89,10 @@ func note_role(day: int, role: PlayerShift.Role) -> void:
 	_prune_roles()
 
 func _prune_roles() -> void:
-	if pipeline.is_empty():
+	if pipeline.is_empty() and closings.is_empty():
 		role_days.clear()
 		return
-	var oldest := GameClock.day
+	var oldest := closings.oldest_due_day(GameClock.day)
 	for file in pipeline.files:
 		oldest = mini(oldest, file.request_day)
 	for day: int in role_days.keys():
@@ -88,8 +103,10 @@ func save_data() -> Dictionary:
 	var data := section.duplicate(true)
 	if not pipeline.is_empty() or pipeline.next_file_number > 1 or pipeline.log_day > 0:
 		data[PIPELINE_KEY] = pipeline.save_data()
-	# The roles matter only while a file is open.
-	if not pipeline.is_empty() and not role_days.is_empty():
+	if closings.has_data():
+		data[CLOSINGS_KEY] = closings.save_data()
+	# The roles matter only while a file or a closing is open.
+	if not (pipeline.is_empty() and closings.is_empty()) and not role_days.is_empty():
 		var roles := {}
 		for day: int in role_days:
 			roles[str(day)] = role_days[day]
@@ -100,6 +117,9 @@ func load_data(data: Dictionary) -> void:
 	section = data.duplicate(true)
 	section.erase(PIPELINE_KEY)
 	section.erase(ROLES_KEY)
+	section.erase(CLOSINGS_KEY)
+	closings = LoanClosings.new()
+	closings.load_data(SaveGame.dict_of(data, CLOSINGS_KEY))
 	pipeline = LoanPipeline.new()
 	pipeline.load_data(SaveGame.dict_of(data, PIPELINE_KEY))
 	role_days = {}
@@ -125,18 +145,41 @@ func start_of_day() -> Array[LoanFile]:
 	# (a save from before the promotion handler) is passed to the staff.
 	if XPManager.is_branch_manager_unlocked:
 		pipeline.pass_to_staff(GameClock.day)
+		# A closing left over (a save from before the promotion handler) goes the
+		# same way.
+		LoanBookManager.pass_closings_to_staff()
 		role_days.clear()
 		return []
 	var withdrawn := pipeline.start_of_day(GameClock.day, role_days, withdrawal_cost)
+	# Closings past their Loan Officer days lapse (before the role days they
+	# need are pruned).
+	for lapsed in closings.start_of_day(GameClock.day, role_days, closing_lapse_cost):
+		# A good applicant lost to a lapse counts as turned away (the quiet
+		# expiry counts nothing).
+		if lapsed.counts_as_turned_away_if_lapsed():
+			LoanBookManager.count_turned_away(lapsed.approved_amount, true)
 	_prune_roles()
 	return withdrawn
 
 ## What a withdrawn file costs the player, applied now: LoanConfig.WITHDRAWN_*,
 ## but never so much Reputation that it reaches 0 (that would write a report,
-## and a withdrawal comes at Opening, before today's role is even chosen).
+## and a withdrawal comes at Opening, before today's role is even chosen), and
+## never a gain (at Reputation 0 it costs none).
 ## Returns {"score", "reputation"} as applied.
 func withdrawal_cost(_file: LoanFile) -> Dictionary:
-	var reputation := maxi(LoanConfig.WITHDRAWN_REPUTATION, 1 - ReputationManager.reputation)
+	return _apply_lapse_cost()
+
+## What a closing that lapsed costs the player: the same as a withdrawn file
+## (LoanConfig.WITHDRAWN_*, with the same Reputation floor). Returns
+## {"score", "reputation"} as applied.
+func closing_lapse_cost(_closing: LoanClosing) -> Dictionary:
+	return _apply_lapse_cost()
+
+## The Reputation cost is never positive and never takes Reputation to 0 (that
+## would write a report at Opening, before the day's role is even chosen): at
+## 0 or 1 it costs nothing, at 2 or more LoanConfig.WITHDRAWN_REPUTATION.
+func _apply_lapse_cost() -> Dictionary:
+	var reputation := mini(0, maxi(LoanConfig.WITHDRAWN_REPUTATION, 1 - ReputationManager.reputation))
 	ScoreManager.add_shift_score(LoanConfig.WITHDRAWN_SCORE)
 	XPManager.add_shift_xp(LoanConfig.WITHDRAWN_SCORE)
 	if reputation != 0:

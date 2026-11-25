@@ -28,6 +28,11 @@ const REQUEST_LINES: Array[String] = ["I'll bring those in as soon as I can.", "
 const RETURN_LINES: Array[String] = ["Here are the documents you asked for.", "I've brought the papers you asked for."]
 const RETURN_INCOMPLETE_LINES: Array[String] = ["I couldn't find everything, but this is what I have.", "This is most of it. I'm still looking for the rest."]
 const RETURN_LATE_LINES: Array[String] = ["Sorry I'm late. Here are the documents.", "Sorry for the wait. Here are your documents."]
+## On sitting down for their closing; and on leaving after it was funded, and
+## after it was stopped (pleased, or disappointed and confused).
+const CLOSING_LINES: Array[String] = ["I'm here to sign for my loan.", "I'm here to finish my loan paperwork.", "Hello, I'm here to close on my loan."]
+const CLOSING_FUNDED_LINES: Array[String] = ["Wonderful, it's all done. Thank you!", "Great, thank you so much!"]
+const CLOSING_STOPPED_LINES: Array[String] = ["Wait, what? I don't understand.", "Oh no. What went wrong?", "That's disappointing. I'll look into it."]
 ## Sent away before being seen (the desk changed hands).
 const SENT_AWAY_LINE: String = "I'll come back another time."
 
@@ -51,6 +56,8 @@ func _apply_look() -> void:
 ## What they say on sitting down: what the loan is for, or, for a file
 ## whose documents are back (LoanRole.pipeline), that they have brought them.
 static func arrival_line(application: LoanApplication, pick: int) -> String:
+	if LoanRole.closings.closing_for(application) != null:
+		return CLOSING_LINES[absi(pick) % CLOSING_LINES.size()]
 	var file := LoanRole.pipeline.file_for(application)
 	if file != null and file.has_returned(GameClock.day):
 		var lines := RETURN_LINES
@@ -68,6 +75,11 @@ static func purpose_line(purpose: String, pick: int) -> String:
 
 ## How they react to `application`'s decision.
 static func reaction_line(application: LoanApplication, pick: int) -> String:
+	match LoanRole.closings.outcome_for(application):
+		LoanClosings.Outcome.FUNDED:
+			return CLOSING_FUNDED_LINES[absi(pick) % CLOSING_FUNDED_LINES.size()]
+		LoanClosings.Outcome.STOPPED:
+			return CLOSING_STOPPED_LINES[absi(pick) % CLOSING_STOPPED_LINES.size()]
 	var lines: Array[String] = REJECTED_LINES
 	match application.decision:
 		LoanApplication.DecisionType.NONE:

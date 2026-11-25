@@ -165,7 +165,13 @@ func _empty_stats() -> Dictionary:
 ## approval or counter-offer is booked; a good applicant (LOW, documents fine)
 ## is counted as seen, and as turned away when rejected. Returns the booked
 ## loan, or null.
-func note_decision(application: LoanApplication, by_player: bool, made_by: String) -> BookedLoan:
+##
+## With `book_now` false (the player's own approvals while closings are on,
+## LoanConfig.closings_enabled) an approval or counter-offer isn't booked: a
+## loan number is reserved and a closing opened for it (LoanRole.closings), and
+## the loan is booked only when the closing is funded (fund()). The good
+## applicant is counted as seen now, and a rejection as turned away now, as ever.
+func note_decision(application: LoanApplication, by_player: bool, made_by: String, book_now: bool = true) -> BookedLoan:
 	var tier := application.calculate_risk_assessment()
 	var documents_ok := application.documents_check_out()
 	var good := tier == LoanApplication.RiskTier.LOW and documents_ok
@@ -173,6 +179,9 @@ func note_decision(application: LoanApplication, by_player: bool, made_by: Strin
 		_add("good_seen", 1.0, by_player)
 	match application.decision:
 		LoanApplication.DecisionType.APPROVE, LoanApplication.DecisionType.COUNTER_OFFER:
+			if not book_now:
+				LoanRole.closings.open(application, GameClock.day, LoanDeskManager.career_seed, reserve_loan_id())
+				return null
 			var kind := COLLATERAL_UNKNOWN
 			if application.collateral_issued:
 				kind = application.collateral_kind if application.is_secured() else LoanApplication.Collateral.NONE
@@ -186,10 +195,13 @@ func note_decision(application: LoanApplication, by_player: bool, made_by: Strin
 ## Books a loan made today, with its outcome rolled. `collateral_kind` and
 ## `collateral_value` (the value its LTV is measured on) set the loss on a
 ## default (loss_share()); COLLATERAL_UNKNOWN uses LOSS_SHARE.
-func book_loan(borrower: String, purpose: String, amount: float, tier: LoanApplication.RiskTier, documents_ok: bool, by_player: bool, made_by: String, collateral_kind: int = COLLATERAL_UNKNOWN, collateral_value: float = 0.0) -> BookedLoan:
+func book_loan(borrower: String, purpose: String, amount: float, tier: LoanApplication.RiskTier, documents_ok: bool, by_player: bool, made_by: String, collateral_kind: int = COLLATERAL_UNKNOWN, collateral_value: float = 0.0, reserved_id: int = 0) -> BookedLoan:
 	var loan := BookedLoan.new()
-	loan.loan_id = next_loan_id
-	next_loan_id += 1
+	if reserved_id > 0:
+		loan.loan_id = reserved_id
+	else:
+		loan.loan_id = next_loan_id
+		next_loan_id += 1
 	loan.borrower = borrower
 	loan.purpose = purpose
 	loan.amount = amount
@@ -209,6 +221,14 @@ func book_loan(borrower: String, purpose: String, amount: float, tier: LoanAppli
 		_add("secured_lent", amount, by_player)
 		_add("secured_value", collateral_value, by_player)
 	return loan
+
+## Takes the next loan number for a closing: the loan keeps it when it is
+## funded, so the order closings are funded in never changes how a loan turns
+## out (outcome_rng() reads only the career seed and this number).
+func reserve_loan_id() -> int:
+	var reserved := next_loan_id
+	next_loan_id += 1
+	return reserved
 
 ## The loan's own generator: from the career's seed and the loan's number
 ## only, so nothing about the borrower can enter it.
@@ -246,6 +266,93 @@ func roll_outcome(loan: BookedLoan, rng: RandomNumberGenerator) -> void:
 		loan.days_late = DAYS_LATE_DEFAULTING
 		loan.resolve_day = mini(loan.late_day + rng.randi_range(DEFAULT_AFTER[0], DEFAULT_AFTER[1]), loan.made_day + SETTLE_DAYS)
 		loan.loss = roundf(loan.amount * loss_share(loan.purpose, loan.collateral_kind, loan.amount, loan.collateral_value))
+
+# --- closings --------------------------------------------------------------------------------
+
+const FUNDED_LABEL: String = "Funded"
+const FUNDED_PROBLEM_LABEL: String = "Serious mistake — funded a closing with a problem (%s)"
+const STOPPED_PROBLEM_LABEL: String = "Good catch — stopped a closing with a problem (%s)"
+const STOPPED_CLEAN_LABEL: String = "Stopped a closing with nothing wrong"
+
+## The player funds `closing`: the loan is booked (see _book_closing()) and the
+## closing is worth LoanConfig.CLOSING_FUND_*. Returns {"loan", "problem",
+## "score", "reputation", "xp"} as applied, or {} if the closing isn't open.
+func fund(closing: LoanClosing) -> Dictionary:
+	if not LoanRole.closings.closings.has(closing):
+		return {}
+	var problem := closing.has_problem()
+	var loan := _book_closing(closing)
+	var score := LoanConfig.CLOSING_FUND_PROBLEM_SCORE if problem else LoanConfig.CLOSING_FUND_CLEAN_SCORE
+	var reputation := LoanConfig.CLOSING_FUND_PROBLEM_REPUTATION if problem else 0
+	var result := _apply_closing_points(score, reputation)
+	result["loan"] = loan
+	result["problem"] = problem
+	LoanRole.closings.note_funded(closing, GameClock.day)
+	var label := FUNDED_PROBLEM_LABEL % closing.problem_label() if problem else FUNDED_LABEL
+	_record_closing("Closing: funded %s (%s)" % [closing.application.applicant_name, LoanApplication.dollars(closing.approved_amount)], label)
+	return result
+
+## The player stops `closing`: the loan is never booked. A closing with a real
+## problem is rewarded (LoanConfig.CLOSING_STOP_PROBLEM_*); a clean one costs
+## (CLOSING_STOP_CLEAN_SCORE), and a good applicant lost that way counts as
+## turned away. Returns {"problem", "score", "reputation", "xp"} as applied, or
+## {} if the closing isn't open.
+func stop(closing: LoanClosing) -> Dictionary:
+	if not LoanRole.closings.closings.has(closing):
+		return {}
+	var problem := closing.has_problem()
+	var score := LoanConfig.CLOSING_STOP_PROBLEM_SCORE if problem else LoanConfig.CLOSING_STOP_CLEAN_SCORE
+	var reputation := LoanConfig.CLOSING_STOP_PROBLEM_REPUTATION if problem else 0
+	var result := _apply_closing_points(score, reputation)
+	result["problem"] = problem
+	if not problem and closing.is_good_applicant():
+		count_turned_away(closing.approved_amount, true)
+	LoanRole.closings.note_stopped(closing, GameClock.day)
+	var label := STOPPED_PROBLEM_LABEL % closing.problem_label() if problem else STOPPED_CLEAN_LABEL
+	_record_closing("Closing: stopped %s (%s)" % [closing.application.applicant_name, LoanApplication.dollars(closing.approved_amount)], label)
+	return result
+
+## Counts a good applicant turned away (a rejection, a stopped clean closing or
+## a lapsed one).
+func count_turned_away(amount: float, by_player: bool) -> void:
+	_add("turned_away", 1.0, by_player)
+	_add("turned_away_amount", amount, by_player)
+
+## A promotion: the staff take every open closing (LoanClosings.promotion_plan()).
+## A closing with a problem is stopped and a clean one funded and booked
+## normally (the player's loan, made today). No Score or Reputation changes, no
+## history record and no "turned away". The day's log says how many of each.
+func pass_closings_to_staff() -> void:
+	var funded := 0
+	var stopped := 0
+	for entry in LoanRole.closings.promotion_plan():
+		var closing: LoanClosing = entry["closing"]
+		if entry["action"] == LoanClosings.StaffAction.FUND:
+			_book_closing(closing)
+			funded += 1
+		else:
+			stopped += 1
+	LoanRole.closings.closings.clear()
+	LoanRole.closings.note_passed(funded, stopped, GameClock.day)
+
+## Books `closing`'s loan: its reserved number, its frozen terms and tier, today
+## as the day it was made, and (when a problem went through) the unverified odds.
+func _book_closing(closing: LoanClosing) -> BookedLoan:
+	var application := closing.application
+	return book_loan(application.applicant_name, application.loan_purpose, closing.approved_amount, closing.risk_tier, closing.documents_ok and not closing.has_problem(), true, PLAYER_MAKER, closing.collateral_kind, closing.collateral_value, closing.loan_id)
+
+func _apply_closing_points(score: int, reputation: int) -> Dictionary:
+	ScoreManager.add_shift_score(score)
+	if reputation != 0:
+		ReputationManager.add_reputation(reputation)
+	XPManager.add_shift_xp(score)
+	return {"score": score, "reputation": reputation, "xp": score * XPManager.XP_PER_SCORE_POINT}
+
+## A funded or stopped closing in the history: a record of what happened, not a
+## decision to override in Approvals (reviewed, like the portfolio report's).
+func _record_closing(description: String, label: String) -> void:
+	var record := HistoryManager.add_record(DecisionRecord.Role.LOAN_OFFICER, description, label)
+	record.reviewed = true
 
 # --- the day's events -------------------------------------------------------------------
 
@@ -291,7 +398,8 @@ func _event(text: String, by_player: bool) -> void:
 
 ## Today's loan events for the End of Day summary: first what happened to the
 ## files waiting for documents (back, withdrawn, never came back:
-## LoanPipeline.summary_lines(), at most three lines), then the player's own
+## LoanPipeline.summary_lines(), at most three lines) and the closings (funded,
+## stopped, lapsed, passed to staff: LoanClosings.summary_lines()), then the player's own
 ## loans always, the staff's too for a Branch Manager (`whole_branch`). At
 ## most MAX_EVENT_LINES of those, then "… and N more".
 func summary_lines(whole_branch: bool) -> PackedStringArray:
@@ -302,6 +410,7 @@ func summary_lines(whole_branch: bool) -> PackedStringArray:
 			var text: String = event["text"]
 			shown.append(text + (" (yours)" if by_player and whole_branch else ""))
 	var lines: PackedStringArray = LoanRole.pipeline.summary_lines(GameClock.day)
+	lines.append_array(LoanRole.closings.summary_lines(GameClock.day))
 	for i in mini(shown.size(), MAX_EVENT_LINES):
 		lines.append(shown[i])
 	if shown.size() > MAX_EVENT_LINES:
@@ -514,7 +623,7 @@ func comments(result: Dictionary) -> PackedStringArray:
 		else:
 			lines.append("Too lenient: %d loan%s defaulted, writing off %s. Check total DTI, credit and the documents before lending." % [defaulted, "" if defaulted == 1 else "s", LoanApplication.dollars(stat(stats, "losses"))])
 		if unverified > 0:
-			lines.append("%d of the defaults %s on documents that didn't check out." % [unverified, "was" if unverified == 1 else "were"])
+			lines.append("%d of the defaults %s on documents that were unverified or mismatched." % [unverified, "was" if unverified == 1 else "were"])
 	var turned := roundi(stat(stats, "turned_away"))
 	if stat(stats, "good_seen") > 0.0:
 		if turned == 0:

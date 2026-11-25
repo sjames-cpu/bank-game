@@ -10,3 +10,14 @@ extends "res://tests/support/shared/room_suite.gd"
 ## The room's LoanSlotAdapter (the Loan Officer's link to the time slots).
 func loan_slot_adapter() -> LoanSlotAdapter:
 	return room.get_node("LoanSlotAdapter")
+
+## Closings are off at the start of every loan test unless the test turns them
+## on (LoanConfig.closings_enabled is a static variable, so it outlives a test),
+## and back to the game's default afterwards, for suites that don't care.
+func before_test() -> void:
+	await super()
+	LoanConfig.closings_enabled = false
+
+func after_test() -> void:
+	LoanConfig.closings_enabled = LoanConfig.CLOSINGS_ENABLED_DEFAULT
+	await super()
