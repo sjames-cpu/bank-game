@@ -165,7 +165,8 @@ func history_since(count: int) -> Array[DecisionRecord]:
 
 # --- the switch ------------------------------------------------------------------
 
-func test_the_switch_is_a_static_variable_and_off_by_default() -> void:
+func test_the_switch_is_a_static_variable_and_the_loan_suite_starts_it_off() -> void:
+	assert_bool(LoanConfig.CLOSINGS_ENABLED_DEFAULT).is_true()
 	assert_bool(LoanConfig.closings_enabled).is_false()
 	LoanConfig.closings_enabled = true
 	assert_bool(LoanConfig.closings_enabled).is_true()

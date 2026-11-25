@@ -106,6 +106,9 @@ func go_home_from_the_loan_desk() -> void:
 # --- the switch and the numbers ------------------------------------------------------
 
 func test_the_switch_is_off_and_the_numbers_are_in_the_config() -> void:
+	# On in the game (LoanConfig.CLOSINGS_ENABLED_DEFAULT); the loan suite starts
+	# every test with it off.
+	assert_bool(LoanConfig.CLOSINGS_ENABLED_DEFAULT).is_true()
 	assert_bool(LoanConfig.closings_enabled).is_false()
 	assert_float(LoanConfig.CLOSING_PROBLEM_CHANCE).is_equal_approx(1.0 / 7.0, 0.0000001)
 	var mix := LoanConfig.CLOSING_MIX_TERMS + LoanConfig.CLOSING_MIX_EXPIRED_ID + LoanConfig.CLOSING_MIX_NO_SIGNATURE + LoanConfig.CLOSING_MIX_NEW_DEBT
