@@ -88,11 +88,13 @@ const ABANDONED_AFTER_DAYS: int = 15
 # --- the closing step (LoanClosings, LoanClosing) -----------------------------
 
 ## Whether an approval or an accepted counter-offer goes through a closing
-## before the loan is booked. Off while the feature is built; a static
-## variable, not a constant, so tests can turn it on (the loan suite turns it
-## back off after every test). Read by the review screen's decision, nothing
-## else: a closing that exists is always dealt with, whatever this says.
-static var closings_enabled: bool = false
+## before the loan is booked: on in the game. A static variable, not a
+## constant, so tests can turn it off or on (the loan suite starts every test
+## with it off, and puts it back to this default afterwards). Read by the
+## review screen's decision, nothing else: a closing that exists is always dealt
+## with, whatever this says.
+const CLOSINGS_ENABLED_DEFAULT: bool = true
+static var closings_enabled: bool = CLOSINGS_ENABLED_DEFAULT
 
 ## Business days from the approval to the closing, by purpose (the loan's
 ## bigger the longer the paperwork takes). A purpose not listed uses

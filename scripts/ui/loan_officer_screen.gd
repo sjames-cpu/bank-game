@@ -28,6 +28,22 @@ class_name LoanOfficerScreen
 @onready var files_vbox: VBoxContainer = $Panel/VBox/FilesVBox
 @onready var files_label: Label = $Panel/VBox/FilesVBox/FilesLabel
 
+## The closings waiting (LoanRole.closings), built in code under the files
+## list, shown only while there are any. Its list scrolls inside whatever height
+## the panel has left (_fit_closings()), so the panel never outgrows the window.
+var closings_vbox: VBoxContainer
+var closings_title_label: Label
+var closings_scroll: ScrollContainer
+var closings_label: Label
+
+const CLOSINGS_TITLE: String = "Closings waiting"
+## The panel is centred in the 648 px window, so at this height its bottom edge
+## is at y 592, above the controls line (y 598): the closings list scrolls
+## rather than push it past.
+const MAX_PANEL_HEIGHT: float = 536.0
+## At least one closing (two lines) always shows.
+const CLOSINGS_ROW_HEIGHT: float = 36.0
+
 @onready var loan_review_screen: LoanReviewScreen = $LoanReviewScreen
 
 @onready var shift_summary_panel: PanelContainer = $ShiftSummaryPanel
@@ -73,6 +89,7 @@ var shift_xp_total: int = 0
 
 func _ready() -> void:
 	visible = false
+	_build_closings_list()
 	close_button.pressed.connect(_on_close_button_pressed)
 	clock_in_button.pressed.connect(_on_clock_in_button_pressed)
 	clock_out_button.pressed.connect(_on_clock_out_button_pressed)
@@ -99,6 +116,7 @@ func _show_main_panel() -> void:
 	shift_summary_panel.visible = false
 	main_panel.visible = true
 	_refresh_files()
+	_refresh_closings()
 
 ## The waiting list, one entry per file open today (LoanPipeline.open_files()):
 ## files whose applicant is back first, marked, the one back longest first,
@@ -123,6 +141,78 @@ static func files_rows(today: int) -> PackedStringArray:
 			file.application.applicant_name, file.application.loan_purpose.to_lower(),
 			LoanRequirements.labels(file.items), BankCalendar.short_text(file.due_date())])
 	return rows
+
+## The closings waiting, one entry each (LoanRole.closings): those due now
+## first, marked "ready to close" with the day to close by (counting Loan
+## Officer days), the one due longest first; then the others by due day. Only
+## what the Loan Officer knows: who, what loan, how much, and when. Nothing
+## about the paperwork, so nothing says whether a closing has a problem.
+static func closings_rows(today: int) -> PackedStringArray:
+	var rows := PackedStringArray()
+	var closings := LoanRole.closings
+	var due := closings.due_closings(today)
+	for closing in due:
+		rows.append("%s · %s loan · %s: ready to close
+Close by %s (Loan Officer days)" % [
+			closing.application.applicant_name, closing.application.loan_purpose.to_lower(), LoanApplication.dollars(closing.approved_amount),
+			BankCalendar.short_text(GameClock.date_of_day(closing.last_day_to_close(today, LoanRole.role_days)))])
+	var later: Array[LoanClosing] = []
+	for closing in closings.closings:
+		if not closing.is_due(today):
+			later.append(closing)
+	later.sort_custom(func(a: LoanClosing, b: LoanClosing) -> bool: return a.due_day < b.due_day or (a.due_day == b.due_day and a.number < b.number))
+	for closing in later:
+		rows.append("%s · %s loan · %s
+Due %s" % [
+			closing.application.applicant_name, closing.application.loan_purpose.to_lower(), LoanApplication.dollars(closing.approved_amount),
+			BankCalendar.short_text(closing.closing_date())])
+	return rows
+
+func _build_closings_list() -> void:
+	closings_vbox = VBoxContainer.new()
+	closings_vbox.add_theme_constant_override("separation", 2)
+	closings_vbox.visible = false
+	closings_title_label = Label.new()
+	closings_title_label.text = CLOSINGS_TITLE
+	closings_title_label.add_theme_font_size_override("font_size", 14)
+	closings_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	closings_vbox.add_child(closings_title_label)
+	closings_scroll = ScrollContainer.new()
+	closings_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	closings_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	closings_vbox.add_child(closings_scroll)
+	closings_label = Label.new()
+	closings_label.theme_type_variation = &"MutedLabel"
+	closings_label.add_theme_font_size_override("font_size", 13)
+	closings_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	closings_label.custom_minimum_size.x = 320.0
+	closings_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	closings_scroll.add_child(closings_label)
+	files_vbox.get_parent().add_child(closings_vbox)
+	files_vbox.get_parent().move_child(closings_vbox, files_vbox.get_index() + 1)
+	closings_label.minimum_size_changed.connect(_fit_closings)
+	closings_label.resized.connect(_fit_closings)
+
+func _refresh_closings() -> void:
+	var rows := closings_rows(GameClock.day)
+	closings_vbox.visible = not rows.is_empty()
+	closings_title_label.text = "%s (%d)" % [CLOSINGS_TITLE, rows.size()]
+	closings_label.text = "
+
+".join(rows)
+	_fit_closings.call_deferred()
+
+## The list's area: as tall as its text, but never so tall that the panel
+## passes MAX_PANEL_HEIGHT; a longer list scrolls inside it.
+func _fit_closings() -> void:
+	if not closings_vbox.visible:
+		return
+	var text_height := closings_label.get_minimum_size().y
+	var without_list := main_panel.get_combined_minimum_size().y - closings_scroll.custom_minimum_size.y
+	var room := MAX_PANEL_HEIGHT - without_list
+	var height := clampf(text_height, 0.0, maxf(room, minf(text_height, CLOSINGS_ROW_HEIGHT)))
+	if not is_equal_approx(closings_scroll.custom_minimum_size.y, height):
+		closings_scroll.custom_minimum_size.y = height
 
 func _refresh_files() -> void:
 	var rows := files_rows(GameClock.day)
