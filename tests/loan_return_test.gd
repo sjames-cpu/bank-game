@@ -673,6 +673,19 @@ func test_a_withdrawal_can_never_take_reputation_to_zero() -> void:
 	assert_int(ReportManager.reports.size()).is_equal(reports)
 	assert_bool(first != null and second != null).is_true()
 
+func test_a_withdrawal_never_adds_reputation() -> void:
+	# At Reputation 0 a withdrawal costs the Score only (the old floor gave +1).
+	GameClock.day = 5
+	var file := request_file(filed_application([PAY_STUB]), [PAY_STUB] as Array[int], 5)
+	note_roles(LOAN, [6, 7, 8])
+	ReputationManager.reputation = 0
+	var score := ScoreManager.total_score
+	GameClock.day = 9
+	assert_array(LoanRole.start_of_day()).is_equal([file])
+	assert_int(ReputationManager.reputation).is_equal(0)
+	assert_int(ScoreManager.total_score - score).is_equal(LoanConfig.WITHDRAWN_SCORE)
+	assert_str(LoanRole.pipeline.summary_lines(9)[0]).is_equal("Files withdrawn, not decided in time: %s (%+d Score)" % [file.application.applicant_name, LoanConfig.WITHDRAWN_SCORE])
+
 func test_the_roles_are_recorded_as_each_days_slots_start() -> void:
 	# With a file open (the roles are kept only then).
 	var holder := request_file(filed_application([PAY_STUB]), [PAY_STUB] as Array[int], GameClock.day + 5)
